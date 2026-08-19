@@ -233,17 +233,27 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 .tagname{font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;font-weight:700;font-size:16px}
 .tagkarte.ist-heute .tagname{color:var(--accent)}
 .tagnotiz{font-size:12px;color:var(--ink-faint);text-align:right}
-.abschnitt{display:grid;grid-template-columns:74px 1fr;gap:8px;align-items:start;padding:5px 0}
+.abschnitt{padding:7px 0}
 .abschnitt + .abschnitt{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
-.abschnitt-name{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
-  font-weight:600;padding-top:7px}
-.chips{display:flex;flex-wrap:wrap;gap:5px;min-height:30px;align-items:center}
-.chip{font-size:13px;padding:6px 11px;border-radius:99px;background:var(--surface-2);
-  border:1px solid var(--line);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip:active{transform:scale(.96)}
-.chip.anker{background:color-mix(in srgb,var(--cool) 20%,var(--surface-2));border-color:transparent;font-weight:600}
-.chip.fest{background:color-mix(in srgb,var(--accent) 18%,var(--surface-2));border-color:transparent}
-.chip.plus{color:var(--ink-faint);border-style:dashed;padding:6px 10px}
+.abschnitt-name{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:600;margin-bottom:6px}
+.zone{display:flex;flex-direction:column;gap:5px;min-height:34px}
+
+.zeile{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:12px;
+  background:var(--surface-2);border:1px solid var(--line);font-size:14px;
+  touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.zeile:active{transform:scale(.99)}
+.zeile-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.griff{color:var(--ink-faint);font-size:13px;letter-spacing:-2px;flex:none}
+.zeile.termin{background:color-mix(in srgb,var(--cool) 20%,var(--surface-2));border-color:transparent;font-weight:600}
+.zeile.fest{background:color-mix(in srgb,var(--accent) 18%,var(--surface-2));border-color:transparent}
+.zeile.schwebt{position:fixed;z-index:80;box-shadow:var(--shadow);opacity:.95;
+  transform:scale(1.03);pointer-events:none;margin:0}
+.platzhalter{border:1.5px dashed var(--accent);border-radius:12px;
+  background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.zeile-plus{align-self:flex-start;font-size:14px;color:var(--ink-faint);padding:6px 12px;
+  border-radius:12px;border:1px dashed var(--line)}
+.tagnotiz.viel{color:var(--warn);font-weight:600}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -308,7 +318,9 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   </div>
   <button class="knopf ruhig" id="woche-heute" style="margin-bottom:16px">Zurück zu dieser Woche</button>
   <div id="wochen-tage"></div>
-  <p class="hinweis">Tipp auf eine Karte, um sie zu verschieben — mit ‹ und › rutscht sie einen Abschnitt weiter, oder du wählst einen ganz anderen Tag. <strong>Anker</strong> sind Festes, das nicht wandert: die Einschulung, der Zug, der Termin.</p>
+  <p class="hinweis"><strong>Kurz halten, dann hängt die Karte am Finger</strong> — hoch und runter, in jeden Abschnitt und jeden Tag. Einfach antippen öffnet sie zum Ändern.<br><br>
+  <strong>Termine</strong> sind Festes, das stattfindet und nichts kostet: die Einschulung, der Zug. <strong>Quests</strong> sind, was du selbst tust. Der ⭐ markiert die eine Quest, die den Tag trägt.<br><br>
+  Pro Abschnitt passt beliebig viel — geplant ist noch nicht getan. Rechts am Tag steht, wie viel Ausdauer das zusammen kostet. Was eine Uhrzeit hat, sortiert sich von selbst nach der Uhr.</p>
   <div style="height:20px"></div>
 </section>
 
@@ -439,7 +451,7 @@ function speicherPruefen(){
 const START = {
   v:2, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
   heuteAusdauer:null, rastHeute:0,
-  quests:[], gefaehrten:[], anker:[],
+  quests:[], gefaehrten:[], termine:[],
   /* Drei verschiedene Dinge, die man nicht verwechseln darf:
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
@@ -870,7 +882,7 @@ function vorschlagStarten(){
       b.querySelector(".sub").textContent = kontext.filter(Boolean).join(" · ");
 
       b.appendChild(machKnopf("Heute", "stark", ()=>{
-        const fach = freiesFach(q.grosse || 1);
+        const fach = fachFuer(q);
         if(!fach){ ende("Für heute ist kein Platz mehr frei."); return; }
         q.ort = "heute"; q.fach = fach; aufgenommen++;
         sichern(); weiter();
@@ -888,8 +900,10 @@ function vorschlagStarten(){
 
 /* ═══════════ Wochen-Puzzle ═══════════
    Quests lassen sich auf Tag + Abschnitt legen und dort hin- und herschieben.
-   Anker sind das Feste drumherum — Einschulung, Zug, Termin —, die kosten
-   keine Ausdauer und werden nie abgehakt, sie geben nur den Rahmen vor. */
+   Termine sind das Feste drumherum — Einschulung, Zug —, die kosten keine
+   Ausdauer und werden nie abgehakt, sie geben nur den Rahmen vor.
+   Der „Anker des Tages" ist etwas anderes und heißt hier Hauptpunkt (⭐):
+   die eine Quest, die den Tag trägt. Die kann jede Quest sein. */
 const TEILE = [["vor","Vormittag"],["nach","Nachmittag"],["abend","Abend"]];
 const TEIL_WORT = {vor:"Vormittag", nach:"Nachmittag", abend:"Abend"};
 const KURZTAG = ["So","Mo","Di","Mi","Do","Fr","Sa"];
@@ -907,6 +921,14 @@ function tagPlus(iso, n){
 }
 /* Ein Schritt weiter heißt: nächster Abschnitt, und nach dem Abend der
    nächste Vormittag. Damit rutscht man mit zwei Fingern durch die Woche. */
+function zeitWert(z){ return z ? Number(z.replace(":","")) : 9999; }
+
+/* Der Hauptpunkt (⭐) darf ins Mainquest-Fach vor, wenn dort Platz ist. */
+function fachFuer(q){
+  if(q.haupt && D.quests.filter(x=>x.ort==="heute" && x.fach==="haupt" && !x.fertig).length < GRENZE.haupt) return "haupt";
+  return freiesFach(q.grosse || 1);
+}
+
 function schieben(plan, richtung){
   const i = TEILE.findIndex(([k])=>k===plan.teil);
   const neu = i + richtung;
@@ -935,13 +957,21 @@ function wochenZeichnen(){
     karte.className = "tagkarte" + (iso === heute ? " ist-heute" : "");
 
     const geburtstage = D.gefaehrten.filter(g=>g.tag && datumStr(naechsterTag(g.tag)) === iso);
+    const tagKosten = D.quests
+      .filter(q=>!q.fertig && q.plan && q.plan.tag===iso)
+      .reduce((a,q)=>a+kosten(q), 0);
+
     const kopf = document.createElement("div");
     kopf.className = "tagkopf";
     kopf.innerHTML = '<span class="tagname"></span><span class="tagnotiz"></span>';
     kopf.querySelector(".tagname").textContent =
       KURZTAG[d.getDay()] + " " + d.getDate() + "." + (d.getMonth()+1) + ".";
-    kopf.querySelector(".tagnotiz").textContent =
-      geburtstage.map(g=>"🎂 "+g.name).join(" · ");
+    const notiz = kopf.querySelector(".tagnotiz");
+    const teile = [];
+    if(geburtstage.length) teile.push(geburtstage.map(g=>"🎂 "+g.name).join(" · "));
+    if(tagKosten) teile.push("Ausdauer " + tagKosten);
+    notiz.textContent = teile.join("  ·  ");
+    if(tagKosten > D.budget) notiz.classList.add("viel");
     karte.appendChild(kopf);
 
     TEILE.forEach(([teil, wort])=>{
@@ -949,30 +979,193 @@ function wochenZeichnen(){
       reihe.className = "abschnitt";
       const name = document.createElement("span");
       name.className = "abschnitt-name"; name.textContent = wort;
-      const chips = document.createElement("div");
-      chips.className = "chips";
 
-      D.anker.filter(a=>a.tag===iso && a.teil===teil).forEach(a=>{
-        chips.appendChild(chipBauen(a.titel, "anker", ()=> ankerBlatt(a.id)));
+      /* Die Ablegefläche: alles untereinander, damit man mit dem Finger
+         hoch und runter schieben kann. */
+      const zone = document.createElement("div");
+      zone.className = "zone";
+      zone.dataset.tag = iso;
+      zone.dataset.teil = teil;
+
+      /* Termine und Quests liegen gemeinsam im Abschnitt. Was eine Uhrzeit
+         hat, sortiert sich nach der Uhr; alles andere bleibt da, wo es
+         hingeschoben wurde. */
+      const stuecke = [];
+      D.termine.filter(a=>a.tag===iso && a.teil===teil).forEach(a=>{
+        stuecke.push({art:"termin", id:a.id, zeit:a.zeit, pos:a.pos||0,
+                      text:(a.zeit ? a.zeit+"  " : "") + a.titel,
+                      klasse:"termin", fn:()=> terminBlatt(a.id)});
       });
       D.quests.filter(q=>!q.fertig && q.plan && q.plan.tag===iso && q.plan.teil===teil).forEach(q=>{
-        chips.appendChild(chipBauen(q.titel, q.ort==="heute" ? "fest" : "", ()=> planBlatt(q.id)));
+        stuecke.push({art:"quest", id:q.id, zeit:q.plan.zeit, pos:q.plan.pos||0,
+                      text:(q.plan.zeit ? q.plan.zeit+"  " : "") + (q.haupt ? "⭐ " : "") + q.titel,
+                      klasse:q.ort==="heute" ? "fest" : "", fn:()=> planBlatt(q.id)});
       });
-      chips.appendChild(chipBauen("＋", "plus", ()=> hinzufuegenBlatt(iso, teil)));
+      stuecke.sort((a,b)=> sortWert(a) - sortWert(b));
+      stuecke.forEach(s=> zone.appendChild(zeileBauen(s)));
 
-      reihe.appendChild(name); reihe.appendChild(chips);
+      const plus = document.createElement("button");
+      plus.className = "zeile-plus";
+      plus.textContent = "＋";
+      plus.addEventListener("click", ()=> hinzufuegenBlatt(iso, teil));
+      zone.appendChild(plus);
+
+      reihe.appendChild(name); reihe.appendChild(zone);
       karte.appendChild(reihe);
     });
     ziel.appendChild(karte);
   }
 }
 
-function chipBauen(text, art, fn){
-  const b = document.createElement("button");
-  b.className = "chip" + (art ? " "+art : "");
-  b.textContent = text;
-  b.addEventListener("click", fn);
-  return b;
+/* Gezeigt wird stur in der Reihenfolge, die dasteht — Ziehen macht also
+   immer genau das, was man sieht. Die Uhr greift nur in dem Moment ein, in
+   dem man eine Uhrzeit setzt: dann rutscht die Karte an die richtige Stelle
+   und nimmt alles mit, was ohne Uhrzeit hinter ihr hängt. */
+function sortWert(s){ return s.pos || 0; }
+
+function abschnittStuecke(tag, teil){
+  const l = [];
+  D.termine.filter(a=>a.tag===tag && a.teil===teil)
+    .forEach(a=> l.push({zeit:a.zeit, pos:a.pos||0, setzen:i=>{ a.pos = i; }}));
+  D.quests.filter(q=>!q.fertig && q.plan && q.plan.tag===tag && q.plan.teil===teil)
+    .forEach(q=> l.push({zeit:q.plan.zeit, pos:q.plan.pos||0, setzen:i=>{ q.plan.pos = i; }}));
+  return l;
+}
+
+function neuOrdnen(tag, teil){
+  const l = abschnittStuecke(tag, teil).sort((a,b)=> a.pos - b.pos);
+  let letzte = -1;
+  l.forEach(x=>{ x.k = x.zeit ? zeitWert(x.zeit) : letzte; if(x.zeit) letzte = zeitWert(x.zeit); });
+  l.sort((a,b)=> a.k - b.k);
+  l.forEach((x,i)=> x.setzen(i));
+}
+
+function zeileBauen(s){
+  const el = document.createElement("div");
+  el.className = "zeile" + (s.klasse ? " "+s.klasse : "");
+  el.dataset.art = s.art;
+  el.dataset.id = s.id;
+  el.innerHTML = '<span class="griff" aria-hidden="true">⠿</span><span class="zeile-text"></span>';
+  el.querySelector(".zeile-text").textContent = s.text;
+  el.addEventListener("click", ()=>{ if(!zug) s.fn(); });
+  el.addEventListener("pointerdown", zugBereit);
+  return el;
+}
+
+/* ————— Schieben mit dem Finger —————
+   Kurz halten, dann hängt die Karte am Finger. Wer stattdessen sofort
+   wischt, scrollt weiter wie gewohnt. Die Pfeile im Blatt bleiben als
+   Rückfallebene, falls das Ziehen mal danebengeht. */
+let zug = null;
+
+function zugBereit(e){
+  if(e.button) return;
+  const el = e.currentTarget;
+  const startX = e.clientX, startY = e.clientY;
+  let uhr = setTimeout(()=>{ los(); zugStarten(el, startX, startY); }, 220);
+
+  function pruefen(ev){
+    if(Math.abs(ev.clientY-startY) > 9 || Math.abs(ev.clientX-startX) > 9){ clearTimeout(uhr); los(); }
+  }
+  function los(){
+    clearTimeout(uhr);
+    el.removeEventListener("pointermove", pruefen);
+    el.removeEventListener("pointerup", los);
+    el.removeEventListener("pointercancel", los);
+  }
+  el.addEventListener("pointermove", pruefen);
+  el.addEventListener("pointerup", los);
+  el.addEventListener("pointercancel", los);
+}
+
+function zugStarten(el, x, y){
+  const masse = el.getBoundingClientRect();
+  const klon = el.cloneNode(true);
+  klon.className = "zeile schwebt";
+  klon.style.width = masse.width + "px";
+  klon.style.left = masse.left + "px";
+  klon.style.top = masse.top + "px";
+  document.body.appendChild(klon);
+
+  const platz = document.createElement("div");
+  platz.className = "platzhalter";
+  platz.style.height = masse.height + "px";
+  el.after(platz);
+  el.style.display = "none";
+
+  zug = {el, klon, platz, greifY: y - masse.top, greifX: x - masse.left};
+  if(navigator.vibrate) navigator.vibrate(8);
+
+  document.addEventListener("pointermove", zugBewegen);
+  document.addEventListener("pointerup", zugAblegen);
+  document.addEventListener("pointercancel", zugAblegen);
+  document.addEventListener("touchmove", zugSperren, {passive:false});
+}
+function zugSperren(e){ if(zug) e.preventDefault(); }
+
+function zugBewegen(e){
+  if(!zug) return;
+  zug.klon.style.left = (e.clientX - zug.greifX) + "px";
+  zug.klon.style.top  = (e.clientY - zug.greifY) + "px";
+
+  /* Am oberen und unteren Rand von selbst weiterrollen, damit man auch
+     auf einen Tag am anderen Ende der Woche kommt. */
+  const rand = 90;
+  if(e.clientY < rand) window.scrollBy(0, -Math.ceil((rand - e.clientY)/6));
+  else if(e.clientY > innerHeight - rand) window.scrollBy(0, Math.ceil((e.clientY - (innerHeight-rand))/6));
+
+  zug.klon.style.visibility = "hidden";
+  const unten = document.elementFromPoint(e.clientX, Math.max(2, Math.min(innerHeight-2, e.clientY)));
+  zug.klon.style.visibility = "";
+  if(!unten) return;
+  const zone = unten.closest(".zone");
+  if(!zone) return;
+
+  const zeilen = [...zone.querySelectorAll(".zeile")].filter(z=>z.style.display !== "none");
+  let vor = null;
+  for(const z of zeilen){
+    const r = z.getBoundingClientRect();
+    if(e.clientY < r.top + r.height/2){ vor = z; break; }
+  }
+  if(vor) zone.insertBefore(zug.platz, vor);
+  else zone.insertBefore(zug.platz, zone.querySelector(".zeile-plus"));
+}
+
+function zugAblegen(){
+  if(!zug) return;
+  const {el, klon, platz} = zug;
+  const zone = platz.closest(".zone");
+
+  document.removeEventListener("pointermove", zugBewegen);
+  document.removeEventListener("pointerup", zugAblegen);
+  document.removeEventListener("pointercancel", zugAblegen);
+  document.removeEventListener("touchmove", zugSperren);
+  klon.remove();
+
+  if(zone){
+    const tag = zone.dataset.tag, teil = zone.dataset.teil;
+    /* Reihenfolge aus dem, was jetzt tatsächlich untereinander steht. */
+    /* Die gezogene Karte steckt noch versteckt im Baum — sie darf hier nicht
+       mitzählen, sonst wird sie doppelt gezählt und die Reihenfolge verrutscht.
+       Ihren Platz vertritt der Platzhalter. */
+    const folge = [...zone.children].filter(k=> (k.classList.contains("zeile") && k !== el) || k === platz);
+    folge.forEach((k, i)=>{
+      const art = k === platz ? el.dataset.art : k.dataset.art;
+      const kid = k === platz ? el.dataset.id  : k.dataset.id;
+      if(art === "termin"){
+        const t = D.termine.find(x=>x.id===kid);
+        if(t){ t.tag = tag; t.teil = teil; t.pos = i; }
+      }else{
+        const q = D.quests.find(x=>x.id===kid);
+        if(q && q.plan){ q.plan.tag = tag; q.plan.teil = teil; q.plan.pos = i; }
+      }
+    });
+    sichern();
+  }
+  el.style.display = "";
+  platz.remove();
+  zug = null;
+  zeichnen();
 }
 
 function planWort(tag, teil){
@@ -985,14 +1178,14 @@ function hinzufuegenBlatt(tag, teil){
   const frei = D.quests.filter(q=>!q.fertig && !q.plan && q.ort!=="archiv").sort((a,b)=>rang(a)-rang(b));
   blattZeigen('<h3>' + TEIL_WORT[teil] + '</h3><p class="sub">' + planWort(tag,teil) + '</p>', b=>{
     b.appendChild(machKnopf("＋ Neue Quest anlegen", "stark", ()=> questNeuBlatt(tag, teil)));
-    b.appendChild(machKnopf("⚓ Festen Anker setzen", "", ()=> ankerNeuBlatt(tag, teil)));
+    b.appendChild(machKnopf("⚓ Festen Termin eintragen", "", ()=> terminNeuBlatt(tag, teil)));
     if(frei.length){
       const l = document.createElement("p");
       l.className = "mini"; l.style.margin = "20px 0 8px"; l.textContent = "Oder etwas herlegen, das schon wartet";
       b.appendChild(l);
       frei.slice(0,20).forEach(q=>{
         b.appendChild(machKnopf(q.titel, "", ()=>{
-          q.plan = {tag:tag, teil:teil}; sichern(); blattSchliessen(); zeichnen();
+          q.plan = {tag:tag, teil:teil, zeit:null, pos:abschnittStuecke(tag,teil).length}; sichern(); blattSchliessen(); zeichnen();
         }));
       });
     }
@@ -1033,7 +1226,7 @@ function questNeuBlatt(tag, teil){
       if(!t){ feld.focus(); return; }
       const q = {id:id(), titel:t, etikett:etikett, grosse:grosse, ort:"buch",
                  fach:"boten", fertig:false, verschoben:0, wennDann:"", faellig:null,
-                 plan:{tag:tag, teil:teil}};
+                 plan:{tag:tag, teil:teil, zeit:null, pos:abschnittStuecke(tag,teil).length}};
       D.quests.push(q);
       neuEtikett = etikett; neuGrosse = grosse;   /* Auswahl merken, wie im Auftragsbuch */
 
@@ -1066,13 +1259,21 @@ function questNeuBlatt(tag, teil){
   });
 }
 
-function ankerNeuBlatt(tag, teil){
-  blattZeigen('<h3>Fester Anker</h3><p class="sub">Etwas, das nicht wandert und keine Ausdauer kostet — die Einschulung, der Zug, ein Termin. Uhrzeit einfach dazuschreiben, wenn du magst.</p>' +
-    '<input class="feld" id="anker-feld" placeholder="z. B. Einschulung 9 Uhr">', b=>{
-    const feld = b.querySelector("#anker-feld");
-    b.appendChild(machKnopf("Setzen", "stark", ()=>{
+function terminNeuBlatt(tag, teil){
+  blattZeigen('<h3>Fester Termin</h3><p class="sub">Etwas, das <strong>du nicht tust, sondern das stattfindet</strong> — die Einschulung, der Zug, ein Arzttermin. Wandert nicht von selbst, kostet keine Ausdauer, wird nie abgehakt. Uhrzeit einfach dazuschreiben.<br><br>Was du selbst machen willst, ist eine Quest — auch wenn es das Schönste am Tag ist.</p>' +
+    '<input class="feld" id="termin-feld" placeholder="z. B. Einschulung">' +
+    '<p class="mini">Uhrzeit — darf leer bleiben</p>' +
+    '<input class="feld" type="time" id="termin-zeit">', b=>{
+    const feld = b.querySelector("#termin-feld");
+    b.appendChild(machKnopf("Eintragen", "stark", ()=>{
       const t = feld.value.trim();
-      if(t){ D.anker.push({id:id(), titel:t, tag:tag, teil:teil}); sichern(); }
+      if(t){
+        D.termine.push({id:id(), titel:t, tag:tag, teil:teil,
+                        zeit: b.querySelector("#termin-zeit").value || null,
+                        pos: abschnittStuecke(tag, teil).length});
+        neuOrdnen(tag, teil);
+        sichern();
+      }
       blattSchliessen(); zeichnen();
     }));
     b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
@@ -1080,15 +1281,21 @@ function ankerNeuBlatt(tag, teil){
   });
 }
 
-function ankerBlatt(aid){
-  const a = D.anker.find(x=>x.id===aid); if(!a) return;
-  blattZeigen('<h3></h3><p class="sub">Fester Anker · ' + TEIL_WORT[a.teil] + '</p>', b=>{
+function terminBlatt(aid){
+  const a = D.termine.find(x=>x.id===aid); if(!a) return;
+  blattZeigen('<h3></h3><p class="sub">Fester Termin · ' + TEIL_WORT[a.teil] + '</p>' +
+    '<p class="mini">Uhrzeit</p><input class="feld" type="time" id="t-zeit">', b=>{
     b.querySelector("h3").textContent = a.titel;
-    b.appendChild(machKnopf("‹ Einen Abschnitt zurück", "", ()=>{ Object.assign(a, schieben(a,-1)); sichern(); zeichnen(); ankerBlatt(aid); }));
-    b.appendChild(machKnopf("Einen Abschnitt weiter ›", "", ()=>{ Object.assign(a, schieben(a, 1)); sichern(); zeichnen(); ankerBlatt(aid); }));
-    b.appendChild(machKnopf("Auf einen anderen Tag …", "", ()=> tagWaehlenBlatt(a, ()=>ankerBlatt(aid))));
+    const zf = b.querySelector("#t-zeit");
+    zf.value = a.zeit || "";
+    zf.addEventListener("change", ()=>{
+      a.zeit = zf.value || null; neuOrdnen(a.tag, a.teil); sichern(); zeichnen();
+    });
+    b.appendChild(machKnopf("‹ Einen Abschnitt zurück", "", ()=>{ Object.assign(a, schieben(a,-1)); sichern(); zeichnen(); terminBlatt(aid); }));
+    b.appendChild(machKnopf("Einen Abschnitt weiter ›", "", ()=>{ Object.assign(a, schieben(a, 1)); sichern(); zeichnen(); terminBlatt(aid); }));
+    b.appendChild(machKnopf("Auf einen anderen Tag …", "", ()=> tagWaehlenBlatt(a, ()=>terminBlatt(aid))));
     b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
-      D.anker = D.anker.filter(x=>x.id!==aid); sichern(); blattSchliessen(); zeichnen();
+      D.termine = D.termine.filter(x=>x.id!==aid); sichern(); blattSchliessen(); zeichnen();
     }));
     b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
@@ -1096,10 +1303,28 @@ function ankerBlatt(aid){
 
 function planBlatt(qid){
   const q = D.quests.find(x=>x.id===qid); if(!q || !q.plan) return;
-  blattZeigen('<h3></h3><p class="sub"></p>', b=>{
+  blattZeigen('<h3></h3><p class="sub"></p>' +
+    '<p class="mini">Uhrzeit — darf leer bleiben</p><input class="feld" type="time" id="p-zeit">', b=>{
     b.querySelector("h3").textContent = q.titel;
     b.querySelector(".sub").textContent =
       TEIL_WORT[q.plan.teil] + " · " + (ETIKETT_WORT[q.etikett]||"") + " · kostet " + kosten(q);
+    const zf = b.querySelector("#p-zeit");
+    zf.value = q.plan.zeit || "";
+    zf.addEventListener("change", ()=>{
+      q.plan.zeit = zf.value || null; neuOrdnen(q.plan.tag, q.plan.teil); sichern(); zeichnen();
+    });
+
+    b.appendChild(machKnopf(q.haupt ? "⭐ Ist der Hauptpunkt des Tages" : "☆ Zum Hauptpunkt des Tages machen",
+      q.haupt ? "stark" : "", ()=>{
+      if(!q.haupt) D.quests.forEach(x=>{ if(x.plan && x.plan.tag===q.plan.tag) x.haupt = false; });
+      q.haupt = !q.haupt;
+      if(q.haupt && q.ort==="heute"){
+        const alt = D.quests.find(x=>x!==q && x.ort==="heute" && x.fach==="haupt" && !x.fertig);
+        if(alt){ alt.fach = freiesFach(alt.grosse||1) || "neben"; }
+        q.fach = "haupt";
+      }
+      sichern(); zeichnen(); planBlatt(qid);
+    }));
     b.appendChild(machKnopf("‹ Einen Abschnitt zurück", "", ()=>{ q.plan = schieben(q.plan,-1); sichern(); zeichnen(); planBlatt(qid); }));
     b.appendChild(machKnopf("Einen Abschnitt weiter ›", "", ()=>{ q.plan = schieben(q.plan, 1); sichern(); zeichnen(); planBlatt(qid); }));
     b.appendChild(machKnopf("Auf einen anderen Tag …", "", ()=> tagWaehlenBlatt(q.plan, ()=>planBlatt(qid))));
