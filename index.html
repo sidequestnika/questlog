@@ -975,13 +975,20 @@ function chipBauen(text, art, fn){
   return b;
 }
 
+function planWort(tag, teil){
+  const [j,m,t] = tag.split("-").map(Number);
+  const d = new Date(j, m-1, t);
+  return KURZTAG[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()] + " · " + TEIL_WORT[teil];
+}
+
 function hinzufuegenBlatt(tag, teil){
   const frei = D.quests.filter(q=>!q.fertig && !q.plan && q.ort!=="archiv").sort((a,b)=>rang(a)-rang(b));
-  blattZeigen('<h3>' + TEIL_WORT[teil] + '</h3><p class="sub">Was soll an diesem Abschnitt stehen?</p>', b=>{
-    b.appendChild(machKnopf("⚓ Festen Anker setzen", "stark", ()=> ankerNeuBlatt(tag, teil)));
+  blattZeigen('<h3>' + TEIL_WORT[teil] + '</h3><p class="sub">' + planWort(tag,teil) + '</p>', b=>{
+    b.appendChild(machKnopf("＋ Neue Quest anlegen", "stark", ()=> questNeuBlatt(tag, teil)));
+    b.appendChild(machKnopf("⚓ Festen Anker setzen", "", ()=> ankerNeuBlatt(tag, teil)));
     if(frei.length){
       const l = document.createElement("p");
-      l.className = "mini"; l.style.margin = "18px 0 8px"; l.textContent = "Oder eine Quest herlegen";
+      l.className = "mini"; l.style.margin = "20px 0 8px"; l.textContent = "Oder etwas herlegen, das schon wartet";
       b.appendChild(l);
       frei.slice(0,20).forEach(q=>{
         b.appendChild(machKnopf(q.titel, "", ()=>{
@@ -990,6 +997,72 @@ function hinzufuegenBlatt(tag, teil){
       });
     }
     b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+  });
+}
+
+/* Direkt aus der Woche heraus anlegen. Der Einfall kommt beim Planen —
+   dann darf man nicht erst in einen anderen Reiter laufen müssen. */
+function questNeuBlatt(tag, teil){
+  let etikett = neuEtikett, grosse = neuGrosse;
+  blattZeigen('<h3>Neue Quest</h3><p class="sub">' + planWort(tag,teil) + '</p>' +
+    '<input class="feld" id="qn-titel" placeholder="z. B. Call mit Sarah" enterkeyhint="done">' +
+    '<p class="mini">Wie fühlt sich das an?</p>' +
+    '<div class="wahl" id="qn-etikett">' +
+      '<button data-e="spass">🔥 Spaß</button><button data-e="neutral">😐 Geht so</button><button data-e="zaeh">🧱 Zäh</button>' +
+    '</div>' +
+    '<p class="mini">Wie groß ist es?</p>' +
+    '<div class="wahl" id="qn-grosse">' +
+      '<button data-g="1">Klein</button><button data-g="2">Mittel</button><button data-g="3">Groß</button>' +
+    '</div>', b=>{
+
+    const feld = b.querySelector("#qn-titel");
+    const malen = ()=>{
+      b.querySelectorAll("#qn-etikett button").forEach(x=> x.classList.toggle("on", x.dataset.e === etikett));
+      b.querySelectorAll("#qn-grosse button").forEach(x=> x.classList.toggle("on", Number(x.dataset.g) === grosse));
+    };
+    b.querySelector("#qn-etikett").addEventListener("click", e=>{
+      const k = e.target.closest("button"); if(!k) return; etikett = k.dataset.e; malen();
+    });
+    b.querySelector("#qn-grosse").addEventListener("click", e=>{
+      const k = e.target.closest("button"); if(!k) return; grosse = Number(k.dataset.g); malen();
+    });
+    malen();
+
+    function anlegen(){
+      const t = feld.value.trim();
+      if(!t){ feld.focus(); return; }
+      const q = {id:id(), titel:t, etikett:etikett, grosse:grosse, ort:"buch",
+                 fach:"boten", fertig:false, verschoben:0, wennDann:"", faellig:null,
+                 plan:{tag:tag, teil:teil}};
+      D.quests.push(q);
+      neuEtikett = etikett; neuGrosse = grosse;   /* Auswahl merken, wie im Auftragsbuch */
+
+      /* Ist es für heute und passt es noch rein, geht es sofort auf Heute —
+         das ist die Abkürzung, um die es hier geht. */
+      let sofort = false;
+      if(tag === D.tag){
+        const fach = freiesFach(grosse);
+        if(fach && ausdauerVerbraucht() + kosten(q) <= ausdauerHeute()){
+          q.ort = "heute"; q.fach = fach; sofort = true;
+        }
+      }
+      sichern(); zeichnen(); wahlZeichnen();
+      blattZeigen('<h3>Steht im Plan</h3><p class="sub"></p>', x=>{
+        x.querySelector(".sub").textContent = sofort
+          ? "„" + t + "“ liegt auf " + planWort(tag,teil) + " — und ist gleich als " + FACH_WORT[q.fach] + " für heute übernommen."
+          : "„" + t + "“ liegt auf " + planWort(tag,teil) + (tag === D.tag
+              ? ". Für heute ist allerdings kein Platz mehr frei — es wartet im Auftragsbuch."
+              : ". Am Morgen dieses Tages schlage ich es dir zuerst vor.");
+        if(sofort) x.appendChild(machKnopf("🎯 Gleich anfangen", "stark", ()=>{ blattSchliessen(); anlaufStarten(q.id); }));
+        x.appendChild(machKnopf("Noch eine anlegen", "", ()=> questNeuBlatt(tag, teil)));
+        x.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+      });
+    }
+
+    feld.addEventListener("keydown", e=>{ if(e.key === "Enter") anlegen(); });
+    b.appendChild(machKnopf("Anlegen", "stark", anlegen));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+    setTimeout(()=>feld.focus(), 60);
   });
 }
 
