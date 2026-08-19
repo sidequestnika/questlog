@@ -66,11 +66,17 @@ input,textarea{font:inherit;color:inherit}
 .datum{font-size:12px;color:var(--ink-faint);letter-spacing:.1em;text-transform:uppercase;margin:0 0 4px}
 
 /* ————— Ausdauer ————— */
-.akku{margin-bottom:22px}
-.akku-zeile{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-soft);margin-bottom:6px}
-.akku-bahn{height:7px;border-radius:99px;background:var(--surface-2);overflow:hidden}
-.akku-fuell{height:100%;background:var(--calm);transition:width .4s ease}
-.akku-fuell.voll{background:var(--accent)}
+.akku{display:block;width:100%;text-align:left;margin-bottom:22px;padding:0}
+.akku:active{opacity:.7}
+.akku-zeile{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-soft);margin-bottom:8px}
+.akku-punkte{display:flex;gap:5px;flex-wrap:wrap}
+.pip{width:100%;max-width:26px;height:9px;border-radius:99px;background:var(--surface-2);flex:1 1 14px;
+  border:1px solid var(--line);transition:background .3s ease}
+.pip.voll{background:var(--calm);border-color:transparent}
+.pip.drueber{background:transparent;border-style:dashed;border-color:var(--accent)}
+.pip.voll.drueber{background:var(--accent);border-style:solid}
+.akku-rast{font-size:12px;color:var(--calm);margin-top:7px;font-weight:600}
+.akku-rast:empty{display:none}
 
 .label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:26px 0 10px;font-weight:600}
 
@@ -248,10 +254,11 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
     <h1 class="gruss" id="gruss">Guten Morgen</h1>
   </div>
 
-  <div class="akku">
+  <button class="akku" id="akku-knopf">
     <div class="akku-zeile"><span>Ausdauer</span><span id="akku-text"></span></div>
-    <div class="akku-bahn"><div class="akku-fuell" id="akku-fuell" style="width:0"></div></div>
-  </div>
+    <div class="akku-punkte" id="akku-punkte"></div>
+    <div class="akku-rast" id="rast-hinweis"></div>
+  </button>
 
   <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
@@ -296,6 +303,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   <div class="kopf"><p class="datum">Geburtstage mit Vorlauf</p><h1 class="gruss">Gefährten</h1></div>
   <div id="liste-gefaehrten"></div>
   <button class="knopf" id="gefaehrte-neu" style="margin-top:12px">＋ Gefährten eintragen</button>
+  <button class="knopf ruhig" id="kalender-export" style="margin-top:8px">In den iPhone-Kalender legen</button>
   <p class="hinweis"><strong>Der Name allein reicht.</strong> Datum und Jahr kannst du jederzeit nachtragen — tipp den Gefährten einfach nochmal an. Sobald ein Datum steht, meldet sich Questlog <strong>14 Tage</strong> vorher wegen des Geschenks, <strong>3 Tage</strong> vorher wegen des Besorgens und am Tag selbst.</p>
   <div style="height:20px"></div>
 </section>
@@ -314,15 +322,16 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   <div class="zustand" id="zustand"></div>
   <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
 
-  <p class="label">Proviant</p>
-  <p class="hinweis" style="margin:0 0 12px">Deine eigene Karte. Eine Sache pro Zeile. <strong>Überschreib die Beispiele</strong> — mit fremden Belohnungen funktioniert das nicht.</p>
-  <div id="proviant-felder"></div>
+  <p class="label">Deine Listen</p>
+  <p class="hinweis" style="margin:0 0 4px">Eine Sache pro Zeile. <strong>Überschreib die Beispiele</strong> — mit fremden Vorschlägen funktioniert das nicht.</p>
+  <div id="listen-felder"></div>
 
-  <p class="label">Ausdauer pro Tag</p>
+  <p class="label">Ausdauer an einem normalen Tag</p>
+  <p class="hinweis" style="margin:0 0 12px">Der Startwert für jeden neuen Tag. Für heute kannst du ihn oben auf der Heute-Seite jederzeit ändern.</p>
   <div class="wahl" id="budget-wahl">
-    <button data-b="4">Schmaler Tag</button>
+    <button data-b="4">Wenig</button>
     <button data-b="6">Normal</button>
-    <button data-b="9">Viel Kraft</button>
+    <button data-b="9">Viel</button>
   </div>
 
   <div class="trenner"></div>
@@ -390,15 +399,21 @@ function speicherPruefen(){
 }
 
 const START = {
-  v:1, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  v:2, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  heuteAusdauer:null, rastHeute:0,
   quests:[], gefaehrten:[],
-  proviant:{
-    klein:["Ein Lied laut mitsingen","Fünf Minuten raus vor die Tür","Kalt das Gesicht waschen"],
-    gross:["Eine Stunde häkeln","An der Kampagne weiterschreiben","Lange Runde spazieren"],
-    schatz:["Heiße Schokolade","Bad einlassen","Etwas bestellen, worauf du Lust hast"]
+  /* Drei verschiedene Dinge, die man nicht verwechseln darf:
+     Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
+     Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
+  erholung:["Baden","Nickerchen","Duschen","Eine Runde spazieren","Zwanzig Minuten hinlegen","In Ruhe etwas essen"],
+  begleitung:["Hörbuch","Lieblingsalbum laut","Podcast","Fenster auf und Musik an"],
+  belohnung:{
+    klein:["Heiße Schokolade","Eine Folge von der Lieblingsserie","Eine Stunde häkeln"],
+    gross:["Etwas bestellen, worauf du Lust hast","Ein ganzer Abend nur für dich","Ein neues Knäuel Wolle"]
   },
   geschafft:[], letzterAbschluss:null, letzterVorschlag:null
 };
+const PREIS = {klein:10, gross:25};
 
 let D;
 function laden(){
@@ -409,7 +424,16 @@ function laden(){
   }catch(e){}
   const frisch = JSON.parse(JSON.stringify(START));
   if(!roh){ frisch.angelegt = new Date().toISOString(); return frisch; }
-  try{ return Object.assign(frisch, JSON.parse(roh)); }
+  try{
+    const alt = JSON.parse(roh);
+    /* Aus der Zeit, als alles „Proviant" hieß: übernehmen, was sie getippt hat. */
+    if(alt.proviant && !alt.erholung){
+      alt.erholung = alt.proviant.klein || [];
+      alt.belohnung = {klein: alt.proviant.gross || [], gross: alt.proviant.schatz || []};
+      delete alt.proviant;
+    }
+    return Object.assign(frisch, alt);
+  }
   catch(e){ frisch.angelegt = new Date().toISOString(); return frisch; }
 }
 function sichern(){
@@ -481,9 +505,18 @@ function tagPruefen(){
   const ersterStart = D.tag === null;
   D.tag = h;
   D.geschafft = [];
+  D.heuteAusdauer = D.budget;
+  D.rastHeute = 0;
+  D.letzterVorschlag = null;
   if(!ersterStart){
     D.quests.forEach(q=>{
-      if(q.ort === "heute" && !q.fertig) q.verschoben = (q.verschoben||0) + 1;
+      /* Nicht Geschafftes bleibt NICHT stehen, sondern geht zurück ins
+         Auftragsbuch. Sonst verstopft der gestrige Tag den heutigen, und man
+         kann nicht neu entscheiden — genau das soll der Morgen-Vorschlag. */
+      if(q.ort === "heute" && !q.fertig){
+        q.verschoben = (q.verschoben||0) + 1;
+        q.ort = "buch";
+      }
       if(q.fertig) q.ort = "archiv";
     });
   }
@@ -577,17 +610,38 @@ function zustandZeichnen(){
 }
 
 function akkuZeichnen(){
-  const offen = D.quests.filter(q=>q.ort==="heute" && !q.fertig);
-  const last = offen.reduce((a,q)=>a + (q.grosse||1), 0);
-  const f = document.getElementById("akku-fuell");
-  f.style.width = Math.min(100, Math.round(last / D.budget * 100)) + "%";
-  f.classList.toggle("voll", last >= D.budget);
+  const last = ausdauerVerbraucht();
+  const ganz = ausdauerHeute();
   document.getElementById("akku-text").textContent =
-    last >= D.budget ? "voll — mehr wäre zu viel" : last + " von " + D.budget;
+    last >= ganz ? "voll — mehr wäre zu viel" : last + " von " + ganz;
+
+  /* Zählbare Punkte statt eines Balkens: „noch zwei" liest sich schneller
+     als ein Balken, den man schätzen muss. */
+  const bahn = document.getElementById("akku-punkte");
+  bahn.innerHTML = "";
+  const zeigen = Math.min(Math.max(ganz, last), 14);
+  for(let i=0; i<zeigen; i++){
+    const p = document.createElement("span");
+    p.className = "pip" + (i < last ? " voll" : "") + (i >= ganz ? " drueber" : "");
+    bahn.appendChild(p);
+  }
+  document.getElementById("rast-hinweis").textContent =
+    D.rastHeute ? "durch Erholung heute +" + D.rastHeute : "";
 }
 
 const ETIKETT_WORT = {spass:"🔥 macht Spaß", neutral:"😐 geht so", zaeh:"🧱 zäh"};
 const GROSSE_WORT = {1:"klein", 2:"mittel", 3:"groß"};
+
+/* Was eine Quest an Ausdauer kostet — nicht nur nach Größe, sondern auch danach,
+   wie zäh sie ist. Drei kleine Sachen, die Spaß machen, kosten zusammen weniger
+   als eine einzige große, vor der man sich drückt. */
+const KOSTEN = {
+  spass:   {1:1, 2:1, 3:2},
+  neutral: {1:1, 2:2, 3:3},
+  zaeh:    {1:2, 2:3, 3:5}
+};
+function kosten(q){ return (KOSTEN[q.etikett] || KOSTEN.neutral)[q.grosse||1] || 1; }
+function ausdauerHeute(){ return D.heuteAusdauer || D.budget; }
 
 function karteBauen(q){
   const b = document.createElement("button");
@@ -613,12 +667,42 @@ function karteBauen(q){
   return b;
 }
 
+const FACH_WORT = {haupt:"Mainquest", neben:"Sidequest", boten:"Botengang"};
+
 function fachZeichnen(fach, wohin, leerText){
   const ziel = document.getElementById(wohin);
   ziel.innerHTML = "";
   const drin = D.quests.filter(q=>q.ort==="heute" && q.fach===fach);
-  if(!drin.length){ const p=document.createElement("p"); p.className="leer"; p.textContent=leerText; ziel.appendChild(p); return; }
+  if(!drin.length){ const p=document.createElement("p"); p.className="leer"; p.textContent=leerText; ziel.appendChild(p); }
   drin.forEach(q=> ziel.appendChild(karteBauen(q)));
+
+  /* Solange Platz ist: selbst auswählen können. Der Würfel ist ein Angebot,
+     keine Vorschrift. */
+  const offen = drin.filter(q=>!q.fertig).length;
+  if(offen < GRENZE[fach] && D.quests.some(q=>q.ort==="buch" && !q.fertig)){
+    const k = machKnopf("＋ " + FACH_WORT[fach] + " wählen", "ruhig", ()=> fachWaehlen(fach));
+    k.style.marginBottom = "0";
+    ziel.appendChild(k);
+  }
+}
+
+function fachWaehlen(fach){
+  const liste = D.quests.filter(q=>q.ort==="buch" && !q.fertig).sort((a,b)=>rang(a)-rang(b));
+  blattZeigen('<h3>' + FACH_WORT[fach] + ' für heute</h3>' +
+    '<p class="sub">Aus dem Auftragsbuch. Oben steht, was am dringendsten wartet.</p>', b=>{
+    if(!liste.length){
+      b.appendChild(machKnopf("Das Auftragsbuch ist leer", "ruhig", blattSchliessen));
+      return;
+    }
+    liste.slice(0,25).forEach(q=>{
+      const zusatz = q.faellig ? " · " + faelligWort(q.faellig) : "";
+      const k = machKnopf(q.titel + zusatz + "  (" + kosten(q) + ")", "", ()=>{
+        q.ort = "heute"; q.fach = fach; sichern(); blattSchliessen(); zeichnen();
+      });
+      b.appendChild(k);
+    });
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+  });
 }
 
 /* Rangfolge fürs Auftragsbuch und für den Morgen-Vorschlag.
@@ -642,8 +726,46 @@ function buchZeichnen(){
 
 /* ═══════════ Was ist heute dran ═══════════ */
 function ausdauerVerbraucht(){
-  return D.quests.filter(q=>q.ort==="heute" && !q.fertig).reduce((a,q)=>a+(q.grosse||1), 0);
+  return D.quests.filter(q=>q.ort==="heute" && !q.fertig).reduce((a,q)=>a+kosten(q), 0);
 }
+
+/* Ausdauer ist keine feste Zahl. Manche Tage sind schmal, und Erholung
+   bringt echte Kraft zurück — deshalb lässt sich beides von Hand nachziehen. */
+function ausdauerBlatt(){
+  const last = ausdauerVerbraucht(), ganz = ausdauerHeute();
+  blattZeigen('<h3>Ausdauer</h3><p class="sub">' +
+    'Wie viel du heute schaffen kannst. Jede Quest kostet etwas — <strong>zähe mehr als leichte</strong>, ' +
+    'große mehr als kleine. Drei kleine Sachen, die Spaß machen, kosten zusammen weniger als eine, ' +
+    'vor der du dich drückst.<br><br>Gerade: <strong>' + last + ' von ' + ganz + '</strong> verplant.</p>', b=>{
+
+    const l1 = document.createElement("p");
+    l1.className = "mini"; l1.style.margin = "0 0 8px"; l1.textContent = "Wie viel hast du heute?";
+    b.appendChild(l1);
+    [["Wenig — schmaler Tag",3],["Normal",6],["Viel Kraft",9]].forEach(([w,n])=>{
+      b.appendChild(machKnopf(w, ausdauerHeute()===n ? "stark" : "", ()=>{
+        D.heuteAusdauer = n; D.rastHeute = 0; sichern(); zeichnen(); ausdauerBlatt();
+      }));
+    });
+
+    const l2 = document.createElement("p");
+    l2.className = "mini"; l2.style.margin = "20px 0 8px"; l2.textContent = "Erholung — lädt auf, kostet nichts";
+    b.appendChild(l2);
+    const hinweis = document.createElement("p");
+    hinweis.className = "hinweis"; hinweis.style.margin = "0 0 10px";
+    hinweis.textContent = "Wenn du etwas davon gemacht hast, tipp es an. Du bekommst Ausdauer zurück — das ist keine Belohnung, sondern Auftanken.";
+    b.appendChild(hinweis);
+    (D.erholung||[]).filter(Boolean).forEach(w=>{
+      b.appendChild(machKnopf(w + "  ＋2", "", ()=>{
+        D.heuteAusdauer = ausdauerHeute() + 2;
+        D.rastHeute = (D.rastHeute||0) + 2;
+        sichern(); zeichnen(); ausdauerBlatt();
+      }));
+    });
+
+    b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+document.getElementById("akku-knopf").addEventListener("click", ausdauerBlatt);
 /* Passendes Fach suchen: Großes will in die Mainquest, Kleines in die Botengänge —
    ist das Wunschfach voll, rutscht es ins nächste. Nichts wird überfüllt. */
 function freiesFach(grosse){
@@ -690,7 +812,7 @@ function vorschlagStarten(){
   }
 
   function weiter(){
-    if(ausdauerVerbraucht() >= D.budget){ ende("Dein Tag ist voll — mehr wäre zu viel."); return; }
+    if(ausdauerVerbraucht() >= ausdauerHeute()){ ende("Dein Tag ist voll — mehr wäre zu viel."); return; }
     if(i >= liste.length){ ende("Das war alles, was gewartet hat."); return; }
     const q = liste[i++];
     if(q.ort !== "buch" || q.fertig){ weiter(); return; }
@@ -980,8 +1102,8 @@ function anlaufStarten(qid){
 }
 function provianntVorschlag(q){
   if(q.etikett === "zaeh"){
-    const v = (D.proviant.klein||[]).filter(Boolean);
-    if(v.length) return "Nimm was mit rein: " + v[Math.floor(Math.random()*v.length)];
+    const v = (D.begleitung||[]).filter(Boolean);
+    if(v.length) return "Lass was nebenher laufen: " + v[Math.floor(Math.random()*v.length)];
   }
   return "Nach fünf Minuten darfst du wirklich aufhören. Das ist der Deal.";
 }
@@ -1114,6 +1236,58 @@ function gefaehrteBlatt(gid){
 }
 document.getElementById("gefaehrte-neu").addEventListener("click", ()=> gefaehrteBlatt(null));
 
+/* Geburtstage als jährliche Ganztages-Einträge — ausdrücklich OHNE VALARM,
+   also ohne Wecker, ohne Ton, ohne Meldung. Sie stehen einfach auf dem Tag. */
+function kalenderText(){
+  const zeilen = [
+    "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Questlog//DE","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+    "X-WR-CALNAME:Geburtstage aus Questlog"
+  ];
+  const stempel = new Date().toISOString().replace(/[-:]/g,"").split(".")[0] + "Z";
+  D.gefaehrten.filter(g=>g.tag).forEach(g=>{
+    const start = naechsterTag(g.tag);
+    const ende = new Date(start); ende.setDate(ende.getDate()+1);
+    const alsZahl = d => d.getFullYear() + String(d.getMonth()+1).padStart(2,"0") + String(d.getDate()).padStart(2,"0");
+    zeilen.push(
+      "BEGIN:VEVENT",
+      "UID:questlog-" + g.id + "@sidequestnika",
+      "DTSTAMP:" + stempel,
+      "DTSTART;VALUE=DATE:" + alsZahl(start),
+      "DTEND;VALUE=DATE:" + alsZahl(ende),
+      "RRULE:FREQ=YEARLY",
+      "SUMMARY:🎂 " + g.name.replace(/[,;\\]/g, " "),
+      "TRANSP:TRANSPARENT",
+      "END:VEVENT"
+    );
+  });
+  zeilen.push("END:VCALENDAR");
+  return zeilen.join("\r\n");
+}
+
+document.getElementById("kalender-export").addEventListener("click", ()=>{
+  const mitDatum = D.gefaehrten.filter(g=>g.tag).length;
+  if(!mitDatum){
+    blattZeigen('<h3>Noch keine Geburtstage</h3><p class="sub">Trag zuerst Gefährten mit Datum ein.</p>',
+      b=> b.appendChild(machKnopf("Alles klar","stark",blattSchliessen)));
+    return;
+  }
+  blattZeigen('<h3>In den Kalender legen</h3><p class="sub">' +
+    mehrzahl(mitDatum,"Geburtstag","Geburtstage") + ' als jährliche Ganztages-Einträge. ' +
+    '<strong>Ohne Wecker, ohne Ton, ohne Meldung</strong> — sie stehen nur auf dem Tag, wenn du hinschaust.<br><br>' +
+    'Tipp auf den Knopf, dann fragt dein iPhone, ob es sie hinzufügen soll.</p>', b=>{
+    const blob = new Blob([kalenderText()], {type:"text/calendar;charset=utf-8"});
+    const a = document.createElement("a");
+    a.className = "knopf stark";
+    a.href = URL.createObjectURL(blob);
+    a.download = "geburtstage.ics";
+    a.textContent = "Geburtstage übergeben";
+    a.style.textDecoration = "none";
+    a.addEventListener("click", ()=> setTimeout(blattSchliessen, 800));
+    b.appendChild(a);
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+  });
+});
+
 /* Nur Ziffern, gedeckelt, springt von selbst weiter. */
 function zahlFeld(el, max, weiter){
   el.addEventListener("input", ()=>{
@@ -1146,38 +1320,74 @@ function budgetZeichnen(){
 }
 document.getElementById("budget-wahl").addEventListener("click", e=>{
   const b = e.target.closest("button"); if(!b) return;
-  D.budget = Number(b.dataset.b); sichern(); zeichnen();
+  D.budget = Number(b.dataset.b);
+  D.heuteAusdauer = D.budget + (D.rastHeute || 0);
+  sichern(); zeichnen();
 });
 
-const PROVIANT_TEILE = [
-  ["klein","Kleine Stärkung — zwei Minuten"],
-  ["gross","Große Rast — eine halbe Stunde"],
-  ["schatz","Schatz — richtig gut"]
+const LISTEN = [
+  ["erholung",       "Erholung", "Lädt Ausdauer auf und kostet nichts. Baden, schlafen, rausgehen."],
+  ["begleitung",     "Begleitung", "Was nebenher laufen darf, wenn etwas zäh ist. Hörbuch, Musik."],
+  ["belohnung.klein","Kleine Belohnung — " + PREIS.klein + " Gold", "Etwas Schönes für zwischendurch."],
+  ["belohnung.gross","Große Belohnung — " + PREIS.gross + " Gold", "Wofür sich das Sparen lohnt."]
 ];
-function proviantZeichnen(){
-  const ziel = document.getElementById("proviant-felder");
+function listeHolen(pfad){
+  return pfad.includes(".") ? (D.belohnung[pfad.split(".")[1]] || []) : (D[pfad] || []);
+}
+function listeSetzen(pfad, werte){
+  if(pfad.includes(".")) D.belohnung[pfad.split(".")[1]] = werte; else D[pfad] = werte;
+}
+function listenZeichnen(){
+  const ziel = document.getElementById("listen-felder");
   ziel.innerHTML = "";
-  PROVIANT_TEILE.forEach(([k,w])=>{
-    const l = document.createElement("p"); l.className="mini"; l.style.margin="14px 0 7px"; l.textContent=w;
+  LISTEN.forEach(([pfad,wort,erklaerung])=>{
+    const l = document.createElement("p"); l.className="mini"; l.style.margin="18px 0 5px"; l.textContent=wort;
+    const e = document.createElement("p"); e.className="hinweis"; e.style.margin="0 0 8px"; e.textContent=erklaerung;
     const t = document.createElement("textarea"); t.className="feld"; t.style.minHeight="92px";
-    t.value = (D.proviant[k]||[]).join("\n");
-    t.addEventListener("change", ()=>{ D.proviant[k] = t.value.split("\n").map(x=>x.trim()).filter(Boolean); sichern(); });
-    ziel.appendChild(l); ziel.appendChild(t);
+    t.value = listeHolen(pfad).join("\n");
+    t.addEventListener("change", ()=>{
+      listeSetzen(pfad, t.value.split("\n").map(x=>x.trim()).filter(Boolean)); sichern();
+    });
+    ziel.appendChild(l); ziel.appendChild(e); ziel.appendChild(t);
   });
 }
 
 document.getElementById("gold-einloesen").addEventListener("click", ()=>{
-  const alle = [].concat(D.proviant.klein, D.proviant.gross, D.proviant.schatz).filter(Boolean);
-  if(D.gold < 20){
-    blattZeigen('<h3>Noch '+(20-D.gold)+' Gold</h3><p class="sub">Ab 20 kannst du dir etwas vom Proviant nehmen.</p>',
-      b=> b.appendChild(machKnopf("Verstanden","stark",blattSchliessen)));
-    return;
-  }
-  const w = alle.length ? alle[Math.floor(Math.random()*alle.length)] : "Such dir etwas Schönes aus.";
-  blattZeigen('<h3>Für dich</h3><p class="sub"></p>', b=>{
-    b.querySelector(".sub").textContent = w;
-    b.appendChild(machKnopf("Genommen — 20 Gold weg", "stark", ()=>{ D.gold -= 20; sichern(); blattSchliessen(); zeichnen(); }));
-    b.appendChild(machKnopf("Was anderes", "", ()=>{ blattSchliessen(); document.getElementById("gold-einloesen").click(); }));
+  blattZeigen('<h3>Belohnungen</h3><p class="sub">Du hast <strong>' + D.gold + ' Gold</strong>. ' +
+    'Erholung steht hier nicht — die ist gratis und wohnt bei der Ausdauer.</p>', b=>{
+    let etwasDa = false;
+    [["klein","Kleine Belohnung"],["gross","Große Belohnung"]].forEach(([stufe,wort])=>{
+      const liste = (D.belohnung[stufe]||[]).filter(Boolean);
+      if(!liste.length) return;
+      etwasDa = true;
+      const l = document.createElement("p");
+      l.className = "mini"; l.style.margin = "16px 0 8px";
+      l.textContent = wort + " — " + PREIS[stufe] + " Gold";
+      b.appendChild(l);
+      liste.forEach(w=>{
+        const reicht = D.gold >= PREIS[stufe];
+        const k = machKnopf(w, reicht ? "" : "ruhig", ()=>{
+          if(!reicht){
+            blattZeigen('<h3>Noch ' + (PREIS[stufe]-D.gold) + ' Gold</h3>' +
+              '<p class="sub">Dann kannst du dir das nehmen. Zähe Quests bringen am meisten.</p>',
+              x=> x.appendChild(machKnopf("Verstanden","stark",blattSchliessen)));
+            return;
+          }
+          D.gold -= PREIS[stufe]; sichern(); zeichnen();
+          blattZeigen('<h3>Viel Freude damit</h3><p class="sub"></p>', x=>{
+            x.querySelector(".sub").textContent = w + " — " + PREIS[stufe] + " Gold abgezogen, " + D.gold + " übrig.";
+            x.appendChild(machKnopf("Danke", "stark", blattSchliessen));
+          });
+        });
+        b.appendChild(k);
+      });
+    });
+    if(!etwasDa){
+      const p = document.createElement("p");
+      p.className = "hinweis";
+      p.textContent = "Deine Belohnungslisten sind leer. Trag unten ein, worauf du wirklich Lust hast.";
+      b.appendChild(p);
+    }
     b.appendChild(machKnopf("Später", "ruhig", blattSchliessen));
   });
 });
@@ -1238,7 +1448,7 @@ document.getElementById("sicher-zeigen").addEventListener("click", ()=>{
       try{
         const neu = JSON.parse(b.querySelector("#wieder-feld").value);
         D = Object.assign(JSON.parse(JSON.stringify(START)), neu);
-        sichern(); blattSchliessen(); proviantZeichnen(); zeichnen();
+        sichern(); blattSchliessen(); listenZeichnen(); zeichnen();
       }catch(e){
         b.querySelector(".sub").textContent = "Das war keine gültige Sicherung. Nichts wurde geändert.";
       }
@@ -1260,7 +1470,7 @@ document.querySelector(".tabs-innen").addEventListener("click", e=>{
 
 /* ═══════════ Los ═══════════ */
 wahlZeichnen();
-proviantZeichnen();
+listenZeichnen();
 zeichnen();
 sichern();
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) zeichnen(); });
