@@ -145,8 +145,8 @@ input,textarea{font:inherit;color:inherit}
   background:color-mix(in srgb,var(--ground) 88%,transparent);
   backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);
   border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-.tabs-innen{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
-.tab{padding:11px 2px 12px;text-align:center;font-size:10.5px;color:var(--ink-faint);font-weight:600;letter-spacing:.02em}
+.tabs-innen{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tab{padding:11px 1px 12px;text-align:center;font-size:10px;color:var(--ink-faint);font-weight:600;letter-spacing:0}
 .tab .ti{display:block;font-size:20px;line-height:1.25;margin-bottom:1px}
 .tab.on{color:var(--accent)}
 
@@ -222,6 +222,29 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 .zaehler{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
   font-weight:600;margin:0 0 12px}
 
+/* ————— Wochen-Puzzle ————— */
+.wochenkopf{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px}
+.wochenkopf .spanne{font-size:14px;color:var(--ink-soft);font-weight:600;text-align:center;flex:1}
+.pfeil{width:44px;height:40px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);
+  font-size:18px;line-height:1;flex:none}
+.tagkarte{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin-bottom:9px}
+.tagkarte.ist-heute{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.tagkopf{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:9px}
+.tagname{font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;font-weight:700;font-size:16px}
+.tagkarte.ist-heute .tagname{color:var(--accent)}
+.tagnotiz{font-size:12px;color:var(--ink-faint);text-align:right}
+.abschnitt{display:grid;grid-template-columns:74px 1fr;gap:8px;align-items:start;padding:5px 0}
+.abschnitt + .abschnitt{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.abschnitt-name{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
+  font-weight:600;padding-top:7px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;min-height:30px;align-items:center}
+.chip{font-size:13px;padding:6px 11px;border-radius:99px;background:var(--surface-2);
+  border:1px solid var(--line);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip:active{transform:scale(.96)}
+.chip.anker{background:color-mix(in srgb,var(--cool) 20%,var(--surface-2));border-color:transparent;font-weight:600}
+.chip.fest{background:color-mix(in srgb,var(--accent) 18%,var(--surface-2));border-color:transparent}
+.chip.plus{color:var(--ink-faint);border-style:dashed;padding:6px 10px}
+
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
 
@@ -273,6 +296,20 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   <div id="nochmal-halter"></div>
   <div id="abend-halter"></div>
   <div style="height:56px"></div>
+</section>
+
+<!-- ═══════════ WOCHE ═══════════ -->
+<section class="view wrap" id="v-woche">
+  <div class="kopf"><p class="datum">Tage zum Umsortieren</p><h1 class="gruss">Woche</h1></div>
+  <div class="wochenkopf">
+    <button class="pfeil" id="woche-zurueck" aria-label="Woche zurück">‹</button>
+    <span class="spanne" id="woche-spanne"></span>
+    <button class="pfeil" id="woche-vor" aria-label="Woche vor">›</button>
+  </div>
+  <button class="knopf ruhig" id="woche-heute" style="margin-bottom:16px">Zurück zu dieser Woche</button>
+  <div id="wochen-tage"></div>
+  <p class="hinweis">Tipp auf eine Karte, um sie zu verschieben — mit ‹ und › rutscht sie einen Abschnitt weiter, oder du wählst einen ganz anderen Tag. <strong>Anker</strong> sind Festes, das nicht wandert: die Einschulung, der Zug, der Termin.</p>
+  <div style="height:20px"></div>
 </section>
 
 <!-- ═══════════ AUFTRAGSBUCH ═══════════ -->
@@ -354,6 +391,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 
 <nav class="tabs"><div class="tabs-innen">
   <button class="tab on" data-v="heute"><span class="ti">☀️</span>Heute</button>
+  <button class="tab" data-v="woche"><span class="ti">🗺️</span>Woche</button>
   <button class="tab" data-v="buch"><span class="ti">📜</span>Aufträge</button>
   <button class="tab" data-v="gefaehrten"><span class="ti">🎂</span>Gefährten</button>
   <button class="tab" data-v="rast"><span class="ti">🔥</span>Rastplatz</button>
@@ -401,7 +439,7 @@ function speicherPruefen(){
 const START = {
   v:2, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
   heuteAusdauer:null, rastHeute:0,
-  quests:[], gefaehrten:[],
+  quests:[], gefaehrten:[], anker:[],
   /* Drei verschiedene Dinge, die man nicht verwechseln darf:
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
@@ -579,6 +617,7 @@ function zeichnen(){
   fachZeichnen("boten","liste-boten","Keine Botengänge. Herrlich leer.");
   abendZeichnen();
   buchZeichnen();
+  wochenZeichnen();
   gefaehrtenZeichnen();
   document.getElementById("gold-zahl").textContent = D.gold;
   budgetZeichnen();
@@ -710,6 +749,7 @@ function fachWaehlen(fach){
    dann was lange wartet, und ein 🔥 mischt sich früh dazwischen, damit der
    Tag nicht mit lauter Zähem anfängt. */
 function rang(q){
+  if(q.plan && q.plan.tag === D.tag) return -50;   /* für heute eingeplant */
   if(q.faellig) return tageBisDatum(q.faellig);
   if(q.marke) return 0;
   if(q.etikett === "spass") return 12;
@@ -818,6 +858,7 @@ function vorschlagStarten(){
     if(q.ort !== "buch" || q.fertig){ weiter(); return; }
 
     const kontext = [];
+    if(q.plan && q.plan.tag === D.tag) kontext.push("heute eingeplant · " + TEIL_WORT[q.plan.teil]);
     if(q.faellig) kontext.push(faelligWort(q.faellig));
     if(q.verschoben >= 2) kontext.push("wartet seit "+q.verschoben+" Tagen");
     kontext.push(ETIKETT_WORT[q.etikett] || "");
@@ -844,6 +885,177 @@ function vorschlagStarten(){
   }
   weiter();
 }
+
+/* ═══════════ Wochen-Puzzle ═══════════
+   Quests lassen sich auf Tag + Abschnitt legen und dort hin- und herschieben.
+   Anker sind das Feste drumherum — Einschulung, Zug, Termin —, die kosten
+   keine Ausdauer und werden nie abgehakt, sie geben nur den Rahmen vor. */
+const TEILE = [["vor","Vormittag"],["nach","Nachmittag"],["abend","Abend"]];
+const TEIL_WORT = {vor:"Vormittag", nach:"Nachmittag", abend:"Abend"};
+const KURZTAG = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+let wochenVersatz = 0;
+
+function wochenStart(){
+  const d = new Date(); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - ((d.getDay()+6) % 7) + wochenVersatz*7);
+  return d;
+}
+function tagPlus(iso, n){
+  const [j,m,t] = iso.split("-").map(Number);
+  const d = new Date(j, m-1, t); d.setDate(d.getDate()+n);
+  return datumStr(d);
+}
+/* Ein Schritt weiter heißt: nächster Abschnitt, und nach dem Abend der
+   nächste Vormittag. Damit rutscht man mit zwei Fingern durch die Woche. */
+function schieben(plan, richtung){
+  const i = TEILE.findIndex(([k])=>k===plan.teil);
+  const neu = i + richtung;
+  if(neu < 0) return {tag: tagPlus(plan.tag,-1), teil:"abend"};
+  if(neu > 2) return {tag: tagPlus(plan.tag, 1), teil:"vor"};
+  return {tag: plan.tag, teil: TEILE[neu][0]};
+}
+
+function wochenZeichnen(){
+  const ziel = document.getElementById("wochen-tage");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+  const start = wochenStart();
+  const heute = heuteStr();
+
+  const ende = new Date(start); ende.setDate(ende.getDate()+6);
+  document.getElementById("woche-spanne").textContent =
+    start.getDate() + ". " + MONATE[start.getMonth()].slice(0,3) + " – " +
+    ende.getDate() + ". " + MONATE[ende.getMonth()].slice(0,3);
+  document.getElementById("woche-heute").style.display = wochenVersatz ? "block" : "none";
+
+  for(let i=0; i<7; i++){
+    const d = new Date(start); d.setDate(d.getDate()+i);
+    const iso = datumStr(d);
+    const karte = document.createElement("div");
+    karte.className = "tagkarte" + (iso === heute ? " ist-heute" : "");
+
+    const geburtstage = D.gefaehrten.filter(g=>g.tag && datumStr(naechsterTag(g.tag)) === iso);
+    const kopf = document.createElement("div");
+    kopf.className = "tagkopf";
+    kopf.innerHTML = '<span class="tagname"></span><span class="tagnotiz"></span>';
+    kopf.querySelector(".tagname").textContent =
+      KURZTAG[d.getDay()] + " " + d.getDate() + "." + (d.getMonth()+1) + ".";
+    kopf.querySelector(".tagnotiz").textContent =
+      geburtstage.map(g=>"🎂 "+g.name).join(" · ");
+    karte.appendChild(kopf);
+
+    TEILE.forEach(([teil, wort])=>{
+      const reihe = document.createElement("div");
+      reihe.className = "abschnitt";
+      const name = document.createElement("span");
+      name.className = "abschnitt-name"; name.textContent = wort;
+      const chips = document.createElement("div");
+      chips.className = "chips";
+
+      D.anker.filter(a=>a.tag===iso && a.teil===teil).forEach(a=>{
+        chips.appendChild(chipBauen(a.titel, "anker", ()=> ankerBlatt(a.id)));
+      });
+      D.quests.filter(q=>!q.fertig && q.plan && q.plan.tag===iso && q.plan.teil===teil).forEach(q=>{
+        chips.appendChild(chipBauen(q.titel, q.ort==="heute" ? "fest" : "", ()=> planBlatt(q.id)));
+      });
+      chips.appendChild(chipBauen("＋", "plus", ()=> hinzufuegenBlatt(iso, teil)));
+
+      reihe.appendChild(name); reihe.appendChild(chips);
+      karte.appendChild(reihe);
+    });
+    ziel.appendChild(karte);
+  }
+}
+
+function chipBauen(text, art, fn){
+  const b = document.createElement("button");
+  b.className = "chip" + (art ? " "+art : "");
+  b.textContent = text;
+  b.addEventListener("click", fn);
+  return b;
+}
+
+function hinzufuegenBlatt(tag, teil){
+  const frei = D.quests.filter(q=>!q.fertig && !q.plan && q.ort!=="archiv").sort((a,b)=>rang(a)-rang(b));
+  blattZeigen('<h3>' + TEIL_WORT[teil] + '</h3><p class="sub">Was soll an diesem Abschnitt stehen?</p>', b=>{
+    b.appendChild(machKnopf("⚓ Festen Anker setzen", "stark", ()=> ankerNeuBlatt(tag, teil)));
+    if(frei.length){
+      const l = document.createElement("p");
+      l.className = "mini"; l.style.margin = "18px 0 8px"; l.textContent = "Oder eine Quest herlegen";
+      b.appendChild(l);
+      frei.slice(0,20).forEach(q=>{
+        b.appendChild(machKnopf(q.titel, "", ()=>{
+          q.plan = {tag:tag, teil:teil}; sichern(); blattSchliessen(); zeichnen();
+        }));
+      });
+    }
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+  });
+}
+
+function ankerNeuBlatt(tag, teil){
+  blattZeigen('<h3>Fester Anker</h3><p class="sub">Etwas, das nicht wandert und keine Ausdauer kostet — die Einschulung, der Zug, ein Termin. Uhrzeit einfach dazuschreiben, wenn du magst.</p>' +
+    '<input class="feld" id="anker-feld" placeholder="z. B. Einschulung 9 Uhr">', b=>{
+    const feld = b.querySelector("#anker-feld");
+    b.appendChild(machKnopf("Setzen", "stark", ()=>{
+      const t = feld.value.trim();
+      if(t){ D.anker.push({id:id(), titel:t, tag:tag, teil:teil}); sichern(); }
+      blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+    setTimeout(()=>feld.focus(), 60);
+  });
+}
+
+function ankerBlatt(aid){
+  const a = D.anker.find(x=>x.id===aid); if(!a) return;
+  blattZeigen('<h3></h3><p class="sub">Fester Anker · ' + TEIL_WORT[a.teil] + '</p>', b=>{
+    b.querySelector("h3").textContent = a.titel;
+    b.appendChild(machKnopf("‹ Einen Abschnitt zurück", "", ()=>{ Object.assign(a, schieben(a,-1)); sichern(); zeichnen(); ankerBlatt(aid); }));
+    b.appendChild(machKnopf("Einen Abschnitt weiter ›", "", ()=>{ Object.assign(a, schieben(a, 1)); sichern(); zeichnen(); ankerBlatt(aid); }));
+    b.appendChild(machKnopf("Auf einen anderen Tag …", "", ()=> tagWaehlenBlatt(a, ()=>ankerBlatt(aid))));
+    b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
+      D.anker = D.anker.filter(x=>x.id!==aid); sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+function planBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q || !q.plan) return;
+  blattZeigen('<h3></h3><p class="sub"></p>', b=>{
+    b.querySelector("h3").textContent = q.titel;
+    b.querySelector(".sub").textContent =
+      TEIL_WORT[q.plan.teil] + " · " + (ETIKETT_WORT[q.etikett]||"") + " · kostet " + kosten(q);
+    b.appendChild(machKnopf("‹ Einen Abschnitt zurück", "", ()=>{ q.plan = schieben(q.plan,-1); sichern(); zeichnen(); planBlatt(qid); }));
+    b.appendChild(machKnopf("Einen Abschnitt weiter ›", "", ()=>{ q.plan = schieben(q.plan, 1); sichern(); zeichnen(); planBlatt(qid); }));
+    b.appendChild(machKnopf("Auf einen anderen Tag …", "", ()=> tagWaehlenBlatt(q.plan, ()=>planBlatt(qid))));
+    b.appendChild(machKnopf("Vom Plan nehmen", "ruhig", ()=>{
+      q.plan = null; sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+function tagWaehlenBlatt(plan, zurueck){
+  const start = wochenStart();
+  blattZeigen('<h3>Auf welchen Tag?</h3><p class="sub">Der Abschnitt bleibt: ' + TEIL_WORT[plan.teil] + '.</p>', b=>{
+    for(let i=0; i<14; i++){
+      const d = new Date(start); d.setDate(d.getDate()+i);
+      const iso = datumStr(d);
+      b.appendChild(machKnopf(
+        KURZTAG[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()],
+        plan.tag === iso ? "stark" : "",
+        ()=>{ plan.tag = iso; sichern(); zeichnen(); if(zurueck) zurueck(); }
+      ));
+    }
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ if(zurueck) zurueck(); else blattSchliessen(); }));
+  });
+}
+
+document.getElementById("woche-zurueck").addEventListener("click", ()=>{ wochenVersatz--; wochenZeichnen(); });
+document.getElementById("woche-vor").addEventListener("click", ()=>{ wochenVersatz++; wochenZeichnen(); });
+document.getElementById("woche-heute").addEventListener("click", ()=>{ wochenVersatz = 0; wochenZeichnen(); });
 
 /* ═══════════ Aufräum-Frage ═══════════ */
 function frageZeichnen(){
