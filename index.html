@@ -202,9 +202,19 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 
 .gefaehrte{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px 16px;
   margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left}
-.tage{font-size:13px;color:var(--ink-faint);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tage{font-size:13px;color:var(--ink-faint);white-space:nowrap;font-variant-numeric:tabular-nums;flex:none}
 .tage.bald{color:var(--accent);font-weight:600}
 .tage.fehlt{color:var(--warn);font-weight:600}
+.karte .tage{margin-top:2px}
+.karte .tage.faellig{color:var(--accent);font-weight:600}
+
+/* ————— Was ist heute dran ————— */
+.vorschlag{background:var(--surface-2);border:1px solid color-mix(in srgb,var(--accent) 34%,var(--line));
+  border-radius:18px;padding:20px;margin-bottom:22px}
+.vorschlag h2{margin:0 0 6px;font-size:21px;letter-spacing:-.01em}
+.vorschlag p{margin:0 0 15px;font-size:14px;color:var(--ink-soft);line-height:1.5}
+.zaehler{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
+  font-weight:600;margin:0 0 12px}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -243,6 +253,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
     <div class="akku-bahn"><div class="akku-fuell" id="akku-fuell" style="width:0"></div></div>
   </div>
 
+  <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
 
   <p class="label">Mainquest</p>
@@ -252,6 +263,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   <p class="label">Botengänge</p>
   <div id="liste-boten"></div>
 
+  <div id="nochmal-halter"></div>
   <div id="abend-halter"></div>
   <div style="height:56px"></div>
 </section>
@@ -315,8 +327,8 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 
   <div class="trenner"></div>
 
-  <p class="label">Aus dem iPhone einlesen</p>
-  <p class="hinweis" style="margin:0 0 12px">Text aus dem Kurzbefehl hier einfügen. Erkennt Aufgaben und Geburtstage.</p>
+  <p class="label">Liste einlesen</p>
+  <p class="hinweis" style="margin:0 0 12px">Für viele Sachen auf einmal: <strong>eine Zeile pro Quest</strong> hier reintippen oder einfügen — aus Notizen, aus einer Nachricht, egal woher. Alles landet im Auftragsbuch.<br><br>Sollen Geburtstage dabei sein, schreib die Zeile <strong>#&nbsp;GEBURTSTAGE</strong> davor und dann <strong>Name; 14.03.1958</strong> pro Zeile.</p>
   <textarea class="feld" id="import-feld" placeholder="# AUFGABEN&#10;Zahnarzt anrufen&#10;&#10;# GEBURTSTAGE&#10;Mama; 14.03.1958"></textarea>
   <button class="knopf" id="import-los">Einlesen</button>
 
@@ -385,7 +397,7 @@ const START = {
     gross:["Eine Stunde häkeln","An der Kampagne weiterschreiben","Lange Runde spazieren"],
     schatz:["Heiße Schokolade","Bad einlassen","Etwas bestellen, worauf du Lust hast"]
   },
-  geschafft:[], letzterAbschluss:null
+  geschafft:[], letzterAbschluss:null, letzterVorschlag:null
 };
 
 let D;
@@ -431,6 +443,29 @@ function tageBis(mmdd){
   return Math.round((naechsterTag(mmdd) - jetzt)/86400000);
 }
 function mehrzahl(n, eins, viele){ return n + " " + (n===1 ? eins : viele); }
+
+/* Fälligkeit: gespeichert als "JJJJ-MM-TT". Negativ heißt überfällig. */
+function tageBisDatum(iso){
+  if(!iso) return null;
+  const jetzt = new Date(); jetzt.setHours(0,0,0,0);
+  const [j,m,t] = iso.split("-").map(Number);
+  return Math.round((new Date(j, m-1, t) - jetzt)/86400000);
+}
+/* Bewusst ohne Rot und ohne Ausrufezeichen — nur eine ruhige Feststellung. */
+function faelligWort(iso){
+  const d = tageBisDatum(iso);
+  if(d === null) return "";
+  if(d < -1) return "seit " + (-d) + " Tagen fällig";
+  if(d === -1) return "seit gestern fällig";
+  if(d === 0) return "heute fällig";
+  if(d === 1) return "morgen fällig";
+  if(d <= 14) return "in " + d + " Tagen";
+  return "in " + Math.round(d/7) + " Wochen";
+}
+function datumStr(d){
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function inTagen(n){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return datumStr(d); }
 function zeitWort(iso){
   if(!iso) return "—";
   const d = new Date(iso);
@@ -473,7 +508,10 @@ function geburtstageBauen(){
       if(D.quests.some(q=>q.marke === marke)) return;
       D.quests.push({
         id:id(), marke:marke, titel:st.wort(g.name), etikett:st.etikett, grosse:st.grosse,
-        ort: st.tage===0 ? "heute" : "buch", fach: st.fach, fertig:false, verschoben:0, wennDann:""
+        ort: st.tage===0 ? "heute" : "buch", fach: st.fach, fertig:false, verschoben:0, wennDann:"",
+        /* Der Geburtstag selbst ist die Frist — dann zeigt die Karte denselben
+           Tage-Zähler wie bei den Gefährten. */
+        faellig: datumStr(naechsterTag(g.tag))
       });
     });
   });
@@ -501,6 +539,7 @@ function zeichnen(){
 
   warnungZeichnen();
   akkuZeichnen();
+  vorschlagZeichnen();
   frageZeichnen();
   fachZeichnen("haupt","liste-haupt","Nichts Großes für heute. Auch gut.");
   fachZeichnen("neben","liste-neben","Noch nichts ausgesucht — der Würfel hilft.");
@@ -559,14 +598,17 @@ function karteBauen(q){
     if(q.verschoben >= 2) unten.push("wartet seit " + q.verschoben + " Tagen");
     if(q.wennDann) unten.push("↳ " + q.wennDann);
   }
+  const faellig = !q.fertig && q.faellig ? faelligWort(q.faellig) : "";
   b.innerHTML = '<span class="punkt p-'+(q.etikett||"neutral")+'"></span>' +
     '<span class="karte-txt"><span class="karte-titel"></span>' +
-    (unten.length ? '<span class="karte-unter"></span>' : '') + '</span>';
+    (unten.length ? '<span class="karte-unter"></span>' : '') + '</span>' +
+    (faellig ? '<span class="tage'+(tageBisDatum(q.faellig) <= 0 ? " faellig" : "")+'"></span>' : '');
   b.querySelector(".karte-titel").textContent = q.titel;
   if(unten.length){
     const u = b.querySelector(".karte-unter");
     unten.filter(Boolean).forEach(t=>{ const e=document.createElement("span"); e.textContent=t; u.appendChild(e); });
   }
+  if(faellig) b.querySelector(".tage").textContent = faellig;
   b.addEventListener("click", ()=> blattFuerQuest(q.id));
   return b;
 }
@@ -579,12 +621,106 @@ function fachZeichnen(fach, wohin, leerText){
   drin.forEach(q=> ziel.appendChild(karteBauen(q)));
 }
 
+/* Rangfolge fürs Auftragsbuch und für den Morgen-Vorschlag.
+   Kleinere Zahl = kommt zuerst. Fälliges schlägt alles, danach Geburtstage,
+   dann was lange wartet, und ein 🔥 mischt sich früh dazwischen, damit der
+   Tag nicht mit lauter Zähem anfängt. */
+function rang(q){
+  if(q.faellig) return tageBisDatum(q.faellig);
+  if(q.marke) return 0;
+  if(q.etikett === "spass") return 12;
+  return 20 - Math.min(q.verschoben || 0, 8);
+}
+
 function buchZeichnen(){
   const ziel = document.getElementById("liste-buch");
   ziel.innerHTML = "";
-  const drin = D.quests.filter(q=>q.ort==="buch" && !q.fertig);
+  const drin = D.quests.filter(q=>q.ort==="buch" && !q.fertig).sort((a,b)=>rang(a)-rang(b));
   if(!drin.length){ const p=document.createElement("p"); p.className="leer"; p.textContent="Das Auftragsbuch ist leer."; ziel.appendChild(p); return; }
   drin.forEach(q=> ziel.appendChild(karteBauen(q)));
+}
+
+/* ═══════════ Was ist heute dran ═══════════ */
+function ausdauerVerbraucht(){
+  return D.quests.filter(q=>q.ort==="heute" && !q.fertig).reduce((a,q)=>a+(q.grosse||1), 0);
+}
+/* Passendes Fach suchen: Großes will in die Mainquest, Kleines in die Botengänge —
+   ist das Wunschfach voll, rutscht es ins nächste. Nichts wird überfüllt. */
+function freiesFach(grosse){
+  const reihe = grosse===3 ? ["haupt","neben","boten"]
+              : grosse===2 ? ["neben","haupt","boten"]
+              : ["boten","neben","haupt"];
+  return reihe.find(f => D.quests.filter(q=>q.ort==="heute" && q.fach===f && !q.fertig).length < GRENZE[f]) || null;
+}
+
+function vorschlagZeichnen(){
+  const halter = document.getElementById("vorschlag-halter");
+  const unten = document.getElementById("nochmal-halter");
+  halter.innerHTML = ""; unten.innerHTML = "";
+  const wartet = D.quests.filter(q=>q.ort==="buch" && !q.fertig).length;
+  if(!wartet) return;
+
+  if(D.letzterVorschlag === D.tag){
+    const k = machKnopf("Nochmal durchgehen", "ruhig", vorschlagStarten);
+    k.style.marginTop = "22px";
+    unten.appendChild(k);
+    return;
+  }
+  const box = document.createElement("div");
+  box.className = "vorschlag";
+  box.innerHTML = '<h2 class="rund">Was ist heute dran?</h2>' +
+    '<p>Im Auftragsbuch warten '+mehrzahl(wartet,"Sache","Sachen")+'. Ich zeige sie dir einzeln — du sagst nur ja oder nein.</p>';
+  box.appendChild(machKnopf("Tag zusammenstellen", "stark", vorschlagStarten));
+  halter.appendChild(box);
+}
+
+function vorschlagStarten(){
+  const liste = D.quests.filter(q=>q.ort==="buch" && !q.fertig)
+                        .sort((a,b)=>rang(a)-rang(b)).slice(0,10);
+  let i = 0, aufgenommen = 0;
+
+  function ende(text){
+    D.letzterVorschlag = D.tag;
+    sichern();
+    blattZeigen('<h3>Dein Tag steht</h3><p class="sub"></p>', b=>{
+      b.querySelector(".sub").textContent =
+        (aufgenommen ? mehrzahl(aufgenommen,"Sache","Sachen")+" für heute. " : "") + text;
+      b.appendChild(machKnopf("Los geht's", "stark", ()=>{ blattSchliessen(); zeichnen(); }));
+    });
+  }
+
+  function weiter(){
+    if(ausdauerVerbraucht() >= D.budget){ ende("Dein Tag ist voll — mehr wäre zu viel."); return; }
+    if(i >= liste.length){ ende("Das war alles, was gewartet hat."); return; }
+    const q = liste[i++];
+    if(q.ort !== "buch" || q.fertig){ weiter(); return; }
+
+    const kontext = [];
+    if(q.faellig) kontext.push(faelligWort(q.faellig));
+    if(q.verschoben >= 2) kontext.push("wartet seit "+q.verschoben+" Tagen");
+    kontext.push(ETIKETT_WORT[q.etikett] || "");
+    kontext.push(GROSSE_WORT[q.grosse||1]);
+
+    blattZeigen('<p class="zaehler"></p><h3></h3><p class="sub"></p>', b=>{
+      b.querySelector(".zaehler").textContent = i + " von " + liste.length;
+      b.querySelector("h3").textContent = q.titel;
+      b.querySelector(".sub").textContent = kontext.filter(Boolean).join(" · ");
+
+      b.appendChild(machKnopf("Heute", "stark", ()=>{
+        const fach = freiesFach(q.grosse || 1);
+        if(!fach){ ende("Für heute ist kein Platz mehr frei."); return; }
+        q.ort = "heute"; q.fach = fach; aufgenommen++;
+        sichern(); weiter();
+      }));
+      b.appendChild(machKnopf("Nicht heute", "", weiter));
+      b.appendChild(machKnopf("Klein machen", "ruhig", ()=> kleinMachen(q.id, weiter)));
+      b.appendChild(machKnopf("Weg damit", "ruhig", ()=>{
+        D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); weiter();
+      }));
+      b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+    });
+  }
+  weiter();
 }
 
 /* ═══════════ Aufräum-Frage ═══════════ */
@@ -671,6 +807,7 @@ function blattFuerQuest(qid){
     }else if(!q.fertig){
       b.appendChild(machKnopf("Nicht heute", "", ()=>{ q.ort="buch"; sichern(); blattSchliessen(); zeichnen(); }));
     }
+    b.appendChild(machKnopf(q.faellig ? "Frist ändern — " + faelligWort(q.faellig) : "Bis wann?", "ruhig", ()=> faelligBlatt(q.id)));
     b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
     b.appendChild(machKnopf("Klein machen", "ruhig", ()=> kleinMachen(q.id)));
     b.appendChild(machKnopf("Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
@@ -714,7 +851,7 @@ function etikettBlatt(qid){
   });
 }
 
-function kleinMachen(qid){
+function kleinMachen(qid, danach){
   const q = D.quests.find(x=>x.id===qid); if(!q) return;
   blattZeigen('<h3>Was wäre der allererste Handgriff?</h3><p class="sub">Nicht die ganze Sache. Nur der erste Schritt, der zwei Minuten dauert.</p>' +
     '<input class="feld" id="klein-feld" placeholder="z. B. Die Nummer raussuchen">', b=>{
@@ -722,10 +859,28 @@ function kleinMachen(qid){
     b.appendChild(machKnopf("Das ist ab jetzt die Quest", "stark", ()=>{
       const t = feld.value.trim();
       if(t){ q.titel = t; q.grosse = 1; q.verschoben = 0; sichern(); }
-      blattSchliessen(); zeichnen();
+      if(danach) danach(); else { blattSchliessen(); zeichnen(); }
     }));
-    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ if(danach) danach(); else blattSchliessen(); }));
     setTimeout(()=>feld.focus(), 60);
+  });
+}
+
+/* Fälligkeit setzen — bewusst mit fertigen Antworten statt einer Datumsauswahl,
+   damit es zwei Tipper sind und nicht acht. */
+function faelligBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  blattZeigen('<h3>Bis wann?</h3><p class="sub">Kein Termin, nur ein Anhaltspunkt. Fälliges schlägt Questlog dir morgens zuerst vor.</p>', b=>{
+    [["Heute",0],["Morgen",1],["In drei Tagen",3],["Nächste Woche",7],["In zwei Wochen",14],["In einem Monat",30]]
+      .forEach(([wort,n])=>{
+        const gesetzt = q.faellig === inTagen(n);
+        b.appendChild(machKnopf(wort, gesetzt ? "stark" : "", ()=>{
+          q.faellig = inTagen(n); sichern(); blattSchliessen(); zeichnen();
+        }));
+      });
+    b.appendChild(machKnopf("Ohne Frist", "ruhig", ()=>{
+      q.faellig = null; sichern(); blattSchliessen(); zeichnen();
+    }));
   });
 }
 
