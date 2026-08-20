@@ -149,6 +149,10 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
 .karte-txt{flex:1;min-width:0}
 .karte-titel{font-weight:600;letter-spacing:-.01em;word-break:break-word;display:block}
 .karte.haupt .karte-titel{font-size:21px;font-family:var(--schrift-titel)}
+/* Der nächste Handgriff ist das, was man tatsächlich tut — also steht er
+   deutlicher da als alles andere außer dem Titel. */
+.karte-schritt{display:block;font-size:14.5px;color:var(--accent);margin-top:5px;
+  font-weight:600;font-family:var(--schrift-ui);word-break:break-word;line-height:1.35}
 .karte-unter{font-size:13px;color:var(--ink-faint);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
 .punkt{width:10px;height:10px;border-radius:99px;flex:none;margin-top:7px}
 .p-spass{background:var(--accent)}
@@ -947,7 +951,14 @@ const KOSTEN = {
   neutral: {1:1, 2:2, 3:3},
   zaeh:    {1:2, 2:3, 3:5}
 };
-function kosten(q){ return (KOSTEN[q.etikett] || KOSTEN.neutral)[q.grosse||1] || 1; }
+/* Eine Etappen-Quest hat keinen Berg, sondern einen nächsten Handgriff.
+   Bezahlt wird der Schritt, nicht das Ganze — dadurch passt etwas Großes
+   auch in einen schmalen Tag. Das Gefühl bleibt: zäh bleibt zäh. */
+function istEtappe(q){ return !!(q && (q.naechster || (q.etappe||0) > 0)); }
+function kosten(q){
+  const tafel = KOSTEN[q.etikett] || KOSTEN.neutral;
+  return (istEtappe(q) ? tafel[1] : tafel[q.grosse||1]) || 1;
+}
 function ausdauerHeute(){ return D.heuteAusdauer || D.budget; }
 
 function karteBauen(q){
@@ -956,15 +967,21 @@ function karteBauen(q){
   const unten = [];
   if(!q.fertig){
     unten.push(ETIKETT_WORT[q.etikett] || "");
+    /* Die Zahl zählt hoch und nennt NIE ein Ziel. Ein „3 von 7" wäre wieder
+       der Berg; wie viele es werden, weiß ohnehin niemand vorher. */
+    if(istEtappe(q)) unten.push(((q.etappe||0) + 1) + ". Etappe");
     if(q.verschoben >= 2) unten.push("wartet seit " + q.verschoben + " Tagen");
     if(q.wennDann) unten.push("↳ " + q.wennDann);
   }
+  const schritt = !q.fertig && q.naechster ? q.naechster : "";
   const faellig = !q.fertig && q.faellig ? faelligWort(q.faellig) : "";
   b.innerHTML = '<span class="punkt p-'+(q.etikett||"neutral")+'"></span>' +
     '<span class="karte-txt"><span class="karte-titel"></span>' +
+    (schritt ? '<span class="karte-schritt"></span>' : '') +
     (unten.length ? '<span class="karte-unter"></span>' : '') + '</span>' +
     (faellig ? '<span class="tage'+(tageBisDatum(q.faellig) <= 0 ? " faellig" : "")+'"></span>' : '');
   b.querySelector(".karte-titel").textContent = q.titel;
+  if(schritt) b.querySelector(".karte-schritt").textContent = "▸ " + schritt;
   if(unten.length){
     const u = b.querySelector(".karte-unter");
     unten.filter(Boolean).forEach(t=>{ const e=document.createElement("span"); e.textContent=t; u.appendChild(e); });
@@ -1169,6 +1186,9 @@ function vorschlagStarten(){
     if(q.ort !== "buch" || q.fertig){ weiter(); return; }
 
     const kontext = [];
+    /* Beim Aussuchen ist der nächste Handgriff die wichtigste Information —
+       daran entscheidet sich, ob das heute geht. */
+    if(q.naechster) kontext.push("▸ " + q.naechster);
     if(q.plan && q.plan.tag === D.tag) kontext.push("heute eingeplant · " + TEIL_WORT[q.plan.teil]);
     if(q.faellig) kontext.push(faelligWort(q.faellig));
     if(q.verschoben >= 2) kontext.push("wartet seit "+q.verschoben+" Tagen");
@@ -1725,10 +1745,13 @@ function blattSchliessen(){ blattGrund.classList.remove("on"); }
 function blattFuerQuest(qid){
   const q = D.quests.find(x=>x.id===qid);
   if(!q) return;
-  blattZeigen('<h3></h3><p class="sub">'+(ETIKETT_WORT[q.etikett]||"")+' · '+GROSSE_WORT[q.grosse||1]+'</p>', b=>{
+  const unterzeile = [ETIKETT_WORT[q.etikett]||"", GROSSE_WORT[q.grosse||1]];
+  if(istEtappe(q)) unterzeile.push(((q.etappe||0) + 1) + ". Etappe");
+  blattZeigen('<h3></h3><p class="sub">'+unterzeile.filter(Boolean).join(" · ")+'</p>', b=>{
     b.querySelector("h3").textContent = q.titel;
     if(!q.fertig){
       b.appendChild(machKnopf("✓ Quest abgeschlossen", "stark", ()=>{ erledigen(q.id); blattSchliessen(); }));
+      b.appendChild(machKnopf("▸ Ein Stück geschafft", "", ()=> etappeGeschafft(q.id)));
       b.appendChild(machKnopf("🎯 5 Minuten Anlauf", "", ()=>{ blattSchliessen(); anlaufStarten(q.id); }));
     }
     if(q.ort !== "heute" && !q.fertig){
@@ -1741,6 +1764,8 @@ function blattFuerQuest(qid){
     b.appendChild(machKnopf(q.faellig ? "Frist ändern — " + faelligWort(q.faellig) : "Bis wann?", "ruhig", ()=> faelligBlatt(q.id)));
     b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
     b.appendChild(machKnopf("Klein machen", "ruhig", ()=> kleinMachen(q.id)));
+    b.appendChild(machKnopf(q.naechster ? "Nächsten Schritt ändern" : "Nächsten Schritt notieren",
+      "ruhig", ()=> naechsterBlatt(q.id, false)));
     b.appendChild(machKnopf("Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
     b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
       D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); blattSchliessen(); zeichnen();
@@ -1827,23 +1852,83 @@ function wennDannBlatt(qid){
   });
 }
 
+/* ═══════════ Etappen ═══════════
+   „Staubsauger zurückschicken" sind in Wahrheit mehrere Schritte. Als eine
+   Aufgabe wirkt es riesig, als Liste von Teilschritten blockiert es — und ein
+   erledigter Teilschritt ließ sich bisher nicht feiern. Das Zerlegen selbst
+   ist die Arbeit, die lähmt. Deshalb wird hier NIE nach einem Plan gefragt,
+   sondern immer nur nach dem einen nächsten Handgriff, und zwar hinterher:
+   dann weiß man ihn ohnehin, weil man gerade dringesteckt hat. */
+const GOLD_ETAPPE = 1;
+
+function etappeGeschafft(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q || q.fertig) return;
+  q.etappe = (q.etappe||0) + 1;
+  q.verschoben = 0;
+  /* Ein Stück war der Beitrag für heute — der Tag ist wieder frei. Wer im
+     Fluss ist, holt es sich auf dem Lob-Blatt sofort zurück. */
+  q.ort = "buch";
+  D.gold += GOLD_ETAPPE;
+  D.geschafft.push(q.titel + " · " + q.etappe + ". Etappe");
+  sichern(); zeichnen();
+  naechsterBlatt(qid, true);
+}
+
+function naechsterBlatt(qid, nachEtappe){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  const kopf = nachEtappe
+    ? '<h3>Ein Stück geschafft</h3><p class="sub"></p>' +
+      '<p class="mini" style="margin:2px 0 8px">Was ist als Nächstes dran?</p>'
+    : '<h3>Nächster Schritt</h3>' +
+      '<p class="sub">Nur der eine nächste Handgriff — kein Plan. Den Rest siehst du, wenn du dort bist.</p>';
+  blattZeigen(kopf + '<input class="feld" id="schritt-feld" placeholder="z. B. verpacken">', b=>{
+    if(nachEtappe){
+      b.querySelector(".sub").textContent =
+        "+" + GOLD_ETAPPE + " Gold für die " + q.etappe + ". Etappe von " + kurz(q.titel) + ".";
+    }
+    const feld = b.querySelector("#schritt-feld");
+    feld.value = q.naechster || "";
+    const merken = ()=>{ q.naechster = feld.value.trim(); sichern(); };
+
+    b.appendChild(machKnopf("Merken", "stark", ()=>{ merken(); blattSchliessen(); zeichnen(); }));
+    const fach = freiesFach(1);
+    if(fach) b.appendChild(machKnopf("Merken und gleich weiter", "", ()=>{
+      merken(); q.ort = "heute"; q.fach = fach; sichern(); blattSchliessen(); zeichnen();
+    }));
+    /* Muss immer erlaubt sein. Eine Pflichtangabe, die sie gerade nicht weiß,
+       führt dazu, dass sie den Knopf nie wieder drückt. */
+    b.appendChild(machKnopf("Weiß ich noch nicht", "ruhig", ()=>{
+      q.naechster = ""; sichern(); blattSchliessen(); zeichnen();
+    }));
+    setTimeout(()=>feld.focus(), 60);
+  });
+}
+
 /* ═══════════ Abschließen und Gold ═══════════ */
 const GOLD = {spass:1, neutral:3, zaeh:5};
 function erledigen(qid){
   const q = D.quests.find(x=>x.id===qid); if(!q || q.fertig) return;
   q.fertig = true; q.fertigAm = D.tag;
+  /* Der volle Betrag kommt erst beim Ankommen — die Etappen davor waren
+     Zwischenstopps zu je 1 Gold. Der Sechser-Jackpot gilt nur hier: bei
+     1 Gold zu verdoppeln wäre ein trauriger Jackpot. */
   let g = (GOLD[q.etikett] || 3) * (q.grosse || 1);
   const bonus = Math.floor(Math.random()*6) === 0;
   if(bonus) g *= 2;
   D.gold += g;
+  const etappen = (q.etappe||0) + 1;
+  q.naechster = "";
   D.geschafft.push(q.titel);
   sichern(); zeichnen();
-  lobZeigen(q.titel, g, bonus, q.etikett);
+  lobZeigen(q.titel, g, bonus, q.etikett, etappen > 1 ? etappen : 0);
 }
 
-function lobZeigen(titel, g, bonus, etikett){
+function lobZeigen(titel, g, bonus, etikett, etappen){
   const rest = D.quests.filter(q=>q.ort==="heute" && !q.fertig);
   let text = bonus ? "Bonuswurf! Doppeltes Gold." : "";
+  /* Erst hier wird verraten, wie viele es waren. Vorher hätte die Zahl nur
+     den Berg gezeigt; jetzt steht man oben. */
+  if(etappen) text = "In " + etappen + " Etappen geschafft. " + text;
   if(!rest.length) text = "Heute ist alles durch. " + text;
   const marke = blattZeigen('<h3>+'+g+' Gold</h3><p class="sub"></p>', b=>{
     b.querySelector(".sub").textContent = text || ("„"+kurz(titel)+"“ ist erledigt.");
@@ -1870,8 +1955,11 @@ document.getElementById("wuerfel").addEventListener("click", ()=>{
       b=> b.appendChild(machKnopf("Alles klar","stark",blattSchliessen))), 640);
     return;
   }
-  const letzterTitel = D.geschafft[D.geschafft.length-1];
-  const letzteWarZaeh = D.quests.some(q=>q.fertig && q.titel===letzterTitel && q.etikett==="zaeh");
+  /* Auch eine Etappe war Arbeit — nach etwas Zähem soll der Würfel etwas
+     Leichtes ziehen, egal ob die Sache fertig wurde oder nur ein Stück. Der
+     Eintrag kann „Titel · 3. Etappe" heißen, deshalb vorne abschneiden. */
+  const letzterTitel = (D.geschafft[D.geschafft.length-1] || "").split(" · ")[0];
+  const letzteWarZaeh = D.quests.some(q=>q.titel===letzterTitel && q.etikett==="zaeh");
   const leicht = topf.filter(q=>q.etikett!=="zaeh");
   const auswahl = (letzteWarZaeh && leicht.length) ? leicht : topf;
   const treffer = auswahl[Math.floor(Math.random()*auswahl.length)];
