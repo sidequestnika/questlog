@@ -121,6 +121,9 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
 .pip.voll.drueber{background:var(--accent);border-style:solid}
 .akku-rast{font-size:12px;color:var(--calm);margin-top:7px;font-weight:600}
 .akku-rast:empty{display:none}
+/* Eine offene Morgenfrage ist keine Warnung — sie soll auffallen, ohne zu
+   mahnen. Deshalb die Akzentfarbe, nicht die Achtungsfarbe. */
+.akku-rast.offen{color:var(--accent)}
 
 /* Abschnittszeile wie eine Kapitelüberschrift im Buch: Raute, Wort, Linie.
    Zurückhaltend — Zierde an wenigen tragenden Stellen, nicht überall. */
@@ -430,7 +433,11 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
        etwas drauf steht — genau das ist der Punkt: nichts wiederfinden müssen. -->
   <div class="handgriffe">
     <button class="handgriff" id="rast-knopf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.2c2.4 2.6 3.6 4.6 3.6 6.4a3.6 3.6 0 0 1-7.2 0c0-1 .5-2 1.4-3 .3 1 .8 1.6 1.5 1.9-.2-1.8.1-3.5.7-5.3z"/><path d="M4.6 19.4 19.4 15.2M19.4 19.4 4.6 15.2"/></svg><span id="rast-knopf-text">Kurze Rast</span></button>
-    <button class="handgriff" id="zettel-knopf" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9.4a3 3 0 0 1 6 0"/><path d="M4.2 9.4h15.6"/><path d="M5.8 9.4 7.1 18.5a1.7 1.7 0 0 0 1.7 1.4h6.4a1.7 1.7 0 0 0 1.7-1.4l1.3-9.1"/><path d="M10.1 12.6v4.1M13.9 12.6v4.1"/></svg><span id="zettel-knopf-text">Zettel</span></button>
+    <!-- Die erste Fassung war ein Mülleimer: Deckelbügel oben, sich verjüngender
+         Behälter, zwei senkrechte Striche darin. Gemeint war ein Einkaufskorb.
+         Jetzt dieselbe Schriftrolle wie bei den Aufträgen — nur mit Haken und
+         Zeile statt zweier Zeilen: dieselbe Familie, andere Aufgabe. -->
+    <button class="handgriff" id="zettel-knopf" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.4 4.4h9.2v13.2a2.6 2.6 0 0 1-2.6 2.6H7.4z"/><path d="M7.4 4.4a2.2 2.2 0 1 0 0 4.4h9.2"/><path d="m9.8 12.7 1.5 1.5 3.1-3.2"/><path d="M10.4 16.8h4.2"/></svg><span id="zettel-knopf-text">Zettel</span></button>
     <button class="handgriff" id="heute-neu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.6v12.8M5.6 12h12.8"/></svg><span>Eingefallen</span></button>
   </div>
 
@@ -701,14 +708,19 @@ function vereinen(vorschlaege, eigene){
 }
 
 const START = {
-  v:3, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  v:5, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
   /* null heißt: folge dem Telefon. "light"/"dark" nageln es fest. */
   thema:null,
   /* null heißt: alle Reiter. Sonst die Namen der Ansichten, die unten stehen. */
   leiste:null, ton:true,
   heuteAusdauer:null, rastHeute:0,
-  /* Die Tagesform wird morgens einmal gefragt und gilt nur für heute. */
-  tagesfrage:null, ruhetag:null,
+  /* Die Tagesform wird morgens einmal gefragt und gilt nur für heute.
+     tagesfrage = beantwortet an diesem Tag. formGezeigt = das Blatt hat sich
+     heute schon einmal von selbst gemeldet; es drängelt nicht nach, aber die
+     Frage bleibt offen und über den Ausdauer-Knopf erreichbar.
+     formWert = der gewählte Grundwert OHNE Erholung — nur so lässt sich später
+     noch erkennen, welche Antwort gilt. */
+  tagesfrage:null, formGezeigt:null, formWert:null, ruhetag:null,
   /* Die fünf Vorschläge des Tages und wie oft sie schon dran waren. */
   rastTag:null, rastAuswahl:[], rastGetan:{}, rastLetzte:null,
   /* Wie viel abends nachgetragen wurde — nur für den Gold-Deckel. */
@@ -796,6 +808,16 @@ function laden(){
         alt.kampagnen = alt.kampagnen.concat(START.kampagnen);
       alt.energie = alt.energie || [];
       alt.v = 4;
+    }
+    /* v5: Die Morgenfrage merkte sich früher „gestellt", bevor sie beantwortet
+       war — ein Fehltipp verbrannte sie für den ganzen Tag. Wer aus dieser
+       Fassung kommt, hat womöglich ein „beantwortet" stehen, ohne je geantwortet
+       zu haben. Daran erkennbar, dass kein formWert danebensteht: dann die Frage
+       wieder aufmachen, statt den Tag stumm auf der Vorgabe stehen zu lassen. */
+    if(alt.v < 5){
+      if(alt.tagesfrage && (alt.formWert === null || alt.formWert === undefined))
+        alt.tagesfrage = null;
+      alt.v = 5;
     }
     return Object.assign(frisch, alt);
   }
@@ -909,6 +931,8 @@ function tagPruefen(){
   /* Die Tagesform gilt nur für einen Tag — morgen wird neu gefragt, und die
      fünf Erholungs-Vorschläge werden neu gezogen. */
   D.tagesfrage = null;
+  D.formGezeigt = null;
+  D.formWert = null;
   D.ruhetag = null;
   D.rastTag = null;
   D.rastAuswahl = [];
@@ -1095,9 +1119,16 @@ function akkuZeichnen(){
     p.className = "pip" + (i < last ? " voll" : "") + (i >= ganz ? " drueber" : "");
     bahn.appendChild(p);
   }
-  document.getElementById("rast-hinweis").textContent =
-    istRuhetag() ? "Heute ist Ruhetag — nichts muss."
-    : (D.rastHeute ? "durch Erholung heute +" + D.rastHeute : "");
+  /* Ist die Morgenfrage noch offen, steht sie hier — sonst wäre sie nach einem
+     Fehltipp bis morgen verschwunden, und die Ausdauer stünde stumm auf der
+     Vorgabe. Antippen führt ins Ausdauer-Blatt, wo die Frage ganz oben steht. */
+  const hinweise = [];
+  if(istRuhetag()) hinweise.push("Heute ist Ruhetag — nichts muss.");
+  else if(D.tagesfrage !== D.tag) hinweise.push("Wie ist der Tag heute? — hier antippen");
+  if(D.rastHeute) hinweise.push("durch Erholung heute +" + D.rastHeute);
+  const hin = document.getElementById("rast-hinweis");
+  hin.textContent = hinweise.join("  ·  ");
+  hin.classList.toggle("offen", !istRuhetag() && D.tagesfrage !== D.tag);
   rastKnopfZeichnen();
 }
 
@@ -1686,32 +1717,62 @@ function tagesform(){
 }
 function istRuhetag(){ return D.ruhetag === D.tag; }
 
+/* Welche Antwort gilt gerade? Nicht aus der Ausdauer zurückrechnen — die
+   enthält die Erholung des Tages. Solange nichts geantwortet wurde, gilt
+   ehrlicherweise die Vorgabe aus dem Lager. */
+function formWertJetzt(){
+  return (D.formWert === null || D.formWert === undefined) ? D.budget : D.formWert;
+}
+
 function tagesformSetzen(wert, ruhe){
   /* Der gewählte Wert ist die Grundlage — was sie sich heute schon erholt hat,
      bleibt oben drauf. Würde das hier zurückgesetzt, ließe sich der Deckel der
      Kurzen Rast durch bloßes Umstellen wieder aufmachen. */
+  D.formWert = wert;
   D.heuteAusdauer = wert + (ruhe ? 0 : (D.rastHeute||0));
   D.ruhetag = ruhe ? D.tag : null;
+  /* Eine Antwort ist eine Antwort — egal ob sie morgens auf dem Blatt kam oder
+     nachmittags über den Ausdauer-Knopf. */
+  D.tagesfrage = D.tag;
   sichern();
 }
 
+/* Die Knöpfe stehen an zwei Stellen: auf dem Morgenblatt und im Ausdauer-Blatt.
+   Es ist dieselbe Frage, also dieselben Knöpfe — nur einmal geschrieben. */
+function tagesformKnoepfe(b, danach){
+  tagesform().forEach(([wort, wert, ruhe])=>{
+    const an = ruhe ? istRuhetag()
+                    : (!istRuhetag() && D.tagesfrage === D.tag && formWertJetzt() === wert);
+    b.appendChild(machKnopf(wort, an ? "stark" : "", ()=>{
+      tagesformSetzen(wert, ruhe);
+      danach(wert, ruhe);
+    }));
+  });
+}
+
+/* Früher stand hier „D.tagesfrage = D.tag" VOR dem Blatt — wer daneben tippte,
+   hatte die Frage für den ganzen Tag verbrannt, ohne sie je gelesen zu haben.
+   Genau das ist ihr passiert. Jetzt gilt: gemerkt wird nur, dass sich das Blatt
+   heute schon einmal von selbst gemeldet hat. Es drängelt danach nicht nach —
+   aber die Frage bleibt offen und steht sichtbar auf dem Ausdauer-Knopf. */
 function tagesfrageZeigen(){
   if(D.tagesfrage === D.tag) return;
+  if(D.formGezeigt === D.tag) return;
   if(blattGrund.classList.contains("on")) return;
-  /* Sofort als gefragt merken: wer die Frage wegtippt, soll nicht nachgehakt
-     bekommen. Dann gilt einfach die Vorgabe. */
-  D.tagesfrage = D.tag; sichern();
+  D.formGezeigt = D.tag; sichern();
+  tagesfrageBlatt();
+}
+
+function tagesfrageBlatt(){
   blattZeigen('<h3>Wie ist der Tag heute?</h3>' +
     '<p class="sub">Das gilt nur für heute. Morgen fängt es wieder bei deiner Vorgabe an.</p>', b=>{
-    tagesform().forEach(([wort, wert, ruhe])=>{
-      b.appendChild(machKnopf(wort, "", ()=>{
-        tagesformSetzen(wert, ruhe);
-        blattSchliessen(); zeichnen();
-        /* An einem schmalen Tag kommt gleich die Stichfrage hinterher: nicht
-           „was ist wichtig", sondern „wenn nur eins geht, welches?". */
-        if(!ruhe && wert <= 3) stichfrageZeigen();
-      }));
+    tagesformKnoepfe(b, (wert, ruhe)=>{
+      blattSchliessen(); zeichnen();
+      /* An einem schmalen Tag kommt gleich die Stichfrage hinterher: nicht
+         „was ist wichtig", sondern „wenn nur eins geht, welches?". */
+      if(!ruhe && wert <= 3) stichfrageZeigen();
     });
+    b.appendChild(machKnopf("Später", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
 }
 
@@ -1727,12 +1788,7 @@ function ausdauerBlatt(){
     const l1 = document.createElement("p");
     l1.className = "mini"; l1.style.margin = "0 0 8px"; l1.textContent = "Wie ist der Tag heute?";
     b.appendChild(l1);
-    tagesform().forEach(([wort, wert, ruhe])=>{
-      const an = ruhe ? istRuhetag() : (!istRuhetag() && ausdauerHeute() === wert);
-      b.appendChild(machKnopf(wort, an ? "stark" : "", ()=>{
-        tagesformSetzen(wert, ruhe); zeichnen(); ausdauerBlatt();
-      }));
-    });
+    tagesformKnoepfe(b, ()=>{ zeichnen(); ausdauerBlatt(); });
 
     const l2 = document.createElement("p");
     l2.className = "mini"; l2.style.margin = "20px 0 8px"; l2.textContent = "Erholung — lädt auf, kostet nichts";
@@ -2324,6 +2380,36 @@ function frageZeichnen(){
   halter.appendChild(box);
 }
 
+/* Heute-Seite und Wochenplan sind zwei Blicke auf denselben Tag. Wer etwas von
+   Heute wegnimmt, hat es für heute abgesagt — dann darf es nicht weiter im
+   Schiebekalender auf demselben Tag stehen bleiben. Genau das ist ihr mit dem
+   Call passiert: auf Heute raus, im Kalender geblieben. Weil „nicht heute"
+   aber zweierlei heißen kann, fragt die App einmal kurz nach. */
+function nichtHeute(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  const heutePlan = q.plan && q.plan.tag === D.tag;
+  if(!heutePlan){
+    q.ort = "buch"; sichern(); blattSchliessen(); zeichnen();
+    return;
+  }
+  blattZeigen('<h3></h3><p class="sub">Das steht auch in deinem Wochenplan auf heute. Soll es dort stehen bleiben?</p>', b=>{
+    b.querySelector("h3").textContent = q.titel;
+    b.appendChild(machKnopf("Ganz weg von heute", "stark", ()=>{
+      q.ort = "buch"; q.plan = null;
+      sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Auf morgen schieben", "", ()=>{
+      q.ort = "buch";
+      q.plan = {tag: inTagen(1), teil: q.plan.teil, zeit: q.plan.zeit,
+                pos: abschnittStuecke(inTagen(1), q.plan.teil).length};
+      sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Nur von der Heute-Seite runter", "ruhig", ()=>{
+      q.ort = "buch"; sichern(); blattSchliessen(); zeichnen();
+    }));
+  });
+}
+
 function machKnopf(text, art, fn){
   const b = document.createElement("button");
   b.className = "knopf" + (art ? " "+art : "");
@@ -2635,7 +2721,7 @@ function blattFuerQuest(qid){
       b.appendChild(machKnopf("Heute: Sidequest", "", ()=> nachHeute(q.id,"neben")));
       b.appendChild(machKnopf("Heute: Botengang", "", ()=> nachHeute(q.id,"boten")));
     }else if(!q.fertig){
-      b.appendChild(machKnopf("Nicht heute", "", ()=>{ q.ort="buch"; sichern(); blattSchliessen(); zeichnen(); }));
+      b.appendChild(machKnopf("Nicht heute", "", ()=> nichtHeute(q.id)));
     }
     b.appendChild(machKnopf(q.faellig ? "Frist ändern — " + faelligWort(q.faellig) : "Bis wann?", "ruhig", ()=> faelligBlatt(q.id)));
     b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
@@ -3354,9 +3440,12 @@ document.getElementById("budget-wahl").addEventListener("click", e=>{
   const alt = D.budget;
   D.budget = Number(b.dataset.b);
   /* Nur die Vorgabe. Heute wird mitgezogen, solange heute auf „Normal" steht —
-     hat sie den Tag morgens anders eingeschätzt, bleibt das stehen. */
-  if(!istRuhetag() && ausdauerHeute() === alt + (D.rastHeute || 0))
+     hat sie den Tag morgens anders eingeschätzt, bleibt das stehen. Gerechnet
+     wird auf dem Grundwert, nicht auf der Ausdauer: die enthält die Erholung. */
+  if(!istRuhetag() && formWertJetzt() === alt){
+    D.formWert = D.budget;
     D.heuteAusdauer = D.budget + (D.rastHeute || 0);
+  }
   sichern(); zeichnen();
 });
 
