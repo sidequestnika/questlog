@@ -66,7 +66,7 @@ input,textarea{font:inherit;color:inherit}
 .datum{font-size:12px;color:var(--ink-faint);letter-spacing:.1em;text-transform:uppercase;margin:0 0 4px}
 
 /* ————— Ausdauer ————— */
-.akku{display:block;width:100%;text-align:left;margin-bottom:22px;padding:0}
+.akku{display:block;width:100%;text-align:left;margin-bottom:12px;padding:0}
 .akku:active{opacity:.7}
 .akku-zeile{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-soft);margin-bottom:8px}
 .akku-punkte{display:flex;gap:5px;flex-wrap:wrap}
@@ -255,6 +255,23 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   border-radius:12px;border:1px dashed var(--line)}
 .tagnotiz.viel{color:var(--warn);font-weight:600}
 
+/* ————— Kurze Rast ————— */
+.rast-knopf{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  padding:12px 16px;border-radius:14px;background:var(--surface);border:1px solid var(--line);
+  font-size:15px;font-weight:600;color:var(--ink-soft);margin:0 0 22px}
+.rast-knopf:active{transform:scale(.99)}
+.rast-knopf.getan{border-color:color-mix(in srgb,var(--calm) 50%,var(--line));color:var(--ink)}
+
+/* ————— Kacheln zum An- und Abwählen ————— */
+.kacheln{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}
+.kachel{padding:9px 13px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);
+  font-size:14px;line-height:1.2;color:var(--ink-faint);text-align:left}
+.kachel:active{transform:scale(.97)}
+.kachel.an{border-color:var(--accent);color:var(--ink);
+  background:color-mix(in srgb,var(--accent) 15%,var(--surface-2))}
+.kachel.eigen{border-color:var(--calm);color:var(--ink);
+  background:color-mix(in srgb,var(--calm) 15%,var(--surface-2))}
+
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
 
@@ -292,6 +309,8 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
     <div class="akku-punkte" id="akku-punkte"></div>
     <div class="akku-rast" id="rast-hinweis"></div>
   </button>
+
+  <button class="rast-knopf" id="rast-knopf"><span>☕</span><span id="rast-knopf-text">Kurze Rast</span></button>
 
   <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
@@ -364,7 +383,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   <div class="beutel">
     <div class="beutel-zahl" id="gold-zahl">0</div>
     <div class="beutel-wort">Gold im Beutel</div>
-    <button class="knopf stark" id="gold-einloesen" style="margin-top:16px">Einlösen</button>
+    <button class="knopf stark" id="gold-einloesen" style="margin-top:16px">Belohnung einlösen</button>
   </div>
 
   <p class="label">Speicher</p>
@@ -372,11 +391,11 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
 
   <p class="label">Deine Listen</p>
-  <p class="hinweis" style="margin:0 0 4px">Eine Sache pro Zeile. <strong>Überschreib die Beispiele</strong> — mit fremden Vorschlägen funktioniert das nicht.</p>
+  <p class="hinweis" style="margin:0 0 4px">Bei den Textfeldern: eine Sache pro Zeile. <strong>Überschreib die Beispiele</strong> — mit fremden Vorschlägen funktioniert das nicht.</p>
   <div id="listen-felder"></div>
 
   <p class="label">Ausdauer an einem normalen Tag</p>
-  <p class="hinweis" style="margin:0 0 12px">Der Startwert für jeden neuen Tag. Für heute kannst du ihn oben auf der Heute-Seite jederzeit ändern.</p>
+  <p class="hinweis" style="margin:0 0 12px">Nur die <strong>Vorgabe</strong> — jeden Morgen fragt die App einmal, wie der Tag wirklich ist, und das gilt dann nur für heute.</p>
   <div class="wahl" id="budget-wahl">
     <button data-b="4">Wenig</button>
     <button data-b="6">Normal</button>
@@ -448,22 +467,66 @@ function speicherPruefen(){
   }catch(e){ letzterFehler = e.name + ": " + e.message; return false; }
 }
 
+/* Vorschläge für die Kurze Rast — kurze Resets fürs Nervensystem, bewusst nach
+   Wirkweise gemischt: Bewegung, Stimme und Atem (Vagusnerv), Kälte, Schwere,
+   Auftanken, kleine Freude. Sie wirft raus, was nicht ihrs ist; gewürfelt wird
+   nur aus dem Rest. Mit fremden Vorschlägen allein funktioniert das nicht. */
+const ERHOLUNG_POOL = [
+  "Einmal um den Block",
+  "Ein Lied lang tanzen",
+  "Zehn Hampelmänner",
+  "Treppe zweimal hoch und runter",
+  "Sich einmal richtig lang strecken",
+  "Ein Lied laut mitsingen",
+  "Eine Minute summen",
+  "Dreimal tief atmen — 4 ein, 7 halten, 8 aus",
+  "Gesicht kalt abwaschen",
+  "Kaltes Wasser über die Handgelenke",
+  "Fenster auf, eine Minute Luft ins Gesicht",
+  "Fünf Minuten unter die schwere Decke",
+  "Sich fest einwickeln",
+  "Zwanzig Minuten hinlegen",
+  "Nickerchen",
+  "Duschen",
+  "Baden",
+  "In Ruhe etwas essen, ohne Bildschirm",
+  "Ein Glas Wasser langsam trinken",
+  "Raus in die Sonne, drei Minuten",
+  "Eine einzige Fläche aufräumen"
+];
+const RAST_PLUS = 2;    /* was eine Erholung an Ausdauer zurückbringt */
+const RAST_DECKEL = 6;  /* ab hier ist der Tank voll — Erholung geht weiter, nur ohne Punkte */
+const RAST_ANZAHL = 5;  /* wie viele Vorschläge pro Tag gezogen werden */
+
+function vereinen(vorschlaege, eigene){
+  const raus = vorschlaege.slice();
+  (eigene||[]).filter(Boolean).forEach(x=>{ if(!raus.includes(x)) raus.push(x); });
+  return raus;
+}
+
 const START = {
-  v:2, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  v:3, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
   heuteAusdauer:null, rastHeute:0,
+  /* Die Tagesform wird morgens einmal gefragt und gilt nur für heute. */
+  tagesfrage:null, ruhetag:null,
+  /* Die fünf Vorschläge des Tages und wie oft sie schon dran waren. */
+  rastTag:null, rastAuswahl:[], rastGetan:{},
   quests:[], gefaehrten:[], termine:[],
   /* Drei verschiedene Dinge, die man nicht verwechseln darf:
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
-  erholung:["Baden","Nickerchen","Duschen","Eine Runde spazieren","Zwanzig Minuten hinlegen","In Ruhe etwas essen"],
-  begleitung:["Hörbuch","Lieblingsalbum laut","Podcast","Fenster auf und Musik an"],
+  erholung: ERHOLUNG_POOL.slice(),
+  begleitung:["Hörbuch","Lieblingsalbum laut","Podcast","Fenster auf und Musik an","Serie nebenher","Trash TV","YouTube nebenher"],
   belohnung:{
     klein:["Heiße Schokolade","Eine Folge von der Lieblingsserie","Eine Stunde häkeln"],
-    gross:["Etwas bestellen, worauf du Lust hast","Ein ganzer Abend nur für dich","Ein neues Knäuel Wolle"]
+    mittel:["Etwas bestellen, worauf du Lust hast","Ein ganzer Abend nur für dich","Ein neues Knäuel Wolle"],
+    gross:["Ins Kino gehen","Ein ganzer Tag nur für dich","Etwas Größeres, das du dir länger wünschst"]
   },
   geschafft:[], letzterAbschluss:null, letzterVorschlag:null
 };
-const PREIS = {klein:10, gross:25};
+/* Maßstab: klein = ein guter Tag, groß = eine gute Woche. Geschätzt, nicht
+   gemessen — nach ein paar Wochen nachziehen, wenn es nicht hinkommt. */
+const PREIS = {klein:10, mittel:25, gross:50};
 
 let D;
 function laden(){
@@ -481,6 +544,21 @@ function laden(){
       alt.erholung = alt.proviant.klein || [];
       alt.belohnung = {klein: alt.proviant.gross || [], gross: alt.proviant.schatz || []};
       delete alt.proviant;
+    }
+    /* v3: Erholungs-Pool, Begleiter-Vorschläge, dritte Belohnungsstufe.
+       Selbst Eingetragenes bleibt — die Vorschläge kommen nur dazu. Was bisher
+       „groß" hieß, kostete 25 Gold; das ist jetzt die mittlere Stufe, damit die
+       Preise sich ändern können, ohne ihre Einträge umzudeuten. */
+    if(!alt.v || alt.v < 3){
+      alt.erholung   = vereinen(ERHOLUNG_POOL, alt.erholung);
+      alt.begleitung = vereinen(START.begleitung, alt.begleitung);
+      const b = alt.belohnung || {};
+      alt.belohnung = {
+        klein:  (b.klein || START.belohnung.klein).slice(),
+        mittel: (b.gross || START.belohnung.mittel).slice(),
+        gross:  START.belohnung.gross.slice()
+      };
+      alt.v = 3;
     }
     return Object.assign(frisch, alt);
   }
@@ -558,6 +636,13 @@ function tagPruefen(){
   D.heuteAusdauer = D.budget;
   D.rastHeute = 0;
   D.letzterVorschlag = null;
+  /* Die Tagesform gilt nur für einen Tag — morgen wird neu gefragt, und die
+     fünf Erholungs-Vorschläge werden neu gezogen. */
+  D.tagesfrage = null;
+  D.ruhetag = null;
+  D.rastTag = null;
+  D.rastAuswahl = [];
+  D.rastGetan = {};
   if(!ersterStart){
     D.quests.forEach(q=>{
       /* Nicht Geschafftes bleibt NICHT stehen, sondern geht zurück ins
@@ -634,6 +719,9 @@ function zeichnen(){
   document.getElementById("gold-zahl").textContent = D.gold;
   budgetZeichnen();
   zustandZeichnen();
+  /* Am Ruhetag soll der Würfel keine Arbeit anbieten. */
+  if(istRuhetag()) document.getElementById("wuerfel-halter").style.display = "none";
+  tagesfrageZeigen();
 }
 
 function warnungZeichnen(){
@@ -664,7 +752,8 @@ function akkuZeichnen(){
   const last = ausdauerVerbraucht();
   const ganz = ausdauerHeute();
   document.getElementById("akku-text").textContent =
-    last >= ganz ? "voll — mehr wäre zu viel" : last + " von " + ganz;
+    istRuhetag() ? "Ruhetag" :
+    (last >= ganz ? "voll — mehr wäre zu viel" : last + " von " + ganz);
 
   /* Zählbare Punkte statt eines Balkens: „noch zwei" liest sich schneller
      als ein Balken, den man schätzen muss. */
@@ -677,8 +766,93 @@ function akkuZeichnen(){
     bahn.appendChild(p);
   }
   document.getElementById("rast-hinweis").textContent =
-    D.rastHeute ? "durch Erholung heute +" + D.rastHeute : "";
+    istRuhetag() ? "Heute ist Ruhetag — nichts muss."
+    : (D.rastHeute ? "durch Erholung heute +" + D.rastHeute : "");
+  rastKnopfZeichnen();
 }
+
+/* ═══════════ Kurze Rast ═══════════
+   Erholung lädt auf und kostet nichts. Der Deckel gilt fürs Gutschreiben,
+   nicht fürs Tun — an einem miesen Tag darf sie sich so oft zurückholen, wie
+   sie braucht; ab RAST_DECKEL gibt es nur keine Punkte mehr dafür. */
+function rastGetanGesamt(){
+  return Object.keys(D.rastGetan||{}).reduce((a,k)=>a + (D.rastGetan[k]||0), 0);
+}
+function rastKnopfZeichnen(){
+  const knopf = document.getElementById("rast-knopf");
+  const text = document.getElementById("rast-knopf-text");
+  if(!text) return;
+  const wie = rastGetanGesamt();
+  text.textContent = wie ? "Kurze Rast · heute " + wie + "×" : "Kurze Rast";
+  knopf.classList.toggle("getan", wie > 0);
+}
+
+function ziehen(liste, n){
+  const topf = liste.slice(), raus = [];
+  while(topf.length && raus.length < n)
+    raus.push(topf.splice(Math.floor(Math.random()*topf.length), 1)[0]);
+  return raus;
+}
+
+/* Fünf Vorschläge pro Tag statt der ganzen Liste: zwanzig zur Auswahl heißt,
+   man entscheidet sich für gar nichts. Sie bleiben den Tag über stehen. */
+function rastAuswahlHolen(){
+  const alle = (D.erholung||[]).filter(Boolean);
+  if(D.rastTag !== D.tag || !Array.isArray(D.rastAuswahl) || !D.rastAuswahl.length){
+    D.rastTag = D.tag;
+    D.rastAuswahl = ziehen(alle, RAST_ANZAHL);
+    sichern();
+  }
+  /* Was sie inzwischen aus ihrer Liste geworfen hat, soll nicht als Geist
+     stehenbleiben. */
+  const gezogen = D.rastAuswahl.filter(x=>alle.includes(x));
+  return gezogen.length ? gezogen : alle.slice(0, RAST_ANZAHL);
+}
+
+function rastBlatt(alleZeigen){
+  const alle = (D.erholung||[]).filter(Boolean);
+  const zeigen = alleZeigen ? alle : rastAuswahlHolen();
+  const rest = Math.max(0, RAST_DECKEL - (D.rastHeute||0));
+
+  blattZeigen('<h3>Kurze Rast</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent = rest
+      ? "Kostet nichts. Tipp an, was du gemacht hast — du bekommst Ausdauer zurück. Das ist keine Belohnung, sondern Auftanken."
+      : "Aufgeladen ist heute schon genug. Mach es trotzdem, wenn du es brauchst — es tut ja nicht weniger gut.";
+
+    if(!alle.length){
+      const p = document.createElement("p");
+      p.className = "hinweis";
+      p.textContent = "Deine Erholungsliste ist leer. Im Rastplatz kannst du dir welche aussuchen.";
+      b.appendChild(p);
+    }
+
+    zeigen.forEach(w=>{
+      const wie = (D.rastGetan||{})[w] || 0;
+      const plus = Math.min(RAST_PLUS, rest);
+      b.appendChild(machKnopf(
+        w + (wie ? "  ×"+wie : "") + (plus ? "   ＋"+plus : ""),
+        wie ? "stark" : "",
+        ()=>{
+          const hoehe = blattEl.scrollTop;
+          D.rastGetan = D.rastGetan || {};
+          D.rastGetan[w] = (D.rastGetan[w]||0) + 1;
+          if(plus){
+            D.heuteAusdauer = ausdauerHeute() + plus;
+            D.rastHeute = (D.rastHeute||0) + plus;
+          }
+          sichern(); zeichnen();
+          rastBlatt(alleZeigen);
+          blattEl.scrollTop = hoehe;
+        }
+      ));
+    });
+
+    if(!alleZeigen && alle.length > zeigen.length)
+      b.appendChild(machKnopf("Alle zeigen", "ruhig", ()=> rastBlatt(true)));
+    b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+document.getElementById("rast-knopf").addEventListener("click", ()=> rastBlatt(false));
 
 const ETIKETT_WORT = {spass:"🔥 macht Spaß", neutral:"😐 geht so", zaeh:"🧱 zäh"};
 const GROSSE_WORT = {1:"klein", 2:"mittel", 3:"groß"};
@@ -781,6 +955,46 @@ function ausdauerVerbraucht(){
   return D.quests.filter(q=>q.ort==="heute" && !q.fertig).reduce((a,q)=>a+kosten(q), 0);
 }
 
+/* ═══════════ Tagesform ═══════════
+   Der Wert im Rastplatz ist nur die Vorgabe für einen normalen Tag. Wie der Tag
+   wirklich ist, weiß man erst morgens — und im Menü umstellen hieße, es abends
+   wieder zurückstellen. Also einmal am Tag gefragt, gilt nur für heute. */
+function tagesform(){
+  return [
+    ["Schmal — heute geht wenig", 3, false],
+    ["Normal", D.budget, false],
+    ["Viel Kraft", 9, false],
+    ["Ruhetag — heute nichts", 2, true]
+  ];
+}
+function istRuhetag(){ return D.ruhetag === D.tag; }
+
+function tagesformSetzen(wert, ruhe){
+  /* Der gewählte Wert ist die Grundlage — was sie sich heute schon erholt hat,
+     bleibt oben drauf. Würde das hier zurückgesetzt, ließe sich der Deckel der
+     Kurzen Rast durch bloßes Umstellen wieder aufmachen. */
+  D.heuteAusdauer = wert + (ruhe ? 0 : (D.rastHeute||0));
+  D.ruhetag = ruhe ? D.tag : null;
+  sichern();
+}
+
+function tagesfrageZeigen(){
+  if(D.tagesfrage === D.tag) return;
+  if(blattGrund.classList.contains("on")) return;
+  /* Sofort als gefragt merken: wer die Frage wegtippt, soll nicht nachgehakt
+     bekommen. Dann gilt einfach die Vorgabe. */
+  D.tagesfrage = D.tag; sichern();
+  blattZeigen('<h3>Wie ist der Tag heute?</h3>' +
+    '<p class="sub">Das gilt nur für heute. Morgen fängt es wieder bei deiner Vorgabe an.</p>', b=>{
+    tagesform().forEach(([wort, wert, ruhe])=>{
+      b.appendChild(machKnopf(wort, "", ()=>{
+        tagesformSetzen(wert, ruhe);
+        blattSchliessen(); zeichnen();
+      }));
+    });
+  });
+}
+
 /* Ausdauer ist keine feste Zahl. Manche Tage sind schmal, und Erholung
    bringt echte Kraft zurück — deshalb lässt sich beides von Hand nachziehen. */
 function ausdauerBlatt(){
@@ -791,28 +1005,19 @@ function ausdauerBlatt(){
     'vor der du dich drückst.<br><br>Gerade: <strong>' + last + ' von ' + ganz + '</strong> verplant.</p>', b=>{
 
     const l1 = document.createElement("p");
-    l1.className = "mini"; l1.style.margin = "0 0 8px"; l1.textContent = "Wie viel hast du heute?";
+    l1.className = "mini"; l1.style.margin = "0 0 8px"; l1.textContent = "Wie ist der Tag heute?";
     b.appendChild(l1);
-    [["Wenig — schmaler Tag",3],["Normal",6],["Viel Kraft",9]].forEach(([w,n])=>{
-      b.appendChild(machKnopf(w, ausdauerHeute()===n ? "stark" : "", ()=>{
-        D.heuteAusdauer = n; D.rastHeute = 0; sichern(); zeichnen(); ausdauerBlatt();
+    tagesform().forEach(([wort, wert, ruhe])=>{
+      const an = ruhe ? istRuhetag() : (!istRuhetag() && ausdauerHeute() === wert);
+      b.appendChild(machKnopf(wort, an ? "stark" : "", ()=>{
+        tagesformSetzen(wert, ruhe); zeichnen(); ausdauerBlatt();
       }));
     });
 
     const l2 = document.createElement("p");
     l2.className = "mini"; l2.style.margin = "20px 0 8px"; l2.textContent = "Erholung — lädt auf, kostet nichts";
     b.appendChild(l2);
-    const hinweis = document.createElement("p");
-    hinweis.className = "hinweis"; hinweis.style.margin = "0 0 10px";
-    hinweis.textContent = "Wenn du etwas davon gemacht hast, tipp es an. Du bekommst Ausdauer zurück — das ist keine Belohnung, sondern Auftanken.";
-    b.appendChild(hinweis);
-    (D.erholung||[]).filter(Boolean).forEach(w=>{
-      b.appendChild(machKnopf(w + "  ＋2", "", ()=>{
-        D.heuteAusdauer = ausdauerHeute() + 2;
-        D.rastHeute = (D.rastHeute||0) + 2;
-        sichern(); zeichnen(); ausdauerBlatt();
-      }));
-    });
+    b.appendChild(machKnopf("☕ Kurze Rast", "", ()=> rastBlatt(false)));
 
     b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
@@ -831,6 +1036,18 @@ function vorschlagZeichnen(){
   const halter = document.getElementById("vorschlag-halter");
   const unten = document.getElementById("nochmal-halter");
   halter.innerHTML = ""; unten.innerHTML = "";
+
+  /* Am Ruhetag schlägt die App nichts vor. Ein Tag ohne Aufgaben ist eine
+     Entscheidung, die sie morgens getroffen hat — kein Tag, an dem etwas fehlt. */
+  if(istRuhetag()){
+    const ruhe = document.createElement("div");
+    ruhe.className = "vorschlag";
+    ruhe.innerHTML = '<h2 class="rund">Ruhetag</h2>' +
+      '<p>Heute steht nichts an. Wenn dir doch nach etwas Kleinem ist, hol es dir aus dem Auftragsbuch — aber nichts muss.</p>';
+    halter.appendChild(ruhe);
+    return;
+  }
+
   const wartet = D.quests.filter(q=>q.ort==="buch" && !q.fertig).length;
   if(!wartet) return;
 
@@ -1830,16 +2047,20 @@ function budgetZeichnen(){
 }
 document.getElementById("budget-wahl").addEventListener("click", e=>{
   const b = e.target.closest("button"); if(!b) return;
+  const alt = D.budget;
   D.budget = Number(b.dataset.b);
-  D.heuteAusdauer = D.budget + (D.rastHeute || 0);
+  /* Nur die Vorgabe. Heute wird mitgezogen, solange heute auf „Normal" steht —
+     hat sie den Tag morgens anders eingeschätzt, bleibt das stehen. */
+  if(!istRuhetag() && ausdauerHeute() === alt + (D.rastHeute || 0))
+    D.heuteAusdauer = D.budget + (D.rastHeute || 0);
   sichern(); zeichnen();
 });
 
 const LISTEN = [
-  ["erholung",       "Erholung", "Lädt Ausdauer auf und kostet nichts. Baden, schlafen, rausgehen."],
-  ["begleitung",     "Begleitung", "Was nebenher laufen darf, wenn etwas zäh ist. Hörbuch, Musik."],
-  ["belohnung.klein","Kleine Belohnung — " + PREIS.klein + " Gold", "Etwas Schönes für zwischendurch."],
-  ["belohnung.gross","Große Belohnung — " + PREIS.gross + " Gold", "Wofür sich das Sparen lohnt."]
+  ["begleitung",      "Begleitung", "Was nebenher laufen darf, wenn etwas zäh ist. Podcast, Musik, Serie."],
+  ["belohnung.klein", "Kleine Belohnung — " + PREIS.klein + " Gold", "Für einen guten Tag."],
+  ["belohnung.mittel","Mittlere Belohnung — " + PREIS.mittel + " Gold", "Etwas mehr als zwischendurch."],
+  ["belohnung.gross", "Große Belohnung — " + PREIS.gross + " Gold", "Wofür sich eine gute Woche lohnt."]
 ];
 function listeHolen(pfad){
   return pfad.includes(".") ? (D.belohnung[pfad.split(".")[1]] || []) : (D[pfad] || []);
@@ -1847,9 +2068,64 @@ function listeHolen(pfad){
 function listeSetzen(pfad, werte){
   if(pfad.includes(".")) D.belohnung[pfad.split(".")[1]] = werte; else D[pfad] = werte;
 }
+/* Erholung ist kein Textfeld mehr. „Überschreib die Beispiele" hat nie
+   funktioniert — sie soll mit einem Tipp rausschmeißen können, was nicht ihrs
+   ist, statt eine fremde Liste abtippen zu müssen. */
+function erholungKachelnZeichnen(){
+  const ziel = document.getElementById("erholung-kacheln");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "kacheln";
+  const drin = (D.erholung||[]).filter(Boolean);
+  const eigene = drin.filter(w => !ERHOLUNG_POOL.includes(w));
+  ERHOLUNG_POOL.concat(eigene).forEach(w=>{
+    const ausPool = ERHOLUNG_POOL.includes(w);
+    const an = drin.includes(w);
+    const k = document.createElement("button");
+    k.className = "kachel" + (ausPool ? (an ? " an" : "") : " eigen");
+    k.textContent = ausPool ? w : w + "  ×";
+    k.addEventListener("click", ()=>{
+      D.erholung = an ? drin.filter(x=>x!==w) : drin.concat([w]);
+      sichern(); erholungKachelnZeichnen();
+    });
+    box.appendChild(k);
+  });
+  ziel.appendChild(box);
+}
+
 function listenZeichnen(){
   const ziel = document.getElementById("listen-felder");
   ziel.innerHTML = "";
+
+  const l = document.createElement("p");
+  l.className = "mini"; l.style.margin = "18px 0 5px";
+  l.textContent = "Erholung — für die Kurze Rast";
+  const e = document.createElement("p");
+  e.className = "hinweis"; e.style.margin = "0 0 10px";
+  e.textContent = "Tipp weg, was nichts für dich ist. Aus dem Rest legt dir die App jeden Tag "
+    + RAST_ANZAHL + " Vorschläge auf die Heute-Seite. Eigene Einträge sind grün — antippen löscht sie.";
+  const kacheln = document.createElement("div");
+  kacheln.id = "erholung-kacheln";
+  ziel.appendChild(l); ziel.appendChild(e); ziel.appendChild(kacheln);
+  erholungKachelnZeichnen();
+
+  const feld = document.createElement("input");
+  feld.className = "feld";
+  feld.placeholder = "Eigene Erholung hinzufügen";
+  feld.setAttribute("enterkeyhint", "done");
+  const dazu = machKnopf("＋ Hinzufügen", "", ()=>{
+    const w = feld.value.trim();
+    if(!w) return;
+    if(!(D.erholung||[]).includes(w)) D.erholung = (D.erholung||[]).concat([w]);
+    feld.value = "";
+    sichern(); erholungKachelnZeichnen();
+  });
+  feld.addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); dazu.click(); }
+  });
+  ziel.appendChild(feld); ziel.appendChild(dazu);
+
   LISTEN.forEach(([pfad,wort,erklaerung])=>{
     const l = document.createElement("p"); l.className="mini"; l.style.margin="18px 0 5px"; l.textContent=wort;
     const e = document.createElement("p"); e.className="hinweis"; e.style.margin="0 0 8px"; e.textContent=erklaerung;
@@ -1866,7 +2142,7 @@ document.getElementById("gold-einloesen").addEventListener("click", ()=>{
   blattZeigen('<h3>Belohnungen</h3><p class="sub">Du hast <strong>' + D.gold + ' Gold</strong>. ' +
     'Erholung steht hier nicht — die ist gratis und wohnt bei der Ausdauer.</p>', b=>{
     let etwasDa = false;
-    [["klein","Kleine Belohnung"],["gross","Große Belohnung"]].forEach(([stufe,wort])=>{
+    [["klein","Kleine Belohnung"],["mittel","Mittlere Belohnung"],["gross","Große Belohnung"]].forEach(([stufe,wort])=>{
       const liste = (D.belohnung[stufe]||[]).filter(Boolean);
       if(!liste.length) return;
       etwasDa = true;
@@ -1974,7 +2250,8 @@ document.querySelector(".tabs-innen").addEventListener("click", e=>{
   t.classList.add("on");
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
   document.getElementById("v-"+t.dataset.v).classList.add("on");
-  document.getElementById("wuerfel-halter").style.display = (t.dataset.v==="heute") ? "flex" : "none";
+  document.getElementById("wuerfel-halter").style.display =
+    (t.dataset.v==="heute" && !istRuhetag()) ? "flex" : "none";
   window.scrollTo(0,0);
 });
 
