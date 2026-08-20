@@ -1207,7 +1207,7 @@ function vorschlagStarten(){
         sichern(); weiter();
       }));
       b.appendChild(machKnopf("Nicht heute", "", weiter));
-      b.appendChild(machKnopf("Klein machen", "ruhig", ()=> kleinMachen(q.id, weiter)));
+      b.appendChild(machKnopf("Womit fange ich an?", "ruhig", ()=> naechsterBlatt(q.id, {erster:true, danach:weiter})));
       b.appendChild(machKnopf("Weg damit", "ruhig", ()=>{
         D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); weiter();
       }));
@@ -1685,7 +1685,7 @@ function frageZeichnen(){
   box.innerHTML = '<p>Das wandert jetzt seit '+q.verschoben+' Tagen mit.</p><p class="was"></p><div class="frage-knoepfe"></div>';
   box.querySelector(".was").textContent = q.titel;
   const k = box.querySelector(".frage-knoepfe");
-  k.appendChild(machKnopf("Klein machen", "stark", ()=> kleinMachen(q.id)));
+  k.appendChild(machKnopf("Womit fange ich an?", "stark", ()=> naechsterBlatt(q.id, {erster:true})));
   k.appendChild(machKnopf("Nicht jetzt — Zähler zurück", "", ()=>{ q.verschoben = 0; sichern(); zeichnen(); }));
   k.appendChild(machKnopf("Weg damit", "ruhig", ()=>{ D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); zeichnen(); }));
   halter.appendChild(box);
@@ -1763,9 +1763,9 @@ function blattFuerQuest(qid){
     }
     b.appendChild(machKnopf(q.faellig ? "Frist ändern — " + faelligWort(q.faellig) : "Bis wann?", "ruhig", ()=> faelligBlatt(q.id)));
     b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
-    b.appendChild(machKnopf("Klein machen", "ruhig", ()=> kleinMachen(q.id)));
     b.appendChild(machKnopf(q.naechster ? "Nächsten Schritt ändern" : "Nächsten Schritt notieren",
-      "ruhig", ()=> naechsterBlatt(q.id, false)));
+      "ruhig", ()=> naechsterBlatt(q.id, {erster: !istEtappe(q)})));
+    b.appendChild(machKnopf("Umbenennen", "ruhig", ()=> umbenennenBlatt(q.id)));
     b.appendChild(machKnopf("Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
     b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
       D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); blattSchliessen(); zeichnen();
@@ -1807,20 +1807,10 @@ function etikettBlatt(qid){
   });
 }
 
-function kleinMachen(qid, danach){
-  const q = D.quests.find(x=>x.id===qid); if(!q) return;
-  blattZeigen('<h3>Was wäre der allererste Handgriff?</h3><p class="sub">Nicht die ganze Sache. Nur der erste Schritt, der zwei Minuten dauert.</p>' +
-    '<input class="feld" id="klein-feld" placeholder="z. B. Die Nummer raussuchen">', b=>{
-    const feld = b.querySelector("#klein-feld");
-    b.appendChild(machKnopf("Das ist ab jetzt die Quest", "stark", ()=>{
-      const t = feld.value.trim();
-      if(t){ q.titel = t; q.grosse = 1; q.verschoben = 0; sichern(); }
-      if(danach) danach(); else { blattSchliessen(); zeichnen(); }
-    }));
-    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ if(danach) danach(); else blattSchliessen(); }));
-    setTimeout(()=>feld.focus(), 60);
-  });
-}
+/* „Klein machen" stand hier bis zum 20.08.2026. Es hat den Titel ersetzt —
+   aus „Küche aufräumen" wurde „Spülen", und das Ziel war verschwunden. Seit
+   es Etappen gibt, ist das die falsche Richtung: alle Wege führen jetzt nach
+   naechsterBlatt(), wo das Ziel stehen bleibt und der Schritt danebensteht. */
 
 /* Fälligkeit setzen — bewusst mit fertigen Antworten statt einer Datumsauswahl,
    damit es zwei Tipper sind und nicht acht. */
@@ -1874,32 +1864,62 @@ function etappeGeschafft(qid){
   naechsterBlatt(qid, true);
 }
 
-function naechsterBlatt(qid, nachEtappe){
+/* Die EINE Stelle, an der ein nächster Schritt entsteht. Drei Türen führen
+   hierher: nach einer geschafften Etappe, aus dem Questblatt heraus, und wenn
+   etwas lange mitschleift. Vorher gab es dafür zusätzlich „Klein machen", das
+   den Titel ÜBERSCHRIEB — aus „Küche aufräumen" wurde „Spülen", das Ziel war
+   weg. Genau umgekehrt soll es sein: das Ziel bleibt, der Schritt steht daneben. */
+function naechsterBlatt(qid, opt){
   const q = D.quests.find(x=>x.id===qid); if(!q) return;
-  const kopf = nachEtappe
-    ? '<h3>Ein Stück geschafft</h3><p class="sub"></p>' +
-      '<p class="mini" style="margin:2px 0 8px">Was ist als Nächstes dran?</p>'
-    : '<h3>Nächster Schritt</h3>' +
-      '<p class="sub">Nur der eine nächste Handgriff — kein Plan. Den Rest siehst du, wenn du dort bist.</p>';
-  blattZeigen(kopf + '<input class="feld" id="schritt-feld" placeholder="z. B. verpacken">', b=>{
-    if(nachEtappe){
+  opt = opt || {};
+  let kopf;
+  if(opt.nachEtappe){
+    kopf = '<h3>Ein Stück geschafft</h3><p class="sub"></p>' +
+           '<p class="mini" style="margin:2px 0 8px">Was ist als Nächstes dran?</p>';
+  }else if(opt.erster){
+    kopf = '<h3>Womit fange ich an?</h3>' +
+           '<p class="sub">Nicht die ganze Sache — nur der erste Handgriff, der zwei Minuten dauert. ' +
+           'Das Ziel bleibt stehen, wie es ist.</p>';
+  }else{
+    kopf = '<h3>Nächster Schritt</h3>' +
+           '<p class="sub">Nur der eine nächste Handgriff — kein Plan. Den Rest siehst du, wenn du dort bist.</p>';
+  }
+  blattZeigen(kopf + '<input class="feld" id="schritt-feld" placeholder="z. B. Spülen">', b=>{
+    if(opt.nachEtappe){
       b.querySelector(".sub").textContent =
         "+" + GOLD_ETAPPE + " Gold für die " + q.etappe + ". Etappe von " + kurz(q.titel) + ".";
     }
     const feld = b.querySelector("#schritt-feld");
     feld.value = q.naechster || "";
-    const merken = ()=>{ q.naechster = feld.value.trim(); sichern(); };
+    const merken = ()=>{ q.naechster = feld.value.trim(); q.verschoben = 0; sichern(); };
+    const raus = ()=>{ if(opt.danach) opt.danach(); else { blattSchliessen(); zeichnen(); } };
 
-    b.appendChild(machKnopf("Merken", "stark", ()=>{ merken(); blattSchliessen(); zeichnen(); }));
+    b.appendChild(machKnopf("Merken", "stark", ()=>{ merken(); raus(); }));
     const fach = freiesFach(1);
-    if(fach) b.appendChild(machKnopf("Merken und gleich weiter", "", ()=>{
+    if(fach && !opt.danach) b.appendChild(machKnopf("Merken und gleich weiter", "", ()=>{
       merken(); q.ort = "heute"; q.fach = fach; sichern(); blattSchliessen(); zeichnen();
     }));
     /* Muss immer erlaubt sein. Eine Pflichtangabe, die sie gerade nicht weiß,
        führt dazu, dass sie den Knopf nie wieder drückt. */
-    b.appendChild(machKnopf("Weiß ich noch nicht", "ruhig", ()=>{
-      q.naechster = ""; sichern(); blattSchliessen(); zeichnen();
+    b.appendChild(machKnopf("Weiß ich noch nicht", "ruhig", ()=>{ q.naechster = ""; sichern(); raus(); }));
+    setTimeout(()=>feld.focus(), 60);
+  });
+}
+
+/* Umbenennen ist Umbenennen. Früher ging das nur über „Klein machen", das
+   dabei auch die Größe zurücksetzte und das Ziel verschluckte. */
+function umbenennenBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  blattZeigen('<h3>Umbenennen</h3><p class="sub">Nur der Name. Etappen, Frist und Gefühl bleiben.</p>' +
+    '<input class="feld" id="name-feld">', b=>{
+    const feld = b.querySelector("#name-feld");
+    feld.value = q.titel;
+    b.appendChild(machKnopf("Übernehmen", "stark", ()=>{
+      const t = feld.value.trim();
+      if(t) q.titel = t;
+      sichern(); blattSchliessen(); zeichnen();
     }));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
     setTimeout(()=>feld.focus(), 60);
   });
 }
