@@ -403,6 +403,10 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 
   <button class="rast-knopf" id="rast-knopf"><svg class="rast-zeichen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.2c2.4 2.6 3.6 4.6 3.6 6.4a3.6 3.6 0 0 1-7.2 0c0-1 .5-2 1.4-3 .3 1 .8 1.6 1.5 1.9-.2-1.8.1-3.5.7-5.3z"/><path d="M4.6 19.4 19.4 15.2M19.4 19.4 4.6 15.2"/></svg><span id="rast-knopf-text">Kurze Rast</span></button>
 
+  <!-- Taucht von selbst auf, sobald etwas drauf steht, und verschwindet, wenn
+       er leer ist. Genau das ist der Punkt: nichts wiederfinden müssen. -->
+  <button class="rast-knopf" id="zettel-knopf" style="display:none"><svg class="rast-zeichen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9.4a3 3 0 0 1 6 0"/><path d="M4.2 9.4h15.6"/><path d="M5.8 9.4 7.1 18.5a1.7 1.7 0 0 0 1.7 1.4h6.4a1.7 1.7 0 0 0 1.7-1.4l1.3-9.1"/><path d="M10.1 12.6v4.1M13.9 12.6v4.1"/></svg><span id="zettel-knopf-text">Einkaufszettel</span></button>
+
   <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
 
@@ -511,8 +515,8 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <div class="zustand" id="zustand"></div>
   <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
 
-  <p class="label">Deine Listen</p>
-  <p class="hinweis" style="margin:0 0 4px">Tipp weg, was nichts für dich ist, und trag ein, was fehlt. <strong>Mit fremden Vorschlägen funktioniert das nicht</strong> — es zählt nur, was wirklich deins ist. <em>Belohnungen stehen beim Händler.</em></p>
+  <p class="label">Deine Vorräte</p>
+  <p class="hinweis" style="margin:0 0 4px"><strong>Hier wird nichts getan</strong> — hier legst du nur fest, was dir die App später anbietet. Tipp weg, was nichts für dich ist, und trag ein, was fehlt. <em>Belohnungen stehen beim Händler.</em></p>
   <div id="listen-felder"></div>
 
   <p class="label">Ausdauer an einem normalen Tag</p>
@@ -524,11 +528,6 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   </div>
 
   <div class="trenner"></div>
-
-  <p class="label">Liste einlesen</p>
-  <p class="hinweis" style="margin:0 0 12px">Für viele Sachen auf einmal: <strong>eine Zeile pro Quest</strong> hier reintippen oder einfügen — aus Notizen, aus einer Nachricht, egal woher. Alles landet im Auftragsbuch.<br><br>Sollen Geburtstage dabei sein, schreib die Zeile <strong>#&nbsp;GEBURTSTAGE</strong> davor und dann <strong>Name; 14.03.1958</strong> pro Zeile.</p>
-  <textarea class="feld" id="import-feld" placeholder="# AUFGABEN&#10;Zahnarzt anrufen&#10;&#10;# GEBURTSTAGE&#10;Mama; 14.03.1958"></textarea>
-  <button class="knopf" id="import-los">Einlesen</button>
 
   <p class="label">Sicherung</p>
   <button class="knopf ruhig" id="sicher-kopieren">Alles kopieren</button>
@@ -682,6 +681,13 @@ const START = {
     mittel:["Etwas bestellen, worauf du Lust hast","Ein ganzer Abend nur für dich","Ein neues Knäuel Wolle"],
     gross:["Ins Kino gehen","Ein ganzer Tag nur für dich","Etwas Größeres, das du dir länger wünschst"]
   },
+  /* Der Einkaufszettel. Kein Quest-Fach: die Posten kosten einzeln nichts,
+     der WEG kostet Kraft. Deshalb ist Einkaufen eine Quest und der Zettel
+     ihr Gepäck. Sammelt sich über die Woche an, wird abgehakt, wann immer
+     etwas davon im Korb landet. */
+  zettel:[], zettelLetzte:null,
+  /* Welcher Sonntag schon zur Wochenplanung gerufen hat. */
+  sonntagsruf:null,
   /* Freier Platz für Einfälle. Bewusst ein einziges Feld ohne Struktur —
      wo ein Impuls entsteht, muss er sich sofort abladen lassen. */
   notizen:"",
@@ -915,6 +921,7 @@ function zeichnen(){
 
   warnungZeichnen();
   akkuZeichnen();
+  zettelKnopfZeichnen();
   vorschlagZeichnen();
   frageZeichnen();
   fachZeichnen("haupt","liste-haupt","Nichts Großes für heute. Auch gut.");
@@ -932,6 +939,34 @@ function zeichnen(){
   /* Am Ruhetag soll der Würfel keine Arbeit anbieten. */
   if(istRuhetag()) document.getElementById("wuerfel-halter").style.display = "none";
   tagesfrageZeigen();
+  sonntagsrufZeigen();
+}
+
+/* ═══════════ Sonntagsruf ═══════════
+   Ihre Idee: sonntags um 18 Uhr „leg dich in die Wanne und plan die kommende
+   Woche. Zumindest grob." Echte Benachrichtigungen sind ausgeschlossen — das
+   hier meldet sich beim Öffnen der App, wie „Lager aufschlagen". Kommt
+   höchstens einmal pro Sonntag und lässt sich immer wegtippen. */
+const GOLD_WOCHENPLAN = 5;
+
+function sonntagsrufZeigen(){
+  const jetzt = new Date();
+  if(jetzt.getDay() !== 0 || jetzt.getHours() < 18) return;
+  if(D.sonntagsruf === D.tag) return;
+  if(blattGrund.classList.contains("on")) return;
+  /* Sofort als gerufen merken: wer wegtippt, soll nicht nachgehakt bekommen. */
+  D.sonntagsruf = D.tag; sichern();
+  blattZeigen('<h3>Sonntagabend</h3>' +
+    '<p class="sub">Leg dich in die Wanne und plan die kommende Woche. Zumindest grob — es muss nichts stimmen, es muss nur einmal gedacht sein.</p>', b=>{
+    b.appendChild(machKnopf("Ab in die Woche  ＋" + GOLD_WOCHENPLAN, "stark", ()=>{
+      D.gold += GOLD_WOCHENPLAN;
+      sichern();
+      blattSchliessen();
+      document.querySelector('.tab[data-v="woche"]').click();
+      zeichnen();
+    }));
+    b.appendChild(machKnopf("Heute nicht", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
 }
 
 function warnungZeichnen(){
@@ -1089,6 +1124,104 @@ function rastBlatt(alleZeigen){
   });
 }
 document.getElementById("rast-knopf").addEventListener("click", ()=> rastBlatt(false));
+
+/* ═══════════ Einkaufszettel ═══════════
+   Ihr Wochenbild: Sonntag beim Planen fällt Mehl ein, Montag geht sie
+   spontan los und holt nur Akutes, Dienstag kommt Klopapier dazu — und
+   Samstag ist der große gemeinsame Einkauf, bei dem alles zusammenkommt.
+   Nichts davon ist dringend, und genau deshalb ging es bisher verloren:
+   „wenn ich mir irgendwo eine Notiz mache, finde ich sie nicht wieder."
+   Der Zettel muss also von selbst dort auftauchen, wo sie ohnehin
+   hinschaut — nicht in einem Fach, das man sich merken muss. */
+function zettelDrauf(w){
+  const wort = (w||"").trim();
+  if(!wort) return "leer";
+  D.zettel = D.zettel || [];
+  if(D.zettel.some(x=> x.toLowerCase() === wort.toLowerCase())) return "doppelt";
+  D.zettel.push(wort);
+  sichern(); zeichnen();
+  return "drauf";
+}
+
+function zettelKnopfZeichnen(){
+  const knopf = document.getElementById("zettel-knopf");
+  if(!knopf) return;
+  const wie = (D.zettel||[]).length;
+  knopf.style.display = wie ? "flex" : "none";
+  document.getElementById("zettel-knopf-text").textContent =
+    "Einkaufszettel · " + mehrzahl(wie, "Sache", "Sachen");
+}
+
+/* Gibt es schon eine Quest fürs Einkaufen? Dann bietet der Zettel nicht an,
+   eine zweite anzulegen — zwei Wege für dieselbe Absicht sind eine Falle. */
+function einkaufQuest(){
+  return D.quests.find(q=> q.ort !== "archiv" && /einkauf/i.test(q.titel || ""));
+}
+
+function zettelBlatt(){
+  const liste = (D.zettel||[]).slice();
+  blattZeigen('<h3>Einkaufszettel</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent = liste.length
+      ? "Antippen heißt: hab ich. Was liegen bleibt, bleibt einfach stehen — bis zum nächsten Mal."
+      : "Noch nichts drauf. Schreib rein, was dir einfällt — auch wenn du erst nächste Woche losgehst.";
+
+    liste.forEach(w=>{
+      b.appendChild(machKnopf(w, "", ()=>{
+        const hoehe = blattEl.scrollTop;
+        D.zettel = D.zettel.filter(x=> x !== w);
+        D.zettelLetzte = w;
+        sichern(); zeichnen(); zettelBlatt();
+        blattEl.scrollTop = hoehe;
+      }));
+    });
+
+    /* Danebengetippt darf keine Sackgasse sein — wie bei der Kurzen Rast. */
+    if(D.zettelLetzte && !(D.zettel||[]).includes(D.zettelLetzte))
+      b.appendChild(machKnopf("↩ " + kurz(D.zettelLetzte) + " zurück", "ruhig", ()=>{
+        D.zettel = (D.zettel||[]).concat([D.zettelLetzte]);
+        D.zettelLetzte = null;
+        sichern(); zeichnen(); zettelBlatt();
+      }));
+
+    const feld = document.createElement("input");
+    feld.className = "feld";
+    feld.style.marginTop = "14px";
+    feld.placeholder = "Noch etwas …";
+    feld.setAttribute("enterkeyhint", "done");
+    b.appendChild(feld);
+    const dazu = machKnopf("Drauf damit", "stark", ()=>{
+      const wie = zettelDrauf(feld.value);
+      if(wie === "leer") return;
+      const hoehe = blattEl.scrollTop;
+      feld.value = "";
+      zettelBlatt();
+      blattEl.scrollTop = hoehe;
+      if(wie === "doppelt") blattEl.querySelector(".sub").textContent = "Steht schon drauf.";
+    });
+    feld.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); dazu.click(); } });
+    b.appendChild(dazu);
+
+    /* Die Brücke zu ihrem Samstag: der Zettel sammelt, die Quest ist der Weg. */
+    if(!einkaufQuest()){
+      const h = document.createElement("p");
+      h.className = "hinweis"; h.style.margin = "16px 0 8px";
+      h.textContent = "Der Zettel sammelt nur. Losgehen ist die Arbeit — dafür braucht es eine Quest, die sich von selbst wieder meldet.";
+      b.appendChild(h);
+      b.appendChild(machKnopf("＋ Einkaufen jede Woche einplanen", "", ()=>{
+        const q = {id:id(), titel:"Einkaufen", etikett:"neutral", grosse:2, ort:"buch", fach:"neben",
+                   fertig:false, verschoben:0, wennDann:"", wieder:7, wiederAm:null};
+        D.quests.push(q);
+        sichern(); zeichnen();
+        blattZeigen('<h3>Steht im Auftragsbuch</h3><p class="sub">„Einkaufen" kommt ab jetzt jede Woche von selbst zurück. Wann genau du losgehst, entscheidest du — im Wochenplan kannst du es auf den Samstag legen.</p>', x=>{
+          x.appendChild(machKnopf("Gut", "stark", ()=>{ blattSchliessen(); zeichnen(); }));
+        });
+      }));
+    }
+
+    b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+document.getElementById("zettel-knopf").addEventListener("click", zettelBlatt);
 
 const ETIKETT_WORT = {spass:"🔥 macht Spaß", neutral:"😐 geht so", zaeh:"🧱 zäh"};
 const GROSSE_WORT = {1:"klein", 2:"mittel", 3:"groß"};
@@ -1863,10 +1996,15 @@ function machKnopf(text, art, fn){
 }
 
 /* ═══════════ Lager aufschlagen ═══════════ */
+/* 19 Uhr, nicht 17: sie geht an Arbeitstagen gegen 21 Uhr ins Bett, um 17 Uhr
+   ist der Abend noch gar nicht gelaufen. Zwei Stunden reichen, und „Nochmal
+   ans Feuer" fängt alles Spätere ab. */
+const ABEND_AB = 19;
+
 function abendZeichnen(){
   const halter = document.getElementById("abend-halter");
   halter.innerHTML = "";
-  if(new Date().getHours() < 17) return;
+  if(new Date().getHours() < ABEND_AB) return;
   /* Auch nach „Gute Nacht" bleibt eine Tür offen: das Bad um zehn ist kein
      Grund, dass der Abend nicht mehr zählt. Nur leiser. */
   const zu = D.letzterAbschluss === D.tag;
@@ -2639,20 +2777,11 @@ function zahlFeld(el, max, weiter){
   });
 }
 
-/* "14.03.", "14.3.1985", "1985-03-14" → "03-14" */
-function datumLesen(roh){
-  if(!roh) return null;
-  const t = roh.trim();
-  let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m) return String(m[2]).padStart(2,"0")+"-"+String(m[3]).padStart(2,"0");
-  m = t.match(/^(\d{1,2})\s*\.\s*(\d{1,2})/);
-  if(m){
-    const tag = Number(m[1]), mon = Number(m[2]);
-    if(tag>=1 && tag<=31 && mon>=1 && mon<=12 && tag<=TAGE_IM_MONAT[mon-1])
-      return String(mon).padStart(2,"0")+"-"+String(tag).padStart(2,"0");
-  }
-  return null;
-}
+/* „Liste einlesen" stand hier bis zum 20.08.2026 — ein Textkasten im
+   Rastplatz, in den man viele Zeilen auf einmal kippen konnte, samt einer
+   Datumserkennung für Geburtstage. Sie hat selbst gefragt, wofür das gut
+   sein soll, und dann entschieden: raus. Erfassen geht inzwischen von
+   überall, der Kasten stand nur im Weg. */
 
 /* Wo ein Einfall entsteht, muss er sich abladen lassen — auch mitten auf der
    Heute-Seite. Er landet im Auftragsbuch, nie auf Heute: der Tag bleibt so
@@ -2672,6 +2801,12 @@ document.getElementById("heute-neu").addEventListener("click", ()=>{
         x.querySelector(".sub").textContent = t + " wartet jetzt im Auftragsbuch.";
         x.appendChild(machKnopf("Gut", "stark", blattSchliessen));
       });
+    }));
+    /* Der zweite Weg aus demselben Feld. „Handyaufladekarte" ist keine Quest —
+       das kostet keine Ausdauer, das muss nur mit, wenn sie sowieso losgeht. */
+    b.appendChild(machKnopf("Auf den Einkaufszettel", "", ()=>{
+      if(zettelDrauf(feld.value) === "leer") return;
+      zettelBlatt();
     }));
     b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
     setTimeout(()=>feld.focus(), 60);
@@ -2726,7 +2861,13 @@ const LISTEN = [
 /* Ein Vorrat als antippbare Kacheln statt als Textfeld. „Überschreib die
    Beispiele" hat nie funktioniert — sie soll mit einem Tipp rausschmeißen
    können, was nicht ihrs ist, statt eine fremde Liste abzutippen. */
-function poolZeichnen(zielId, schluessel, pool, standText){
+/* Sie hat im Rastplatz „Baden" angetippt, die Kachel wurde dunkler — und dann
+   stand sie da: „ich weiß aber nicht wo es dann auftaucht." Zu Recht. Die
+   Kachel sieht aus wie etwas, das man gerade GETAN hat, meint aber nur „gehört
+   in meinen Vorrat". Also sagt die App nach jedem Tipp, wo die Sache landet. */
+const poolLetzte = {};
+
+function poolZeichnen(zielId, schluessel, pool, standText, wohin){
   const ziel = document.getElementById(zielId);
   if(!ziel) return;
   ziel.innerHTML = "";
@@ -2742,11 +2883,24 @@ function poolZeichnen(zielId, schluessel, pool, standText){
     k.textContent = ausPool ? w : w + "  ×";
     k.addEventListener("click", ()=>{
       D[schluessel] = an ? drin.filter(x=>x!==w) : drin.concat([w]);
-      sichern(); poolZeichnen(zielId, schluessel, pool, standText);
+      poolLetzte[zielId] = {wort:w, an:!an};
+      sichern(); poolZeichnen(zielId, schluessel, pool, standText, wohin);
     });
     box.appendChild(k);
   });
   ziel.appendChild(box);
+
+  const l = poolLetzte[zielId];
+  if(l){
+    const echo = document.createElement("p");
+    echo.className = "hinweis";
+    echo.style.margin = "0 0 8px";
+    echo.style.color = l.an ? "var(--moss)" : "var(--ink-faint)";
+    echo.textContent = l.an
+      ? "„" + l.wort + "“ ist dabei — " + wohin + "."
+      : "„" + l.wort + "“ ist raus und wird dir nicht mehr vorgeschlagen.";
+    ziel.appendChild(echo);
+  }
 
   /* Die Kacheln ändern nur den Vorrat — angetippt „passiert" hier absichtlich
      nichts weiter. Das muss dastehen, sonst wartet man auf eine Wirkung. */
@@ -2757,7 +2911,7 @@ function poolZeichnen(zielId, schluessel, pool, standText){
   ziel.appendChild(stand);
 }
 
-function poolBlock(ziel, titel, erklaerung, zielId, schluessel, pool, standText, platzhalter){
+function poolBlock(ziel, titel, erklaerung, zielId, schluessel, pool, standText, platzhalter, wohin){
   const l = document.createElement("p");
   l.className = "mini"; l.style.margin = "18px 0 5px"; l.textContent = titel;
   const e = document.createElement("p");
@@ -2765,7 +2919,7 @@ function poolBlock(ziel, titel, erklaerung, zielId, schluessel, pool, standText,
   const kacheln = document.createElement("div");
   kacheln.id = zielId;
   ziel.appendChild(l); ziel.appendChild(e); ziel.appendChild(kacheln);
-  poolZeichnen(zielId, schluessel, pool, standText);
+  poolZeichnen(zielId, schluessel, pool, standText, wohin);
 
   const feld = document.createElement("input");
   feld.className = "feld";
@@ -2775,8 +2929,9 @@ function poolBlock(ziel, titel, erklaerung, zielId, schluessel, pool, standText,
     const w = feld.value.trim();
     if(!w) return;
     if((D[schluessel]||[]).indexOf(w) < 0) D[schluessel] = (D[schluessel]||[]).concat([w]);
+    poolLetzte[zielId] = {wort:w, an:true};
     feld.value = "";
-    sichern(); poolZeichnen(zielId, schluessel, pool, standText);
+    sichern(); poolZeichnen(zielId, schluessel, pool, standText, wohin);
   });
   feld.addEventListener("keydown", ev=>{
     if(ev.key === "Enter"){ ev.preventDefault(); dazu.click(); }
@@ -2796,7 +2951,8 @@ function listenZeichnen(){
       ? an + " von " + ganz + " sind dabei. Daraus würfelt die App dir jeden Tag "
         + RAST_ANZAHL + " auf die Heute-Seite — gemacht wird es dort unter Kurze Rast."
       : "Gerade ist nichts dabei — dann bleibt die Kurze Rast leer.",
-    "Eigene Erholung hinzufügen");
+    "Eigene Erholung hinzufügen",
+    "du findest es auf der Heute-Seite unter Kurze Rast");
 
   poolBlock(ziel, "Selfcare — für die Lange Rast",
     "Was du dir abends gibst, wenn der Tag vorbei ist. Beim Lager aufschlagen fragt die App, was davon du getan hast — benannt, nicht abgehakt.",
@@ -2804,7 +2960,8 @@ function listenZeichnen(){
     (an, ganz)=> an
       ? an + " von " + ganz + " stehen dir abends zur Auswahl."
       : "Gerade ist nichts dabei — dann fragt der Abend nur nach deinen eigenen Worten.",
-    "Eigene Selfcare hinzufügen");
+    "Eigene Selfcare hinzufügen",
+    "du findest es abends beim Lager aufschlagen");
 
   LISTEN.forEach(([schluessel,wort,erklaerung])=>{
     const l = document.createElement("p"); l.className="mini"; l.style.margin="18px 0 5px"; l.textContent=wort;
@@ -2917,40 +3074,6 @@ function wareBlatt(stufe, wort, erklaerung){
     b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
   });
 }
-
-/* ═══════════ Einlesen ═══════════ */
-document.getElementById("import-los").addEventListener("click", ()=>{
-  const roh = document.getElementById("import-feld").value;
-  if(!roh.trim()) return;
-  let modus = "aufgaben", neueQuests = 0, neueGefaehrten = 0;
-  roh.split("\n").forEach(zeile=>{
-    const z = zeile.trim();
-    if(!z) return;
-    const klein = z.toLowerCase();
-    if(klein.startsWith("#")){ modus = klein.includes("geburtstag") ? "geburtstage" : "aufgaben"; return; }
-    if(modus === "geburtstage"){
-      const teile = z.split(/[;|]/);
-      const name = (teile[0]||"").trim();
-      const rohDatum = (teile[1]||"").trim();
-      const tag = datumLesen(rohDatum);
-      const jahrTreffer = rohDatum.match(/(18|19|20)\d{2}/);
-      if(name && !D.gefaehrten.some(g=>g.name===name)){
-        D.gefaehrten.push({id:id(), name:name, tag:tag, jahr: jahrTreffer ? Number(jahrTreffer[0]) : null, ideen:""});
-        neueGefaehrten++;
-      }
-    }else if(!D.quests.some(q=>q.titel === z)){
-      D.quests.push({id:id(), titel:z, etikett:"neutral", grosse:1, ort:"buch", fach:"boten",
-        fertig:false, verschoben:0, wennDann:""});
-      neueQuests++;
-    }
-  });
-  geburtstageBauen(); sichern(); zeichnen();
-  document.getElementById("import-feld").value = "";
-  blattZeigen('<h3>Eingelesen</h3><p class="sub"></p>', b=>{
-    b.querySelector(".sub").textContent = neueQuests+" Quests, "+neueGefaehrten+" Gefährten. Alles liegt im Auftragsbuch — dein Tag bleibt so leer, wie er war.";
-    b.appendChild(machKnopf("Gut","stark",blattSchliessen));
-  });
-});
 
 /* ═══════════ Sicherung ═══════════ */
 document.getElementById("sicher-kopieren").addEventListener("click", async ()=>{
