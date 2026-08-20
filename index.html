@@ -363,6 +363,31 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .kachel.eigen{border-color:var(--calm);color:var(--ink);
   background:color-mix(in srgb,var(--calm) 15%,var(--surface-2))}
 
+/* ————— Handgriffe —————
+   Kurze Rast, Zettel und Einfall waren drei volle Knöpfe untereinander, einer
+   davon ganz unten auf der Seite. Als Zeile brauchen sie ein Drittel der Höhe
+   und stehen alle über der Falz. Zeichen über dem Wort, damit die Knöpfe
+   schmal sein dürfen, ohne dass die Beschriftung verschwindet. */
+.handgriffe{display:flex;gap:7px;margin:0 0 22px}
+.handgriff{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:11px 3px;border-radius:14px;background:var(--surface);border:1px solid var(--line);
+  font-size:12px;font-weight:600;color:var(--ink-soft);font-family:var(--schrift-ui);
+  line-height:1.2;text-align:center}
+.handgriff:active{transform:scale(.97)}
+.handgriff.getan{border-color:color-mix(in srgb,var(--calm) 55%,var(--line));color:var(--ink)}
+.handgriff svg{width:20px;height:20px;flex:none;color:var(--accent)}
+
+/* ————— Zahnrad —————
+   Alles, was selten gebraucht wird, wohnt dahinter — damit die Reiterleiste
+   kurz bleiben kann. Sitzt in jeder Kopfzeile an derselben Stelle. */
+.kopf{position:relative}
+.zahnrad{position:absolute;right:0;top:0;width:40px;height:40px;border-radius:13px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);
+  display:flex;align-items:center;justify-content:center}
+.zahnrad:active{transform:scale(.95)}
+.zahnrad svg{width:19px;height:19px}
+.gruss{padding-right:48px}
+
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
 
@@ -401,11 +426,13 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
     <div class="akku-rast" id="rast-hinweis"></div>
   </button>
 
-  <button class="rast-knopf" id="rast-knopf"><svg class="rast-zeichen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.2c2.4 2.6 3.6 4.6 3.6 6.4a3.6 3.6 0 0 1-7.2 0c0-1 .5-2 1.4-3 .3 1 .8 1.6 1.5 1.9-.2-1.8.1-3.5.7-5.3z"/><path d="M4.6 19.4 19.4 15.2M19.4 19.4 4.6 15.2"/></svg><span id="rast-knopf-text">Kurze Rast</span></button>
-
-  <!-- Taucht von selbst auf, sobald etwas drauf steht, und verschwindet, wenn
-       er leer ist. Genau das ist der Punkt: nichts wiederfinden müssen. -->
-  <button class="rast-knopf" id="zettel-knopf" style="display:none"><svg class="rast-zeichen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9.4a3 3 0 0 1 6 0"/><path d="M4.2 9.4h15.6"/><path d="M5.8 9.4 7.1 18.5a1.7 1.7 0 0 0 1.7 1.4h6.4a1.7 1.7 0 0 0 1.7-1.4l1.3-9.1"/><path d="M10.1 12.6v4.1M13.9 12.6v4.1"/></svg><span id="zettel-knopf-text">Einkaufszettel</span></button>
+  <!-- Die drei Handgriffe in einer Zeile. Der Zettel taucht nur auf, wenn
+       etwas drauf steht — genau das ist der Punkt: nichts wiederfinden müssen. -->
+  <div class="handgriffe">
+    <button class="handgriff" id="rast-knopf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.2c2.4 2.6 3.6 4.6 3.6 6.4a3.6 3.6 0 0 1-7.2 0c0-1 .5-2 1.4-3 .3 1 .8 1.6 1.5 1.9-.2-1.8.1-3.5.7-5.3z"/><path d="M4.6 19.4 19.4 15.2M19.4 19.4 4.6 15.2"/></svg><span id="rast-knopf-text">Kurze Rast</span></button>
+    <button class="handgriff" id="zettel-knopf" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9.4a3 3 0 0 1 6 0"/><path d="M4.2 9.4h15.6"/><path d="M5.8 9.4 7.1 18.5a1.7 1.7 0 0 0 1.7 1.4h6.4a1.7 1.7 0 0 0 1.7-1.4l1.3-9.1"/><path d="M10.1 12.6v4.1M13.9 12.6v4.1"/></svg><span id="zettel-knopf-text">Zettel</span></button>
+    <button class="handgriff" id="heute-neu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.6v12.8M5.6 12h12.8"/></svg><span>Eingefallen</span></button>
+  </div>
 
   <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
@@ -416,8 +443,6 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <div id="liste-neben"></div>
   <p class="label">Botengänge<em>kleine Erledigungen</em></p>
   <div id="liste-boten"></div>
-
-  <button class="knopf ruhig" id="heute-neu" style="margin-top:24px">＋ Etwas ist mir eingefallen</button>
 
   <div id="nochmal-halter"></div>
   <div id="abend-halter"></div>
@@ -503,7 +528,23 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 
 <!-- ═══════════ RASTPLATZ ═══════════ -->
 <section class="view wrap" id="v-rast">
-  <div class="kopf"><p class="datum">Vorrat und Einstellungen</p><h1 class="gruss">Rastplatz</h1></div>
+  <div class="kopf"><p class="datum">Was dir die App anbietet</p><h1 class="gruss">Rastplatz</h1></div>
+
+  <p class="label">Deine Vorräte</p>
+  <p class="hinweis" style="margin:0 0 4px"><strong>Hier wird nichts getan</strong> — hier legst du nur fest, was dir die App später anbietet. Tipp weg, was nichts für dich ist, und trag ein, was fehlt. <em>Belohnungen stehen beim Händler.</em></p>
+  <div id="listen-felder"></div>
+
+  <div style="height:30px"></div>
+</section>
+
+<!-- ═══════════ LAGER — hinter dem Zahnrad ═══════════
+     Alles, was selten gebraucht wird. Es ist eine eigene Ansicht und kein
+     Blatt, damit die Knöpfe ihre Ereignisse behalten und nichts neu gebaut
+     werden muss. In der Reiterleiste steht sie nie. -->
+<section class="view wrap" id="v-lager">
+  <div class="kopf"><p class="datum">Selten gebraucht, immer erreichbar</p><h1 class="gruss">Lager</h1></div>
+
+  <div id="lager-woanders"></div>
 
   <p class="label">Licht</p>
   <div class="wahl" id="thema-wahl">
@@ -513,14 +554,6 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   </div>
   <p class="hinweis" style="margin:0 0 4px"><strong>Automatisch</strong> folgt deinem iPhone — dunkel, sobald dein Telefon dunkel wird. Hier kannst du es festnageln.</p>
 
-  <p class="label">Speicher</p>
-  <div class="zustand" id="zustand"></div>
-  <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
-
-  <p class="label">Deine Vorräte</p>
-  <p class="hinweis" style="margin:0 0 4px"><strong>Hier wird nichts getan</strong> — hier legst du nur fest, was dir die App später anbietet. Tipp weg, was nichts für dich ist, und trag ein, was fehlt. <em>Belohnungen stehen beim Händler.</em></p>
-  <div id="listen-felder"></div>
-
   <p class="label">Ausdauer an einem normalen Tag</p>
   <p class="hinweis" style="margin:0 0 12px">Nur die <strong>Vorgabe</strong> — jeden Morgen fragt die App einmal, wie der Tag wirklich ist, und das gilt dann nur für heute.</p>
   <div class="wahl" id="budget-wahl">
@@ -529,7 +562,21 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
     <button data-b="9">Viel</button>
   </div>
 
-  <div class="trenner"></div>
+  <p class="label">Ton am Ende des Anlaufs</p>
+  <p class="hinweis" style="margin:0 0 12px">Wenn die fünf Minuten um sind, spielt ein kurzer Klang — <strong>nur solange die App offen vor dir liegt</strong>. Ein Ton, der dich über den Sperrbildschirm erreicht, ist bei einer Webseite nicht möglich.<br><br>Das hier ist ein Platzhalter. Wenn dein Tavernenstück fertig ist, tauschen wir es aus.</p>
+  <div class="wahl" id="ton-wahl">
+    <button data-ton="1">Ton an</button>
+    <button data-ton="0">Still</button>
+  </div>
+  <button class="klein-knopf" id="ton-probe">Einmal hören</button>
+
+  <p class="label">Deine Leiste</p>
+  <p class="hinweis" style="margin:0 0 10px">Was unten stehen soll. <strong>Heute bleibt immer dabei</strong>, alles Abgewählte findest du hier im Lager. Weniger Reiter heißt breitere Knöpfe.</p>
+  <div id="leiste-wahl"></div>
+
+  <p class="label">Speicher</p>
+  <div class="zustand" id="zustand"></div>
+  <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
 
   <p class="label">Sicherung</p>
   <button class="knopf ruhig" id="sicher-kopieren">Alles kopieren</button>
@@ -657,6 +704,8 @@ const START = {
   v:3, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
   /* null heißt: folge dem Telefon. "light"/"dark" nageln es fest. */
   thema:null,
+  /* null heißt: alle Reiter. Sonst die Namen der Ansichten, die unten stehen. */
+  leiste:null, ton:true,
   heuteAusdauer:null, rastHeute:0,
   /* Die Tagesform wird morgens einmal gefragt und gilt nur für heute. */
   tagesfrage:null, ruhetag:null,
@@ -957,6 +1006,9 @@ function zeichnen(){
   haendlerZeichnen();
   budgetZeichnen();
   themaZeichnen();
+  tonZeichnen();
+  leisteWahlZeichnen();
+  leiteWoandersZeichnen();
   zustandZeichnen();
   /* Am Ruhetag soll der Würfel keine Arbeit anbieten. */
   if(istRuhetag()) document.getElementById("wuerfel-halter").style.display = "none";
@@ -1061,7 +1113,7 @@ function rastKnopfZeichnen(){
   const text = document.getElementById("rast-knopf-text");
   if(!text) return;
   const wie = rastGetanGesamt();
-  text.textContent = wie ? "Kurze Rast · heute " + wie + "×" : "Kurze Rast";
+  text.textContent = wie ? "Rast · " + wie + "×" : "Kurze Rast";
   knopf.classList.toggle("getan", wie > 0);
 }
 
@@ -1171,8 +1223,8 @@ function zettelKnopfZeichnen(){
   if(!knopf) return;
   const wie = (D.zettel||[]).length;
   knopf.style.display = wie ? "flex" : "none";
-  document.getElementById("zettel-knopf-text").textContent =
-    "Einkaufszettel · " + mehrzahl(wie, "Sache", "Sachen");
+  knopf.classList.toggle("getan", wie > 0);
+  document.getElementById("zettel-knopf-text").textContent = "Zettel · " + wie;
 }
 
 /* Gibt es schon eine Quest fürs Einkaufen? Dann bietet der Zettel nicht an,
@@ -3008,7 +3060,10 @@ function anlaufTicken(){
   clearInterval(anlaufUhr);
   anlaufUhr = setInterval(()=>{
     anlaufRest--;
-    if(anlaufRest <= 0){ anlaufRest = 0; clearInterval(anlaufUhr); anlaufUhr = null; }
+    if(anlaufRest <= 0){
+      anlaufRest = 0; clearInterval(anlaufUhr); anlaufUhr = null;
+      tonSpielen();
+    }
     ringZeichnen();
   }, 1000);
 }
@@ -3016,6 +3071,8 @@ function anlaufStarten(qid){
   anlaufQuest = D.quests.find(x=>x.id===qid);
   if(!anlaufQuest) return;
   anlaufRest = 300; anlaufGanz = 300;
+  /* Den Klangraum beim Antippen aufwecken — später erlaubt iOS es nicht mehr. */
+  tonBereit();
   document.getElementById("anlauf-titel").textContent = anlaufQuest.titel;
   document.getElementById("anlauf-happen").textContent = provianntVorschlag(anlaufQuest);
   anlaufEl.classList.add("on");
@@ -3558,19 +3615,147 @@ document.getElementById("sicher-zeigen").addEventListener("click", ()=>{
   });
 });
 
-/* ═══════════ Tabs ═══════════ */
+/* ═══════════ Ansichten und Reiterleiste ═══════════
+   Nicht scrollbar machen: was aus dem Bild geschoben ist, gibt es nicht mehr
+   (dieselbe Falle wie ein versteckter Einstellungspunkt), und wandernde
+   Positionen zerstören das blinde Treffen. Stattdessen darf sie selbst
+   bestimmen, was unten steht — der Rest wohnt im Lager. */
+const ANSICHTEN = [
+  ["heute","Heute"],["woche","Woche"],["buch","Aufträge"],["gefaehrten","Gefährten"],
+  ["haendler","Händler"],["notizen","Notizen"],["rast","Rastplatz"]
+];
+
+function ansichtZeigen(name){
+  document.querySelectorAll(".tab").forEach(x=> x.classList.toggle("on", x.dataset.v === name));
+  document.querySelectorAll(".view").forEach(v=> v.classList.remove("on"));
+  const ziel = document.getElementById("v-" + name);
+  if(ziel) ziel.classList.add("on");
+  document.getElementById("wuerfel-halter").style.display =
+    (name === "heute" && !istRuhetag()) ? "flex" : "none";
+  window.scrollTo(0,0);
+}
+
 document.querySelector(".tabs-innen").addEventListener("click", e=>{
   const t = e.target.closest(".tab"); if(!t) return;
-  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
-  t.classList.add("on");
-  document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
-  document.getElementById("v-"+t.dataset.v).classList.add("on");
-  document.getElementById("wuerfel-halter").style.display =
-    (t.dataset.v==="heute" && !istRuhetag()) ? "flex" : "none";
-  window.scrollTo(0,0);
+  ansichtZeigen(t.dataset.v);
 });
 
+/* Heute lässt sich nicht abwählen — sonst kann man sich aus der App aussperren. */
+function leisteListe(){
+  const gewaehlt = Array.isArray(D.leiste) && D.leiste.length ? D.leiste : ANSICHTEN.map(a=>a[0]);
+  return ANSICHTEN.map(a=>a[0]).filter(n=> n === "heute" || gewaehlt.indexOf(n) >= 0);
+}
+function leisteZeichnen(){
+  const drin = leisteListe();
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.style.display = drin.indexOf(t.dataset.v) >= 0 ? "" : "none";
+  });
+  document.querySelector(".tabs-innen").style.gridTemplateColumns = "repeat(" + drin.length + ",1fr)";
+  /* Steht die gerade offene Ansicht nicht mehr in der Leiste, zurück auf Heute. */
+  const offen = [...document.querySelectorAll(".view.on")][0];
+  const name = offen ? offen.id.replace("v-","") : "heute";
+  if(name !== "lager" && drin.indexOf(name) < 0) ansichtZeigen("heute");
+}
+function leisteWahlZeichnen(){
+  const ziel = document.getElementById("leiste-wahl");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+  const drin = leisteListe();
+  const box = document.createElement("div");
+  box.className = "kacheln";
+  ANSICHTEN.forEach(([name, wort])=>{
+    const an = drin.indexOf(name) >= 0;
+    const k = document.createElement("button");
+    k.className = "kachel" + (an ? " an" : "");
+    k.textContent = wort + (name === "heute" ? "  ✓" : "");
+    k.addEventListener("click", ()=>{
+      if(name === "heute") return;
+      D.leiste = an ? drin.filter(x=>x!==name) : drin.concat([name]);
+      sichern(); leisteZeichnen(); leiteWoandersZeichnen(); leisteWahlZeichnen();
+    });
+    box.appendChild(k);
+  });
+  ziel.appendChild(box);
+}
+/* Was nicht unten steht, muss oben im Lager stehen — sonst ist es weg. */
+function leiteWoandersZeichnen(){
+  const ziel = document.getElementById("lager-woanders");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+  const drin = leisteListe();
+  const draussen = ANSICHTEN.filter(([n])=> drin.indexOf(n) < 0);
+  if(!draussen.length) return;
+  const l = document.createElement("p");
+  l.className = "label"; l.textContent = "Nicht in der Leiste";
+  ziel.appendChild(l);
+  draussen.forEach(([name, wort])=>{
+    ziel.appendChild(machKnopf(wort, "", ()=> ansichtZeigen(name)));
+  });
+}
+
+/* ═══════════ Zahnrad ═══════════ */
+function zahnradBauen(){
+  document.querySelectorAll(".view .kopf").forEach(kopf=>{
+    if(kopf.closest("#v-lager")) return;
+    const k = document.createElement("button");
+    k.className = "zahnrad";
+    k.setAttribute("aria-label", "Lager");
+    /* Ein Zahnrad, keine Sonne: großer Ring, kleine Nabe, kurze Zähne, die
+       am Ring ansetzen. Die erste Fassung war Strich für Strich das
+       Heute-Zeichen — aufgefallen erst beim Ansehen des gerenderten Bildes. */
+    k.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="6.3"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3.3v2.4M12 18.3v2.4M20.7 12h-2.4M5.7 12H3.3M18.2 5.8l-1.7 1.7M7.5 16.5l-1.7 1.7M18.2 18.2l-1.7-1.7M7.5 7.5 5.8 5.8"/></svg>';
+    k.addEventListener("click", ()=> ansichtZeigen("lager"));
+    kopf.appendChild(k);
+  });
+}
+
+/* ═══════════ Ton am Ende des Anlaufs ═══════════
+   Ihre Ausnahme von „keine Geräusche": ein Klang, den sie selbst ausgesucht
+   hat, am Ende von etwas, das sie selbst gestartet hat. Das ist Rückmeldung
+   von innen, kein Überfall von außen. Bis ihre Komposition da ist, spielt
+   ein schlichter Dreiklang — selbst erzeugt, damit keine Datei nötig ist. */
+let tonRaum = null;
+function tonBereit(){
+  try{
+    if(!tonRaum) tonRaum = new (window.AudioContext || window.webkitAudioContext)();
+    if(tonRaum.state === "suspended") tonRaum.resume();
+  }catch(e){ tonRaum = null; }
+}
+function tonSpielen(){
+  if(D.ton === false) return;
+  tonBereit();
+  if(!tonRaum) return;
+  /* Eine kleine aufsteigende Figur, weich ein- und ausgeblendet — nichts, was
+     einen zusammenzucken lässt. */
+  const noten = [392.00, 493.88, 587.33, 783.99];
+  noten.forEach((hz, i)=>{
+    const start = tonRaum.currentTime + i * 0.16;
+    const o = tonRaum.createOscillator();
+    const g = tonRaum.createGain();
+    o.type = "triangle";
+    o.frequency.value = hz;
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(0.16, start + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + 0.7);
+    o.connect(g); g.connect(tonRaum.destination);
+    o.start(start); o.stop(start + 0.75);
+  });
+}
+function tonZeichnen(){
+  document.querySelectorAll("#ton-wahl button")
+    .forEach(b=> b.classList.toggle("on", (b.dataset.ton === "1") === (D.ton !== false)));
+}
+document.getElementById("ton-wahl").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  D.ton = b.dataset.ton === "1";
+  if(D.ton) tonBereit();
+  sichern(); tonZeichnen();
+});
+document.getElementById("ton-probe").addEventListener("click", ()=>{ tonBereit(); tonSpielen(); });
+
 /* ═══════════ Los ═══════════ */
+zahnradBauen();
+leisteZeichnen();
 wahlZeichnen();
 listenZeichnen();
 zeichnen();
