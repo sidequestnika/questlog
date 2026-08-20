@@ -3,54 +3,80 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Questlog">
-<meta name="theme-color" content="#141d22">
+<meta name="theme-color" content="#20150F">
 <meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png" type="image/png">
 
 <style>
-/* ————— Farben: dunkel als Grundzustand, hell als Variante ————— */
+/* ————— Farben: Questbuch. Dunkel ist Leder am Lagerfeuer, hell ist Pergament.
+   Jedes Paar aus Schrift und Untergrund ist gegen die WCAG-Schwelle gerechnet
+   (4.5:1 für Text, 3:1 für bedeutungstragende Flächen) — nicht geschätzt.
+   Blutrot steht bewusst NUR am Speicher-Alarm: ein echter Fehler, keine Scham.
+   Für „seit 2 Tagen fällig" bleibt es bei Bernstein. ————— */
 :root{
-  --ground:#141d22;
-  --surface:#1d272d;
-  --surface-2:#26333a;
-  --line:#31434b;
-  --ink:#e9eff1;
-  --ink-soft:#94a8b0;
-  --ink-faint:#657e88;
-  --accent:#f2a65a;
-  --accent-ink:#2a1a08;
-  --calm:#5fbfa9;
-  --cool:#6e9bc5;
-  --warn:#e0b64a;
-  --shadow:0 10px 30px rgba(0,0,0,.38);
+  --ground:#20150F;      /* dunkles Lederbraun, abgedunkelt */
+  --surface:#2C1E15;
+  --surface-2:#3A2819;
+  --line:#5A3E2D;
+  --ink:#EFE3CC;         /* Pergament als Schrift */
+  --ink-soft:#BCA684;
+  --ink-faint:#AA9070;
+  --accent:#C9A86A;      /* Runen-Gold */
+  --accent-ink:#2A1A08;
+  --calm:#4FAF9F;        /* Arcane-Türkis */
+  --cool:#9080AB;        /* Schattenviolett, aufgehellt */
+  --warn:#C97B3C;
+  --alarm:#B4413F;       /* Blutrot, aufgehellt */
+  --moss:#6E8F6A;        /* Moosgrün */
+  --forest:#2F4F3A;      /* tiefes Waldgrün */
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+
+  /* ————— Schrift: vier Rollen. Die Wunschschriften stehen jeweils vorn; sind
+     sie nicht da, greift die nächstbeste Schrift, die auf dem iPhone schon
+     liegt. Nichts wird nachgeladen, solange keine @font-face dazukommt. ————— */
+  --schrift-titel:"Crimson Pro","Iowan Old Style",Palatino,Georgia,serif;
+  --schrift-text:"EB Garamond","Iowan Old Style",Palatino,Georgia,serif;
+  --schrift-ui:"Inter",-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,sans-serif;
+  --schrift-runen:"Cinzel","Iowan Old Style",Palatino,Georgia,serif;
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --ground:#e5e9e9; --surface:#f8faf9; --surface-2:#eef2f1; --line:#d0dad8;
-    --ink:#16211f; --ink-soft:#53686b; --ink-faint:#7f969d;
-    --accent:#b06413; --accent-ink:#fff6ec; --calm:#2b8574; --cool:#3f6f9c; --warn:#8a6410;
-    --shadow:0 8px 24px rgba(30,50,55,.13);
+    --ground:#EDE1C6; --surface:#FAF3E2; --surface-2:#D9C7A6; --line:#BCA47A;
+    --ink:#332417; --ink-soft:#4E3D28; --ink-faint:#645036;
+    --accent:#7E4F14; --accent-ink:#FFF6E6; --calm:#245F4E; --cool:#544364;
+    --warn:#7C4110; --alarm:#8C2F2F; --moss:#3F6139; --forest:#2F4F3A;
+    --shadow:0 8px 24px rgba(74,46,26,.16);
   }
 }
 :root[data-theme="light"]{
-  --ground:#e5e9e9; --surface:#f8faf9; --surface-2:#eef2f1; --line:#d0dad8;
-  --ink:#16211f; --ink-soft:#53686b; --ink-faint:#7f969d;
-  --accent:#b06413; --accent-ink:#fff6ec; --calm:#2b8574; --cool:#3f6f9c; --warn:#8a6410;
-  --shadow:0 8px 24px rgba(30,50,55,.13);
+  --ground:#EDE1C6; --surface:#FAF3E2; --surface-2:#D9C7A6; --line:#BCA47A;
+  --ink:#332417; --ink-soft:#4E3D28; --ink-faint:#645036;
+  --accent:#7E4F14; --accent-ink:#FFF6E6; --calm:#245F4E; --cool:#544364;
+  --warn:#7C4110; --alarm:#8C2F2F; --moss:#3F6139; --forest:#2F4F3A;
+  --shadow:0 8px 24px rgba(74,46,26,.16);
 }
 
 *{box-sizing:border-box}
+/* Fließtext in einer Buchschrift — die haben eine kleinere x-Höhe als die
+   Systemschrift, deshalb einen Tick größer und luftiger als vorher. */
 body{
   margin:0; background:var(--ground); color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,sans-serif;
-  font-size:17px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  font-family:var(--schrift-text);
+  font-size:18px; line-height:1.5; -webkit-font-smoothing:antialiased;
   padding-bottom:calc(78px + env(safe-area-inset-bottom));
 }
-h1,h2,h3,.rund{font-family:ui-rounded,"SF Pro Rounded",-apple-system,system-ui,sans-serif}
-button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
-input,textarea{font:inherit;color:inherit}
+h1,h2,h3,.rund{font-family:var(--schrift-titel)}
+/* Alles, was man antippt und tippt, bleibt in der klaren Schrift — Knöpfe und
+   Eingaben müssen funktionieren, nicht schön aussehen. */
+button{font-family:var(--schrift-ui);font-size:inherit;line-height:inherit;
+  color:inherit;background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
+/* Die kleinen Versalien sind die dekorativen Akzente. */
+.label,.mini,.datum,.beutel-wort,.zaehler,.abschnitt-name{font-family:var(--schrift-runen)}
+/* Questtitel lesen sich wie Einträge in einem Buch. */
+.karte-titel{font-family:var(--schrift-text)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
 
 .wrap{max-width:480px;margin:0 auto;padding:0 16px}
@@ -90,7 +116,7 @@ input,textarea{font:inherit;color:inherit}
 .karte.haupt{padding:20px 18px;border-color:color-mix(in srgb,var(--accent) 42%,var(--line))}
 .karte-txt{flex:1;min-width:0}
 .karte-titel{font-weight:600;letter-spacing:-.01em;word-break:break-word;display:block}
-.karte.haupt .karte-titel{font-size:21px;font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif}
+.karte.haupt .karte-titel{font-size:21px;font-family:var(--schrift-titel)}
 .karte-unter{font-size:13px;color:var(--ink-faint);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
 .punkt{width:10px;height:10px;border-radius:99px;flex:none;margin-top:7px}
 .p-spass{background:var(--accent)}
@@ -101,17 +127,19 @@ input,textarea{font:inherit;color:inherit}
 .leer{color:var(--ink-faint);font-size:15px;padding:14px 2px 6px;line-height:1.5}
 
 /* ————— Warnung / Zustand ————— */
+/* Der einzige Ort mit Blutrot: hier wird wirklich nichts gespeichert. Das ist
+   ein Fehler im Werkzeug, kein Vorwurf an sie — deshalb darf es laut sein. */
 .warnung{
-  border:1px solid var(--warn);border-radius:16px;padding:15px 16px;margin-bottom:18px;
-  background:color-mix(in srgb,var(--warn) 12%,var(--surface));
+  border:1px solid var(--alarm);border-radius:16px;padding:15px 16px;margin-bottom:18px;
+  background:color-mix(in srgb,var(--alarm) 12%,var(--surface));
 }
-.warnung b{display:block;font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;margin-bottom:4px}
+.warnung b{display:block;font-family:var(--schrift-titel);margin-bottom:4px}
 .warnung p{margin:0;font-size:14px;color:var(--ink-soft);line-height:1.5}
 .zustand{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:10px}
 .zustand-zeile{display:flex;align-items:center;gap:10px;font-weight:600;margin-bottom:10px}
 .ampel{width:11px;height:11px;border-radius:99px;flex:none}
-.ampel.gut{background:var(--calm)}
-.ampel.schlecht{background:var(--warn)}
+.ampel.gut{background:var(--moss)}
+.ampel.schlecht{background:var(--alarm)}
 .zustand dl{margin:0;font-size:13px;color:var(--ink-soft);display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
 .zustand dt{color:var(--ink-faint)}
 .zustand dd{margin:0;font-variant-numeric:tabular-nums}
@@ -119,7 +147,7 @@ input,textarea{font:inherit;color:inherit}
 /* ————— Aufräum-Frage ————— */
 .frage{background:var(--surface-2);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:20px}
 .frage p{margin:0 0 4px;font-size:15px;color:var(--ink-soft)}
-.frage .was{font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;font-size:19px;font-weight:700;color:var(--ink);margin:0 0 14px}
+.frage .was{font-family:var(--schrift-titel);font-size:19px;font-weight:700;color:var(--ink);margin:0 0 14px}
 .frage-knoepfe{display:flex;flex-direction:column;gap:8px}
 
 /* ————— Knöpfe ————— */
@@ -134,7 +162,7 @@ input,textarea{font:inherit;color:inherit}
   display:flex;justify-content:center;pointer-events:none;z-index:20}
 .wuerfel{pointer-events:auto;padding:13px 24px;border-radius:99px;background:var(--accent);
   color:var(--accent-ink);font-weight:700;font-size:16px;box-shadow:var(--shadow);
-  display:flex;align-items:center;gap:9px;font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif}
+  display:flex;align-items:center;gap:9px;font-family:var(--schrift-titel)}
 .wuerfel:active{transform:scale(.95)}
 .w-icon{font-size:20px;display:inline-block}
 .rollt .w-icon{animation:roll .6s ease}
@@ -174,9 +202,9 @@ input,textarea{font:inherit;color:inherit}
 .ring .bahn{fill:none;stroke:var(--surface-2);stroke-width:13}
 .ring .lauf{fill:none;stroke:var(--accent);stroke-width:13;stroke-linecap:round;transition:stroke-dashoffset .3s linear}
 .ring .zahl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;font-size:46px;font-weight:700;
+  font-family:var(--schrift-titel);font-size:46px;font-weight:700;
   font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.anlauf-titel{font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;font-size:24px;font-weight:700;
+.anlauf-titel{font-family:var(--schrift-titel);font-size:24px;font-weight:700;
   margin:0 0 8px;text-wrap:balance;max-width:340px}
 .anlauf-happen{color:var(--ink-soft);font-size:15px;margin:0 0 26px;max-width:320px;line-height:1.5}
 .anlauf-knoepfe{width:100%;max-width:320px;display:flex;flex-direction:column;gap:9px}
@@ -202,7 +230,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 
 /* ————— Gold ————— */
 .beutel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;text-align:center;margin-bottom:20px}
-.beutel-zahl{font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;font-size:52px;font-weight:800;
+.beutel-zahl{font-family:var(--schrift-titel);font-size:52px;font-weight:800;
   letter-spacing:-.03em;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.05}
 .beutel-wort{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 
@@ -230,7 +258,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 .tagkarte{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin-bottom:9px}
 .tagkarte.ist-heute{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .tagkopf{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:9px}
-.tagname{font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;font-weight:700;font-size:16px}
+.tagname{font-family:var(--schrift-titel);font-weight:700;font-size:16px}
 .tagkarte.ist-heute .tagname{color:var(--accent)}
 .tagnotiz{font-size:12px;color:var(--ink-faint);text-align:right}
 .abschnitt{padding:7px 0}
@@ -245,7 +273,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
 .zeile:active{transform:scale(.99)}
 .zeile-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .griff{color:var(--ink-faint);font-size:13px;letter-spacing:-2px;flex:none}
-.zeile.termin{background:color-mix(in srgb,var(--cool) 20%,var(--surface-2));border-color:transparent;font-weight:600}
+.zeile.termin{background:color-mix(in srgb,var(--forest) 30%,var(--surface-2));border-color:transparent;font-weight:600}
 .zeile.fest{background:color-mix(in srgb,var(--accent) 18%,var(--surface-2));border-color:transparent}
 .zeile.schwebt{position:fixed;z-index:80;box-shadow:var(--shadow);opacity:.95;
   transform:scale(1.03);pointer-events:none;margin:0}
@@ -294,7 +322,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
     <circle cx="70" cy="39" r="2.6" fill="#b0966a"></circle>
     <circle cx="290" cy="39" r="2.6" fill="#b0966a"></circle>
     <text x="180" y="47" text-anchor="middle" fill="#4c3f28"
-      font-family="ui-serif, Georgia, 'Times New Roman', serif" font-size="27" letter-spacing="2">Questlog</text>
+      style="font-family:var(--schrift-runen)" font-size="27" letter-spacing="2">Questlog</text>
   </svg>
 
   <div id="warn-halter"></div>
@@ -2092,6 +2120,18 @@ function erholungKachelnZeichnen(){
     box.appendChild(k);
   });
   ziel.appendChild(box);
+
+  /* Die Kacheln ändern nur den Vorrat — angetippt „passiert" hier absichtlich
+     nichts weiter. Das muss dastehen, sonst wartet man auf eine Wirkung. */
+  const stand = document.createElement("p");
+  stand.className = "hinweis";
+  stand.style.margin = "0 0 10px";
+  stand.textContent = drin.length
+    ? drin.length + " von " + (ERHOLUNG_POOL.length + eigene.length)
+      + " sind dabei. Daraus würfelt die App dir jeden Tag " + RAST_ANZAHL
+      + " auf die Heute-Seite — gemacht wird es dort unter ☕ Kurze Rast."
+    : "Gerade ist nichts dabei — dann bleibt die Kurze Rast leer.";
+  ziel.appendChild(stand);
 }
 
 function listenZeichnen(){
