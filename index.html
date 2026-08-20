@@ -3,7 +3,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Questlog">
-<meta name="theme-color" content="#20150F">
+<meta name="theme-color" content="#112218">
 <meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -16,21 +16,25 @@
    Blutrot steht bewusst NUR am Speicher-Alarm: ein echter Fehler, keine Scham.
    Für „seit 2 Tagen fällig" bleibt es bei Bernstein. ————— */
 :root{
-  --ground:#20150F;      /* dunkles Lederbraun, abgedunkelt */
-  --surface:#2C1E15;
-  --surface-2:#3A2819;
-  --line:#5A3E2D;
+  --ground:#112218;      /* Waldgrün — der Grund, auf dem alles liegt */
+  --surface:#422F20;     /* Lederbraun — die Felder für die Aufgaben */
+  --surface-2:#4F3B29;
+  --line:#6A4E33;
   --ink:#EFE3CC;         /* Pergament als Schrift */
-  --ink-soft:#BCA684;
-  --ink-faint:#AA9070;
+  --ink-soft:#C4AF8D;
+  --ink-faint:#C2AA8B;
   --accent:#C9A86A;      /* Runen-Gold */
   --accent-ink:#2A1A08;
   --calm:#4FAF9F;        /* Arcane-Türkis */
-  --cool:#9080AB;        /* Schattenviolett, aufgehellt */
-  --warn:#C97B3C;
-  --alarm:#B4413F;       /* Blutrot, aufgehellt */
+  --cool:#9C8CB6;        /* Schattenviolett, aufgehellt */
+  --warn:#D6884A;
+  --alarm:#C4514D;       /* Blutrot, aufgehellt */
   --moss:#6E8F6A;        /* Moosgrün */
   --forest:#2F4F3A;      /* tiefes Waldgrün */
+  /* Die Ausdauerleiste sagt mit der Farbe, wie der Tag steht. */
+  --kraft-gut:#86C97F;
+  --kraft-knapp:#E0913F;
+  --kraft-achtung:#C25058;
   --shadow:0 10px 30px rgba(0,0,0,.45);
 
   /* ————— Schrift: vier Rollen. Die Wunschschriften stehen jeweils vorn; sind
@@ -43,19 +47,21 @@
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --ground:#EDE1C6; --surface:#FAF3E2; --surface-2:#D9C7A6; --line:#BCA47A;
-    --ink:#332417; --ink-soft:#4E3D28; --ink-faint:#645036;
-    --accent:#7E4F14; --accent-ink:#FFF6E6; --calm:#245F4E; --cool:#544364;
+    --ground:#BCCDAC; --surface:#F9F2E1; --surface-2:#EFE1C4; --line:#AD9569;
+    --ink:#2E2116; --ink-soft:#4E3D28; --ink-faint:#5F4B32;
+    --accent:#764810; --accent-ink:#FFF6E6; --calm:#1D5242; --cool:#544364;
     --warn:#7C4110; --alarm:#8C2F2F; --moss:#3F6139; --forest:#2F4F3A;
-    --shadow:0 8px 24px rgba(74,46,26,.16);
+    --kraft-gut:#2F7A3A; --kraft-knapp:#A85A0C; --kraft-achtung:#8C2F2F;
+    --shadow:0 8px 24px rgba(47,79,58,.18);
   }
 }
 :root[data-theme="light"]{
-  --ground:#EDE1C6; --surface:#FAF3E2; --surface-2:#D9C7A6; --line:#BCA47A;
-  --ink:#332417; --ink-soft:#4E3D28; --ink-faint:#645036;
-  --accent:#7E4F14; --accent-ink:#FFF6E6; --calm:#245F4E; --cool:#544364;
+  --ground:#BCCDAC; --surface:#F9F2E1; --surface-2:#EFE1C4; --line:#AD9569;
+  --ink:#2E2116; --ink-soft:#4E3D28; --ink-faint:#5F4B32;
+  --accent:#764810; --accent-ink:#FFF6E6; --calm:#1D5242; --cool:#544364;
   --warn:#7C4110; --alarm:#8C2F2F; --moss:#3F6139; --forest:#2F4F3A;
-  --shadow:0 8px 24px rgba(74,46,26,.16);
+  --kraft-gut:#2F7A3A; --kraft-knapp:#A85A0C; --kraft-achtung:#8C2F2F;
+  --shadow:0 8px 24px rgba(47,79,58,.18);
 }
 
 *{box-sizing:border-box}
@@ -98,7 +104,12 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
 .akku-punkte{display:flex;gap:5px;flex-wrap:wrap}
 .pip{width:100%;max-width:26px;height:9px;border-radius:99px;background:var(--surface-2);flex:1 1 14px;
   border:1px solid var(--line);transition:background .3s ease}
-.pip.voll{background:var(--calm);border-color:transparent}
+/* Die Farbe der Leiste sagt, wie der Tag steht: hellgrün alles gut, orange
+   wird knapp, weinrot achtung. Alle gefüllten Punkte tragen dieselbe Farbe —
+   es ist eine Lage, kein Verlauf. */
+.pip.voll{background:var(--kraft-gut);border-color:transparent}
+.akku-punkte.lage-knapp .pip.voll{background:var(--kraft-knapp)}
+.akku-punkte.lage-achtung .pip.voll{background:var(--kraft-achtung)}
 .pip.drueber{background:transparent;border-style:dashed;border-color:var(--accent)}
 .pip.voll.drueber{background:var(--accent);border-style:solid}
 .akku-rast{font-size:12px;color:var(--calm);margin-top:7px;font-weight:600}
@@ -776,6 +787,15 @@ function zustandZeichnen(){
     '</dl>';
 }
 
+/* Ab 60% der Ausdauer wird es knapp, ab voll ist es achtung. Verhältnis statt
+   fester Zahl, damit es an einem schmalen Tag genauso stimmt wie an einem
+   starken. Die Zeile daneben sagt dasselbe nochmal in Worten. */
+function kraftLage(last, ganz){
+  if(last >= ganz) return "achtung";
+  if(last >= ganz * 0.6) return "knapp";
+  return "gut";
+}
+
 function akkuZeichnen(){
   const last = ausdauerVerbraucht();
   const ganz = ausdauerHeute();
@@ -786,6 +806,7 @@ function akkuZeichnen(){
   /* Zählbare Punkte statt eines Balkens: „noch zwei" liest sich schneller
      als ein Balken, den man schätzen muss. */
   const bahn = document.getElementById("akku-punkte");
+  bahn.className = "akku-punkte lage-" + kraftLage(last, ganz);
   bahn.innerHTML = "";
   const zeigen = Math.min(Math.max(ganz, last), 14);
   for(let i=0; i<zeigen; i++){
