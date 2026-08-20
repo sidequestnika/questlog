@@ -245,6 +245,9 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
 .blatt h3{margin:0 0 3px;font-size:20px;letter-spacing:-.01em;text-wrap:balance}
 .blatt .sub{color:var(--ink-faint);font-size:14px;margin:0 0 18px;line-height:1.5}
 .blatt .knopf{margin-bottom:8px}
+/* Die eine Sache im Rückzug: groß genug, dass man sie im Aufruhr trifft,
+   ohne hinzusehen. */
+.knopf.sofort-gross{padding:26px 16px;font-size:19px;line-height:1.3;margin-bottom:14px}
 
 /* ————— Anlauf ————— */
 .anlauf{position:fixed;left:0;right:0;top:0;height:100vh;height:100dvh;z-index:50;
@@ -382,6 +385,12 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   font-size:12px;font-weight:600;color:var(--ink-soft);font-family:var(--schrift-ui);
   line-height:1.2;text-align:center}
 .handgriff:active{transform:scale(.97)}
+/* Vier Knöpfe statt drei, sobald der Zettel dazukommt — dann wird es schmal.
+   Zeichen bleiben gleich groß, nur das Wort darf kleiner werden. Die Klasse
+   setzt zettelKnopfZeichnen(); ein :has()-Selektor über style="display:none"
+   wäre kürzer und würde beim nächsten Umbau still das Falsche treffen. */
+.handgriffe.vier .handgriff{font-size:11px;padding:11px 2px;letter-spacing:-.01em}
+.handgriff span{overflow-wrap:anywhere}
 .handgriff.getan{border-color:color-mix(in srgb,var(--calm) 55%,var(--line));color:var(--ink)}
 .handgriff svg{width:20px;height:20px;flex:none;color:var(--accent)}
 
@@ -444,6 +453,11 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
          Zeile statt zweier Zeilen: dieselbe Familie, andere Aufgabe. -->
     <button class="handgriff" id="zettel-knopf" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.4 4.4h9.2v13.2a2.6 2.6 0 0 1-2.6 2.6H7.4z"/><path d="M7.4 4.4a2.2 2.2 0 1 0 0 4.4h9.2"/><path d="m9.8 12.7 1.5 1.5 3.1-3.2"/><path d="M10.4 16.8h4.2"/></svg><span id="zettel-knopf-text">Zettel</span></button>
     <button class="handgriff" id="heute-neu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.6v12.8M5.6 12h12.8"/></svg><span>Eingefallen</span></button>
+    <!-- Der Rückzug. Ein Schild, kein Ausrufezeichen: Deckung suchen ist eine
+         Taktik, kein Alarm. Steht immer da, auch wenn der Zettel den vierten
+         Platz belegt — er ist der eine Knopf, der im Notfall gefunden werden
+         muss, ohne ihn zu suchen. -->
+    <button class="handgriff" id="sofort-knopf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.4c2.3 1.5 4.6 2.2 7 2.2v6c0 4-2.8 7-7 8.9-4.2-1.9-7-4.9-7-8.9v-6c2.4 0 4.7-.7 7-2.2z"/><path d="M9.2 12.1h5.6"/></svg><span>Rückzug</span></button>
   </div>
 
   <div id="vorschlag-halter"></div>
@@ -684,6 +698,25 @@ const ERHOLUNG_POOL = [
 const RAST_PLUS = 2;    /* was eine Erholung an Ausdauer zurückbringt */
 const RAST_DECKEL = 6;  /* ab hier ist der Tank voll — Erholung geht weiter, nur ohne Punkte */
 const RAST_ANZAHL = 5;  /* wie viele Vorschläge pro Tag gezogen werden */
+
+/* Für den Rückzug: was in unter zwei Minuten am Körper ankommt. Kälte über den
+   Tauchreflex, Summen und Atem über den Vagusnerv, Bewegung über den Kreislauf.
+   Alles andere aus dem Pool ist gute Erholung, aber zu langsam für einen
+   Moment, in dem etwas kippt — „Nickerchen" hilft niemandem, der gerade
+   hochfährt. Es sind bewusst Einträge AUS dem Pool, keine neuen: gefiltert
+   wird immer über ihre eigene Liste, Weggetipptes bleibt weg. */
+const SOFORT = [
+  "Dreimal tief atmen — 4 ein, 7 halten, 8 aus",
+  "Gesicht kalt abwaschen",
+  "Kaltes Wasser über die Handgelenke",
+  "Eine Minute summen",
+  "Fenster auf, eine Minute Luft ins Gesicht",
+  "Sich einmal richtig lang strecken",
+  "Zehn Hampelmänner",
+  "Ein Lied laut mitsingen",
+  "Ein Lied lang tanzen",
+  "Treppe zweimal hoch und runter"
+];
 
 /* Die Lange Rast ist das Abendritual: nicht ein Reset zwischendurch, sondern
    etwas, das man sich nimmt. Ihre eigene Liste — Fremdes funktioniert hier
@@ -1241,6 +1274,74 @@ function rastBlatt(alleZeigen){
 }
 document.getElementById("rast-knopf").addEventListener("click", ()=> rastBlatt(false));
 
+/* ═══════════ Rückzug ═══════════
+   Ihre Beschreibung des Moments: „man merkt something is off aber kann es
+   nicht einordnen, genau wie bei Wutanfällen." Daraus folgt alles hier:
+
+   Der Knopf fragt NICHT, was los ist. Wer es einordnen könnte, bräuchte ihn
+   nicht. Er zeigt auch keine Liste — auswählen ist genau die Hürde, die in
+   diesem Moment nicht geht. Eine Sache, groß, sofort. „Was anderes" für den
+   Fall, dass es gerade nicht passt.
+
+   Gebucht wird es als das, was es ist: eine Kurze Rast. Gleiche Zählung,
+   gleicher Deckel, gleiches Rückgängig — keine zweite Buchhaltung daneben. */
+function sofortListe(){
+  const meine = (D.erholung||[]).filter(Boolean);
+  const schnell = SOFORT.filter(w=> meine.includes(w));
+  /* Hat sie alle Schnellen weggetippt, ist ihre Liste trotzdem besser als
+     eine, die ich ihr aufdränge. */
+  return schnell.length ? schnell : meine;
+}
+
+/* Das am seltensten Genommene zuerst — sonst kommt immer dasselbe, und was
+   immer kommt, wirkt irgendwann nicht mehr. */
+function sofortWaehlen(ausser){
+  const l = sofortListe().filter(w=> w !== ausser);
+  if(!l.length) return ausser || null;
+  const wenigste = Math.min(...l.map(w=> (D.rastGetan||{})[w] || 0));
+  const arm = l.filter(w=> ((D.rastGetan||{})[w] || 0) === wenigste);
+  return arm[Math.floor(Math.random() * arm.length)];
+}
+
+function sofortBlatt(wort){
+  /* Nur echte Wörter durchlassen — sonst schreibt ein durchgereichtes
+     Klick-Ereignis „[object PointerEvent]" auf den Knopf. */
+  const w = (typeof wort === "string" && wort) ? wort : sofortWaehlen(null);
+  if(!w){ rastBlatt(false); return; }
+  const rest = Math.max(0, RAST_DECKEL - (D.rastHeute||0));
+  const plus = Math.min(RAST_PLUS, rest);
+
+  blattZeigen('<h3>Rückzug</h3>' +
+    '<p class="sub">Nichts erklären, nichts aussuchen. Nur das hier, jetzt.</p>', b=>{
+    const gross = document.createElement("button");
+    gross.className = "knopf stark sofort-gross";
+    gross.textContent = w;
+    gross.addEventListener("click", ()=>{
+      D.rastGetan = D.rastGetan || {};
+      D.rastGetan[w] = (D.rastGetan[w]||0) + 1;
+      D.rastLetzte = {wort:w, plus:plus};
+      if(plus){
+        D.heuteAusdauer = ausdauerHeute() + plus;
+        D.rastHeute = (D.rastHeute||0) + plus;
+      }
+      sichern(); zeichnen();
+      blattZeigen('<h3>Gut.</h3><p class="sub">' +
+        (plus ? "＋" + plus + " Ausdauer. " : "") +
+        'Mehr muss jetzt nicht sein.</p>', x=>{
+        x.appendChild(machKnopf("Noch eins", "", ()=> sofortBlatt(sofortWaehlen(w))));
+        x.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+      });
+    });
+    b.appendChild(gross);
+
+    b.appendChild(machKnopf("Was anderes", "", ()=> sofortBlatt(sofortWaehlen(w))));
+    b.appendChild(machKnopf("Doch nicht", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+/* Nicht sofortBlatt direkt hängen: der Listener reicht das Klick-Ereignis als
+   erstes Argument durch, und das landete als „Vorschlag" auf dem großen Knopf. */
+document.getElementById("sofort-knopf").addEventListener("click", ()=> sofortBlatt());
+
 /* ═══════════ Einkaufszettel ═══════════
    Ihr Wochenbild: Sonntag beim Planen fällt Mehl ein, Montag geht sie
    spontan los und holt nur Akutes, Dienstag kommt Klopapier dazu — und
@@ -1266,6 +1367,9 @@ function zettelKnopfZeichnen(){
   knopf.style.display = wie ? "flex" : "none";
   knopf.classList.toggle("getan", wie > 0);
   document.getElementById("zettel-knopf-text").textContent = "Zettel · " + wie;
+  /* Mit Zettel sind es vier Handgriffe — dann muss die Schrift schmaler. */
+  const zeile = knopf.parentElement;
+  if(zeile) zeile.classList.toggle("vier", wie > 0);
 }
 
 /* Gibt es schon eine Quest fürs Einkaufen? Dann bietet der Zettel nicht an,
