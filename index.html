@@ -275,6 +275,11 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .wahl button{flex:1;padding:11px 5px;border-radius:12px;background:var(--surface-2);
   border:1px solid var(--line);font-size:14px;font-weight:600;color:var(--ink-soft)}
 .wahl button.on{border-color:var(--accent);color:var(--ink);background:color-mix(in srgb,var(--accent) 15%,var(--surface-2))}
+/* Fünf Zeichen nebeneinander: groß genug zum Treffen, aber eine Zeile hoch —
+   der Abend hat schon drei Stationen, eine vierte darf nichts kosten. */
+.wahl.tagsform{gap:6px;margin-bottom:8px}
+.wahl.tagsform button{padding:9px 0;font-size:23px;line-height:1.15}
+.wahl.tagsform button.on{background:color-mix(in srgb,var(--accent) 22%,var(--surface-2))}
 .mini{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);
   margin:0 0 7px;font-weight:600}
 
@@ -734,6 +739,11 @@ const START = {
   /* Wie sich Quests im Rückblick angefühlt haben. Daraus wird später ein
      einziger Satz — nie ein Diagramm. */
   energie:[],
+  /* Wie der TAG war — ausdrücklich unabhängig von den Aufgaben. Ihre eigene
+     Skala und ihre eigenen Worte. Tag → Schlüssel. Zwei Sachen dürfen hier nie
+     passieren: eine Zahl daraus machen, und sie mit dem Geschafften verrechnen.
+     Ein stressiger Tag mit fünf erledigten Quests bleibt ein stressiger Tag. */
+  tagsform:{},
   /* Drei verschiedene Dinge, die man nicht verwechseln darf:
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
@@ -1750,6 +1760,14 @@ function tagesformKnoepfe(b, danach){
   });
 }
 
+/* „Wie ist der Tag heute?" ist eine Frage an den Anfang. Am 20.08. abends hat
+   sie sie um kurz vor neun bekommen — die Reparatur des Tages hatte die
+   verbrannte Frage geheilt, und die meldete sich prompt zur Nachtruhe, samt
+   Stichfrage hinterher. Also: von selbst nur, solange der Tag noch vor ihr
+   liegt. Danach bleibt sie über den Ausdauer-Knopf erreichbar, falls sie
+   wirklich nachmittags noch umstellen will. */
+const MORGENFRAGE_BIS = 16;
+
 /* Früher stand hier „D.tagesfrage = D.tag" VOR dem Blatt — wer daneben tippte,
    hatte die Frage für den ganzen Tag verbrannt, ohne sie je gelesen zu haben.
    Genau das ist ihr passiert. Jetzt gilt: gemerkt wird nur, dass sich das Blatt
@@ -1758,6 +1776,7 @@ function tagesformKnoepfe(b, danach){
 function tagesfrageZeigen(){
   if(D.tagesfrage === D.tag) return;
   if(D.formGezeigt === D.tag) return;
+  if(new Date().getHours() >= MORGENFRAGE_BIS) return;
   if(blattGrund.classList.contains("on")) return;
   D.formGezeigt = D.tag; sichern();
   tagesfrageBlatt();
@@ -2630,19 +2649,89 @@ function abendNeu(){
   blattEl.scrollTop = hoehe;
 }
 
+/* ═══════════ Wie war der Tag ═══════════
+   Ihre Skala, ihre Worte. Der Abend fragte vorher zweimal dasselbe wie der
+   Morgen und einmal nach einer Aufgabe — „das war keine Reflexion, wie ich sie
+   mir vorstelle". Hier wird nach dem TAG gefragt, nicht nach der Leistung:
+   ein stressiger Tag mit fünf erledigten Quests war trotzdem stressig.
+   Eine Zeile, fünf Zeichen, ein Tipp. Keine Quote, nichts muss. */
+const TAGSFORM = [
+  ["ruhig",  "😌", "entspannt"],
+  ["gut",    "🥳", "aufregend, aber gut"],
+  ["okay",   "🙂", "joa, war ok"],
+  ["stress", "😬", "stressig"],
+  ["vorbei", "🫠", "froh, dass er vorbei ist"]
+];
+
+function tagsformTeil(b){
+  const l = document.createElement("p");
+  l.className = "mini"; l.style.margin = "4px 0 7px";
+  l.textContent = "Wie war dein Tag?";
+  b.appendChild(l);
+
+  const zeile = document.createElement("div");
+  zeile.className = "wahl tagsform";
+  const wort = document.createElement("p");
+  wort.className = "hinweis"; wort.style.margin = "0 0 16px"; wort.style.minHeight = "17px";
+
+  const gesetzt = (D.tagsform||{})[D.tag];
+  TAGSFORM.forEach(([schluessel, zeichen, text])=>{
+    const k = document.createElement("button");
+    k.textContent = zeichen;
+    k.setAttribute("aria-label", text);
+    k.classList.toggle("on", gesetzt === schluessel);
+    k.addEventListener("click", ()=>{
+      D.tagsform = D.tagsform || {};
+      /* Nochmal auf dasselbe tippen nimmt es zurück — sie soll sich nicht
+         festlegen müssen, weil sie danebengetippt hat. */
+      if(D.tagsform[D.tag] === schluessel) delete D.tagsform[D.tag];
+      else D.tagsform[D.tag] = schluessel;
+      sichern();
+      [...zeile.children].forEach(x=> x.classList.toggle("on", x === k && D.tagsform[D.tag] === schluessel));
+      wort.textContent = D.tagsform[D.tag] ? text : "";
+    });
+    zeile.appendChild(k);
+  });
+  const dabei = TAGSFORM.find(t=>t[0] === gesetzt);
+  wort.textContent = dabei ? dabei[2] : "";
+  b.appendChild(zeile); b.appendChild(wort);
+}
+
 function abendBlatt(){
   const ruhe = istRuhetag();
   const geschafft = D.geschafft.slice();
-  let inhalt = '<h3>' + (ruhe ? "Ruhetag" : "Das war heute") + '</h3>';
-  if(ruhe){
-    inhalt += '<p class="sub">Heute war frei — das war eine Entscheidung, kein verlorener Tag. Die Reihe läuft weiter.</p>';
-  }else if(geschafft.length){
-    inhalt += '<p class="sub">'+mehrzahl(geschafft.length,"Sache","Sachen")+' geschafft.</p>';
-    inhalt += geschafft.map(t=>'<div class="karte fertig"><span class="punkt p-neutral"></span><span class="karte-txt"><span class="karte-titel">'+entschaerfen(t)+'</span></span></div>').join("");
-  }else{
-    inhalt += '<p class="sub">Auf der Liste stand heute nichts. Das ist keine Schuld — Tage sind unterschiedlich. Und vielleicht war ja doch etwas?</p>';
-  }
-  blattZeigen(inhalt, b=>{
+  /* Die Frage nach dem Tag steht ganz oben — vor der Bilanz. Stünde sie
+     darunter, würde die Liste des Geschafften die Antwort einfärben, und genau
+     das soll sie nicht: der Tag war stressig oder schön, unabhängig davon,
+     wie viele Häkchen dastehen. */
+  blattZeigen('<h3>' + (ruhe ? "Ruhetag" : "Lager aufschlagen") + '</h3>', b=>{
+    tagsformTeil(b);
+
+    const bilanz = document.createElement("div");
+    bilanz.style.marginTop = "20px";
+    const kopf = document.createElement("p");
+    kopf.className = "mini"; kopf.style.margin = "0 0 7px";
+    kopf.textContent = ruhe ? "Heute war frei" : "Das war heute";
+    bilanz.appendChild(kopf);
+    const unter = document.createElement("p");
+    unter.className = "sub"; unter.style.margin = "0 0 12px";
+    unter.textContent = ruhe
+      ? "Das war eine Entscheidung, kein verlorener Tag. Die Reihe läuft weiter."
+      : (geschafft.length
+          ? mehrzahl(geschafft.length,"Sache","Sachen") + " geschafft."
+          : "Auf der Liste stand heute nichts. Das ist keine Schuld — Tage sind unterschiedlich. Und vielleicht war ja doch etwas?");
+    bilanz.appendChild(unter);
+    if(!ruhe && geschafft.length){
+      geschafft.forEach(t=>{
+        const k = document.createElement("div");
+        k.className = "karte fertig";
+        k.innerHTML = '<span class="punkt p-neutral"></span><span class="karte-txt"><span class="karte-titel"></span></span>';
+        k.querySelector(".karte-titel").textContent = t;
+        bilanz.appendChild(k);
+      });
+    }
+    b.appendChild(bilanz);
+
     /* Ein Satz, kein Diagramm — und erst, wenn genug Antworten da sind. */
     const satz = energieSatz();
     if(satz){
@@ -2940,6 +3029,10 @@ function textBlatt(qid, feld, kopf, sub, platz){
    Zwischen zweien zu wählen ist billig, zwölf zu ordnen unmöglich — und
    genau daran scheitert jede Prioritätenliste. */
 function stichfrageZeigen(){
+  /* Zweiter Riegel, unabhängig von dem an der Morgenfrage: eine Frage, die eine
+     Aufgabe auf Heute legt, hat abends nichts verloren. Sie hat es so gesagt —
+     „jetzt habe ich abends noch eine Aufgabe reinbekommen". */
+  if(new Date().getHours() >= MORGENFRAGE_BIS) return false;
   const kandidaten = D.quests
     .filter(q=>!q.fertig && q.ort!=="archiv" && wach(q) && !spaeterAmTag(q))
     .sort((a,b)=>rang(a)-rang(b)).slice(0,2);
