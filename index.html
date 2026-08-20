@@ -759,6 +759,9 @@ const START = {
      formWert = der gewählte Grundwert OHNE Erholung — nur so lässt sich später
      noch erkennen, welche Antwort gilt. */
   tagesfrage:null, formGezeigt:null, formWert:null, ruhetag:null,
+  /* Was von gestern noch nachwirkt: {grund:"hoch"|"schwer", seit, bis}.
+     Überlebt den Tageswechsel bewusst — das ist der ganze Sinn. */
+  nachwehen:null,
   /* Die fünf Vorschläge des Tages und wie oft sie schon dran waren. */
   rastTag:null, rastAuswahl:[], rastGetan:{}, rastLetzte:null,
   /* Wie viel abends nachgetragen wurde — nur für den Gold-Deckel. */
@@ -977,6 +980,8 @@ function tagPruefen(){
   D.formGezeigt = null;
   D.formWert = null;
   D.ruhetag = null;
+  /* Abgelaufene Nachwehen räumen sich still weg — nichts, was sie beenden muss. */
+  if(D.nachwehen && D.nachwehen.bis && D.nachwehen.bis < D.tag) D.nachwehen = null;
   D.rastTag = null;
   D.rastAuswahl = [];
   D.rastGetan = {};
@@ -1168,6 +1173,9 @@ function akkuZeichnen(){
   const hinweise = [];
   if(istRuhetag()) hinweise.push("Heute ist Ruhetag — nichts muss.");
   else if(D.tagesfrage !== D.tag) hinweise.push("Wie ist der Tag heute? — hier antippen");
+  /* Sonst fragt die App plötzlich anders und sagt nicht, warum. */
+  const rest = nachwehenTageRest();
+  if(rest) hinweise.push("wirkt nach — noch " + mehrzahl(rest, "Tag", "Tage"));
   if(D.rastHeute) hinweise.push("durch Erholung heute +" + D.rastHeute);
   const hin = document.getElementById("rast-hinweis");
   hin.textContent = hinweise.join("  ·  ");
@@ -1822,14 +1830,77 @@ function ausdauerVerbraucht(){
    wirklich ist, weiß man erst morgens — und im Menü umstellen hieße, es abends
    wieder zurückstellen. Also einmal am Tag gefragt, gilt nur für heute. */
 function tagesform(){
-  return [
+  const l = [
     ["Schmal — heute geht wenig", 3, false],
     ["Normal", D.budget, false],
     ["Viel Kraft", 9, false],
     ["Ruhetag — heute nichts", 2, true]
   ];
+  /* Wirkt gestern noch nach, stehen die sanften Antworten vorn. Nicht gesperrt,
+     nicht vorgewählt — nur zuerst. Was oben steht, wird genommen; was man
+     suchen muss, nimmt man an einem müden Morgen nicht. */
+  return nachwehenGrund() ? [l[0], l[3], l[1], l[2]] : l;
 }
 function istRuhetag(){ return D.ruhetag === D.tag; }
+
+/* ═══════════ Nachwehen ═══════════
+   Die App kannte bisher nur einzelne Tage: jeder Morgen fing bei null an, als
+   wäre gestern nicht gewesen. Ihr Fall dagegen: Brautkleid aussuchen, Dopamin
+   bis zum Anschlag, gefeiert bis 4 Uhr — „der Kater war einen Tag, aber das
+   Social Jetlag dauert länger". Sieben Stunden Verschiebung, zurück etwa eine
+   Stunde pro Tag: fünf bis sieben Tage, bei ADHS eher mehr. Genau dafür ist
+   hier Platz.
+
+   Zwei Wege hinein. Von selbst am Tag nach einem auffälligen Abend — und von
+   Hand, wenn sie weiß, dass es länger nachwirkt. Nichts davon senkt ihre
+   Ausdauer im Stillen: die App fragt anders, entschieden wird von ihr. */
+function gesternStr(){
+  const d = new Date(D.tag + "T12:00:00");
+  if(isNaN(d)) return null;
+  d.setDate(d.getDate() - 1);
+  return datumStr(d);
+}
+
+/* „hoch" nach einem großen Tag, „schwer" nach einem zähen — die Sache dahinter
+   ist dieselbe (heute ist weniger da), die Ansprache nicht. */
+function nachwehenGrund(){
+  const n = D.nachwehen;
+  if(n && n.bis && n.bis >= D.tag) return n.grund;
+  const g = gesternStr();
+  const gestern = g ? (D.tagsform||{})[g] : null;
+  if(gestern === "gut") return "hoch";
+  if(gestern === "stress" || gestern === "vorbei") return "schwer";
+  return null;
+}
+
+function nachwehenTageRest(){
+  const n = D.nachwehen;
+  if(!n || !n.bis || n.bis < D.tag) return 0;
+  return Math.max(0, Math.round((new Date(n.bis + "T12:00:00") - new Date(D.tag + "T12:00:00")) / 86400000));
+}
+
+const NACHWEHEN_WORT = {
+  hoch:   {kopf:"Gestern war groß.",  frage:"Wie viel ist heute noch da?"},
+  schwer: {kopf:"Gestern war schwer.", frage:"Wie viel ist heute da?"}
+};
+
+function nachwehenSetzenBlatt(){
+  const grund = nachwehenGrund() || "hoch";
+  blattZeigen('<h3>Wirkt das länger nach?</h3>' +
+    '<p class="sub">Ein großer Tag steckt oft noch tagelang in den Knochen — nach einer langen Nacht braucht die innere Uhr ungefähr einen Tag pro verschobener Stunde. Solange fragt die App morgens sanfter.</p>', b=>{
+    [["Noch zwei Tage", 2], ["Noch fünf Tage", 5], ["Eine ganze Woche", 7]].forEach(([wort, tage])=>{
+      b.appendChild(machKnopf(wort, "", ()=>{
+        D.nachwehen = {grund:grund, seit:D.tag, bis:inTagen(tage)};
+        sichern(); blattSchliessen(); zeichnen();
+      }));
+    });
+    if(D.nachwehen)
+      b.appendChild(machKnopf("Vorbei — geht wieder", "ruhig", ()=>{
+        D.nachwehen = null; sichern(); blattSchliessen(); zeichnen();
+      }));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
 
 /* Welche Antwort gilt gerade? Nicht aus der Ausdauer zurückrechnen — die
    enthält die Erholung des Tages. Solange nichts geantwortet wurde, gilt
@@ -1887,14 +1958,25 @@ function tagesfrageZeigen(){
 }
 
 function tagesfrageBlatt(){
-  blattZeigen('<h3>Wie ist der Tag heute?</h3>' +
-    '<p class="sub">Das gilt nur für heute. Morgen fängt es wieder bei deiner Vorgabe an.</p>', b=>{
+  const grund = nachwehenGrund();
+  const w = NACHWEHEN_WORT[grund];
+  const rest = nachwehenTageRest();
+
+  blattZeigen(
+    w ? '<h3>' + w.kopf + '</h3><p class="sub">' + w.frage +
+        ' Was du wählst, gilt nur für heute — und dass gestern nachwirkt, ist kein Rückschritt.</p>'
+      : '<h3>Wie ist der Tag heute?</h3>' +
+        '<p class="sub">Das gilt nur für heute. Morgen fängt es wieder bei deiner Vorgabe an.</p>', b=>{
     tagesformKnoepfe(b, (wert, ruhe)=>{
       blattSchliessen(); zeichnen();
       /* An einem schmalen Tag kommt gleich die Stichfrage hinterher: nicht
          „was ist wichtig", sondern „wenn nur eins geht, welches?". */
       if(!ruhe && wert <= 3) stichfrageZeigen();
     });
+    if(w)
+      b.appendChild(machKnopf(
+        rest ? "Nachwehen — noch " + mehrzahl(rest, "Tag", "Tage") : "Das wirkt länger nach …",
+        "ruhig", nachwehenSetzenBlatt));
     b.appendChild(machKnopf("Später", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
 }
@@ -1908,10 +1990,18 @@ function ausdauerBlatt(){
     'große mehr als kleine. Drei kleine Sachen, die Spaß machen, kosten zusammen weniger als eine, ' +
     'vor der du dich drückst.<br><br>Gerade: <strong>' + last + ' von ' + ganz + '</strong> verplant.</p>', b=>{
 
+    const grund = nachwehenGrund();
     const l1 = document.createElement("p");
-    l1.className = "mini"; l1.style.margin = "0 0 8px"; l1.textContent = "Wie ist der Tag heute?";
+    l1.className = "mini"; l1.style.margin = "0 0 8px";
+    l1.textContent = grund ? NACHWEHEN_WORT[grund].frage : "Wie ist der Tag heute?";
     b.appendChild(l1);
     tagesformKnoepfe(b, ()=>{ zeichnen(); ausdauerBlatt(); });
+    if(grund){
+      const rest = nachwehenTageRest();
+      b.appendChild(machKnopf(
+        rest ? "Nachwehen — noch " + mehrzahl(rest, "Tag", "Tage") : "Das wirkt länger nach …",
+        "ruhig", nachwehenSetzenBlatt));
+    }
 
     const l2 = document.createElement("p");
     l2.className = "mini"; l2.style.margin = "20px 0 8px"; l2.textContent = "Erholung — lädt auf, kostet nichts";
