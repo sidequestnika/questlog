@@ -130,6 +130,9 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
   background:var(--accent);opacity:.8}
 .label::after{content:"";flex:1;height:1px;
   background:linear-gradient(to right,var(--line),transparent)}
+/* Halbsatz neben der Überschrift, damit „Botengänge" sich selbst erklärt. */
+.label em{flex:none;font-style:normal;text-transform:none;letter-spacing:0;font-weight:500;
+  font-size:11px;font-family:var(--schrift-ui);color:var(--ink-faint);opacity:.85}
 
 /* Doppelte Kante wie bei einer beschlagenen Tafel — reine Rahmung, keine
    gezeichnete Zierde, die schiefgehen kann. */
@@ -252,7 +255,9 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
 .feld{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;
   padding:14px 15px;margin-bottom:10px;font-size:17px}
 .feld::placeholder{color:var(--ink-faint)}
-textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
+/* Mindestens 16px — darunter zoomt iOS beim Antippen in das Feld hinein und
+   zoomt danach nicht wieder heraus. */
+textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .wahl{display:flex;gap:7px;margin-bottom:12px}
 .wahl button{flex:1;padding:11px 5px;border-radius:12px;background:var(--surface-2);
   border:1px solid var(--line);font-size:14px;font-weight:600;color:var(--ink-soft)}
@@ -387,12 +392,14 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:15px}
   <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
 
-  <p class="label">Mainquest</p>
+  <p class="label">Mainquest<em>trägt den Tag</em></p>
   <div id="liste-haupt"></div>
-  <p class="label">Sidequests</p>
+  <p class="label">Sidequests<em>was noch reinpasst</em></p>
   <div id="liste-neben"></div>
-  <p class="label">Botengänge</p>
+  <p class="label">Botengänge<em>kleine Erledigungen</em></p>
   <div id="liste-boten"></div>
+
+  <button class="knopf ruhig" id="heute-neu" style="margin-top:24px">＋ Etwas ist mir eingefallen</button>
 
   <div id="nochmal-halter"></div>
   <div id="abend-halter"></div>
@@ -596,7 +603,7 @@ const START = {
   /* Die Tagesform wird morgens einmal gefragt und gilt nur für heute. */
   tagesfrage:null, ruhetag:null,
   /* Die fünf Vorschläge des Tages und wie oft sie schon dran waren. */
-  rastTag:null, rastAuswahl:[], rastGetan:{},
+  rastTag:null, rastAuswahl:[], rastGetan:{}, rastLetzte:null,
   /* Wie viel abends nachgetragen wurde — nur für den Gold-Deckel. */
   nachtrag:0,
   quests:[], gefaehrten:[], termine:[],
@@ -734,7 +741,18 @@ function tagPruefen(){
   D.rastTag = null;
   D.rastAuswahl = [];
   D.rastGetan = {};
+  D.rastLetzte = null;
   D.nachtrag = 0;
+  /* Wiederkehrendes taucht wieder auf, statt sich zu stapeln: dieselbe Quest
+     wird zurückgesetzt, nie eine zweite angelegt. Verpasste Male werden nicht
+     gezählt — es gibt keine Schuld, nur ein Wiedersehen. */
+  D.quests.forEach(q=>{
+    if(q.fertig && q.wieder && q.wiederAm && q.wiederAm <= D.tag){
+      q.fertig = false; q.fertigAm = null; q.wiederAm = null;
+      q.ort = "buch"; q.verschoben = 0;
+      q.etappe = 0; q.naechster = ""; q.getan = [];
+    }
+  });
   if(!ersterStart){
     D.quests.forEach(q=>{
       /* Nicht Geschafftes bleibt NICHT stehen, sondern geht zurück ins
@@ -938,6 +956,7 @@ function rastBlatt(alleZeigen){
           const hoehe = blattEl.scrollTop;
           D.rastGetan = D.rastGetan || {};
           D.rastGetan[w] = (D.rastGetan[w]||0) + 1;
+          D.rastLetzte = {wort:w, plus:plus};
           if(plus){
             D.heuteAusdauer = ausdauerHeute() + plus;
             D.rastHeute = (D.rastHeute||0) + plus;
@@ -948,6 +967,21 @@ function rastBlatt(alleZeigen){
         }
       ));
     });
+
+    /* Danebengetippt darf keine Sackgasse sein. Rückgängig gibt es für den
+       letzten Tipp — mehr braucht es nicht, ein Versehen merkt man sofort. */
+    const l = D.rastLetzte;
+    if(l && (D.rastGetan||{})[l.wort])
+      b.appendChild(machKnopf("↩ " + kurz(l.wort) + " zurücknehmen", "ruhig", ()=>{
+        D.rastGetan[l.wort] = Math.max(0, (D.rastGetan[l.wort]||1) - 1);
+        if(!D.rastGetan[l.wort]) delete D.rastGetan[l.wort];
+        if(l.plus){
+          D.heuteAusdauer = Math.max(1, ausdauerHeute() - l.plus);
+          D.rastHeute = Math.max(0, (D.rastHeute||0) - l.plus);
+        }
+        D.rastLetzte = null;
+        sichern(); zeichnen(); rastBlatt(alleZeigen);
+      }));
 
     if(!alleZeigen && alle.length > zeigen.length)
       b.appendChild(machKnopf("Alle zeigen", "ruhig", ()=> rastBlatt(true)));
@@ -986,6 +1020,7 @@ function karteBauen(q){
     /* Die Zahl zählt hoch und nennt NIE ein Ziel. Ein „3 von 7" wäre wieder
        der Berg; wie viele es werden, weiß ohnehin niemand vorher. */
     if(istEtappe(q)) unten.push(((q.etappe||0) + 1) + ". Etappe");
+    if(q.wieder) unten.push(WIEDER_WORT[q.wieder] || "wiederkehrend");
     if(q.verschoben >= 2) unten.push("wartet seit " + q.verschoben + " Tagen");
     if(q.wennDann) unten.push("↳ " + q.wennDann);
   }
@@ -1241,6 +1276,18 @@ function vorschlagStarten(){
    die eine Quest, die den Tag trägt. Die kann jede Quest sein. */
 const TEILE = [["vor","Vormittag"],["nach","Nachmittag"],["abend","Abend"]];
 const TEIL_WORT = {vor:"Vormittag", nach:"Nachmittag", abend:"Abend"};
+const TEIL_REIHE = ["vor","nach","abend"];
+function jetzigerTeil(){
+  const st = new Date().getHours();
+  return st < 12 ? "vor" : (st < 17 ? "nach" : "abend");
+}
+/* Was für einen späteren Abschnitt des Tages eingeplant ist, ist keine Antwort
+   auf „was mache ich jetzt". Der Abend-Call mit Sarah gehört um 14 Uhr nicht
+   in den Würfeltopf — er findet ja statt, nur eben später. */
+function spaeterAmTag(q){
+  if(!q.plan || q.plan.tag !== D.tag || !q.plan.teil) return false;
+  return TEIL_REIHE.indexOf(q.plan.teil) > TEIL_REIHE.indexOf(jetzigerTeil());
+}
 const KURZTAG = ["So","Mo","Di","Mi","Do","Fr","Sa"];
 let wochenVersatz = 0;
 
@@ -1800,6 +1847,17 @@ function blattFuerQuest(qid){
   if(istEtappe(q)) unterzeile.push(((q.etappe||0) + 1) + ". Etappe");
   blattZeigen('<h3></h3><p class="sub">'+unterzeile.filter(Boolean).join(" · ")+'</p>', b=>{
     b.querySelector("h3").textContent = q.titel;
+    /* Die Spur hinter ihr, ganz oben. Nicht auf der Karte — dort würde sie mit
+       jedem Schritt wachsen; hier ist sie das Erste, was man beim Öffnen sieht. */
+    if((q.getan||[]).length){
+      const l = document.createElement("p");
+      l.className = "mini"; l.style.margin = "0 0 6px";
+      l.textContent = "Schon geschafft";
+      const s = document.createElement("p");
+      s.className = "hinweis"; s.style.margin = "0 0 16px"; s.style.color = "var(--moss)";
+      s.textContent = q.getan.map(x=>"✓ " + x).join("     ");
+      b.appendChild(l); b.appendChild(s);
+    }
     if(!q.fertig){
       b.appendChild(machKnopf("✓ Quest abgeschlossen", "stark", ()=>{ erledigen(q.id); blattSchliessen(); }));
       b.appendChild(machKnopf("▸ Ein Stück geschafft", "", ()=> etappeGeschafft(q.id)));
@@ -1816,6 +1874,8 @@ function blattFuerQuest(qid){
     b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
     b.appendChild(machKnopf(q.naechster ? "Nächsten Schritt ändern" : "Nächsten Schritt notieren",
       "ruhig", ()=> naechsterBlatt(q.id, {erster: !istEtappe(q)})));
+    b.appendChild(machKnopf(q.wieder ? "Wiederholung — " + (WIEDER_WORT[q.wieder]||"eigen") : "Wiederholt sich?",
+      "ruhig", ()=> wiederBlatt(q.id)));
     b.appendChild(machKnopf("Umbenennen", "ruhig", ()=> umbenennenBlatt(q.id)));
     b.appendChild(machKnopf("Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
     b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
@@ -1906,13 +1966,19 @@ function etappeGeschafft(qid){
   const q = D.quests.find(x=>x.id===qid); if(!q || q.fertig) return;
   q.etappe = (q.etappe||0) + 1;
   q.verschoben = 0;
+  /* Der Schritt, den sie gerade gemacht hat, war der notierte nächste. Der
+     wandert in die Spur hinter ihr — anders als die kommenden Schritte ist
+     das kein Berg, sondern der Weg, den sie schon hinter sich hat. */
+  const schritt = (q.naechster || "").trim();
+  if(schritt){ q.getan = (q.getan||[]).concat([schritt]); }
+  q.naechster = "";
   /* Ein Stück war der Beitrag für heute — der Tag ist wieder frei. Wer im
      Fluss ist, holt es sich auf dem Lob-Blatt sofort zurück. */
   q.ort = "buch";
   D.gold += GOLD_ETAPPE;
-  D.geschafft.push(q.titel + " · " + q.etappe + ". Etappe");
+  D.geschafft.push(q.titel + " · " + (schritt || q.etappe + ". Etappe"));
   sichern(); zeichnen();
-  naechsterBlatt(qid, true);
+  naechsterBlatt(qid, {nachEtappe:true});
 }
 
 /* Die EINE Stelle, an der ein nächster Schritt entsteht. Drei Türen führen
@@ -1957,6 +2023,30 @@ function naechsterBlatt(qid, opt){
   });
 }
 
+/* ═══════════ Wiederkehrendes ═══════════
+   Bad putzen, Müll, Wäsche. Entscheidend ist, dass so etwas NICHT als Schuld
+   auflaufen kann: es wird dieselbe Quest zurückgesetzt, nie eine zweite
+   angelegt, und verpasste Male werden nirgends gezählt. Wer drei Wochen nicht
+   geputzt hat, findet kein „3× überfällig" vor, sondern eine Quest wie jede
+   andere. */
+const WIEDER_WORT = {1:"täglich", 2:"alle 2 Tage", 3:"alle 3 Tage", 7:"jede Woche", 14:"alle 2 Wochen", 30:"jeden Monat"};
+
+function wiederBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  blattZeigen('<h3>Wiederholt sich?</h3><p class="sub">Nach dem Abschließen kommt die Quest von selbst zurück. ' +
+    'Sie stapelt sich nie und zählt keine verpassten Male — was liegen bleibt, bleibt einfach liegen.</p>', b=>{
+    [[0,"Nein, einmalig"],[1,"Täglich"],[2,"Alle 2 Tage"],[3,"Alle 3 Tage"],[7,"Jede Woche"],[14,"Alle 2 Wochen"],[30,"Jeden Monat"]]
+      .forEach(([n,w])=>{
+      b.appendChild(machKnopf(w, (q.wieder||0)===n ? "stark" : "", ()=>{
+        q.wieder = n;
+        if(!n) q.wiederAm = null;
+        sichern(); zeichnen(); wiederBlatt(qid);
+      }));
+    });
+    b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
 /* Umbenennen ist Umbenennen. Früher ging das nur über „Klein machen", das
    dabei auch die Größe zurücksetzte und das Ziel verschluckte. */
 function umbenennenBlatt(qid){
@@ -1989,18 +2079,21 @@ function erledigen(qid){
   D.gold += g;
   const etappen = (q.etappe||0) + 1;
   q.naechster = "";
+  /* Wiederkehrendes verschwindet nicht, es verabredet sich neu. */
+  if(q.wieder) q.wiederAm = inTagen(q.wieder);
   D.geschafft.push(q.titel);
   sichern(); zeichnen();
-  lobZeigen(q.titel, g, bonus, q.etikett, etappen > 1 ? etappen : 0);
+  lobZeigen(q.titel, g, bonus, q.etikett, etappen > 1 ? etappen : 0, q.wieder || 0);
 }
 
-function lobZeigen(titel, g, bonus, etikett, etappen){
+function lobZeigen(titel, g, bonus, etikett, etappen, wiederIn){
   const rest = D.quests.filter(q=>q.ort==="heute" && !q.fertig);
   let text = bonus ? "Bonuswurf! Doppeltes Gold." : "";
   /* Erst hier wird verraten, wie viele es waren. Vorher hätte die Zahl nur
      den Berg gezeigt; jetzt steht man oben. */
   if(etappen) text = "In " + etappen + " Etappen geschafft. " + text;
   if(!rest.length) text = "Heute ist alles durch. " + text;
+  if(wiederIn) text = (text || "") + " Kommt in " + mehrzahl(wiederIn,"Tag","Tagen") + " wieder.";
   const marke = blattZeigen('<h3>+'+g+' Gold</h3><p class="sub"></p>', b=>{
     b.querySelector(".sub").textContent = text || ("„"+kurz(titel)+"“ ist erledigt.");
     /* Nach etwas Zähem bewusst etwas Leichtes vorschlagen. */
@@ -2019,10 +2112,13 @@ document.getElementById("wuerfel").addEventListener("click", ()=>{
   w.classList.add("rollt");
   setTimeout(()=>w.classList.remove("rollt"), 620);
 
-  let topf = D.quests.filter(q=>q.ort==="heute" && !q.fertig);
-  if(!topf.length) topf = D.quests.filter(q=>q.ort==="buch" && !q.fertig);
+  let topf = D.quests.filter(q=>q.ort==="heute" && !q.fertig && !spaeterAmTag(q));
+  if(!topf.length) topf = D.quests.filter(q=>q.ort==="buch" && !q.fertig && !spaeterAmTag(q));
   if(!topf.length){
-    setTimeout(()=> blattZeigen('<h3>Nichts da</h3><p class="sub">Weder heute noch im Auftragsbuch wartet etwas. Genieß das.</p>',
+    const spaeter = D.quests.some(q=>!q.fertig && spaeterAmTag(q));
+    setTimeout(()=> blattZeigen('<h3>Nichts für jetzt</h3><p class="sub">' +
+      (spaeter ? "Was heute noch ansteht, ist für später am Tag eingeplant. Bis dahin ist frei."
+               : "Weder heute noch im Auftragsbuch wartet etwas. Genieß das.") + '</p>',
       b=> b.appendChild(machKnopf("Alles klar","stark",blattSchliessen))), 640);
     return;
   }
@@ -2281,6 +2377,30 @@ function datumLesen(roh){
   }
   return null;
 }
+
+/* Wo ein Einfall entsteht, muss er sich abladen lassen — auch mitten auf der
+   Heute-Seite. Er landet im Auftragsbuch, nie auf Heute: der Tag bleibt so
+   voll, wie er war. */
+document.getElementById("heute-neu").addEventListener("click", ()=>{
+  blattZeigen('<h3>Was ist dir eingefallen?</h3>' +
+    '<p class="sub">Der Titel reicht. Es wartet im Auftragsbuch — dein Tag bleibt, wie er ist.</p>' +
+    '<input class="feld" id="schnell-feld" placeholder="Ein Satz genügt">', b=>{
+    const feld = b.querySelector("#schnell-feld");
+    b.appendChild(machKnopf("Ins Auftragsbuch", "stark", ()=>{
+      const t = feld.value.trim();
+      if(!t) return;
+      D.quests.push({id:id(), titel:t, etikett:"neutral", grosse:1, ort:"buch", fach:"boten",
+        fertig:false, verschoben:0, wennDann:""});
+      sichern(); zeichnen();
+      blattZeigen('<h3>Notiert</h3><p class="sub"></p>', x=>{
+        x.querySelector(".sub").textContent = t + " wartet jetzt im Auftragsbuch.";
+        x.appendChild(machKnopf("Gut", "stark", blattSchliessen));
+      });
+    }));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+    setTimeout(()=>feld.focus(), 60);
+  });
+});
 
 /* ═══════════ Notizen ═══════════
    Ein einziges Feld, kein Anlegen, kein Speichern-Knopf. Ein Einfall, der erst
