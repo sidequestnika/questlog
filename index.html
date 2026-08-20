@@ -444,6 +444,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 <section class="view wrap" id="v-buch">
   <div class="kopf"><p class="datum">Alles, was noch wartet</p><h1 class="gruss">Auftragsbuch</h1></div>
   <input class="feld" id="neu-titel" placeholder="Was ist dir eingefallen?" enterkeyhint="done">
+  <input class="feld" id="neu-wofuer" placeholder="Wofür? — darf leer bleiben" enterkeyhint="done">
   <p class="mini">Wie fühlt sich das an?</p>
   <div class="wahl" id="neu-etikett">
     <button data-e="spass">🔥 Spaß</button>
@@ -459,6 +460,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <button class="knopf stark" id="neu-speichern">Eintragen</button>
   <p class="hinweis">Die Auswahl bleibt stehen — mehrere zähe Sachen hintereinander gehen also schnell.</p>
   <p class="label">Im Auftragsbuch</p>
+  <div id="buch-filter-halter" style="display:none"><div id="buch-filter"></div></div>
   <div id="liste-buch"></div>
   <div style="height:20px"></div>
 </section>
@@ -663,6 +665,14 @@ const START = {
   /* Wie viel abends nachgetragen wurde — nur für den Gold-Deckel. */
   nachtrag:0,
   quests:[], gefaehrten:[], termine:[],
+  /* Kampagnen: eine Handvoll Quests, die zusammengehören und nicht immer in
+     den Alltag gehören. Höchstens eine je Quest, kein Verschachteln — sonst
+     baut man sich eine Ablage, die man pflegen muss. */
+  kampagnen:[{id:"hochzeit", name:"Hochzeit", zeichen:"💍", datum:"2027-09-03",
+              ruht:false, archiv:false, seit:null, nachfrageAm:null}],
+  /* Wie sich Quests im Rückblick angefühlt haben. Daraus wird später ein
+     einziger Satz — nie ein Diagramm. */
+  energie:[],
   /* Drei verschiedene Dinge, die man nicht verwechseln darf:
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
@@ -728,6 +738,15 @@ function laden(){
         gross:  START.belohnung.gross.slice()
       };
       alt.v = 3;
+    }
+    /* v4: Kampagnen. Ihre Hochzeit steht von Anfang an drin — sie hat
+       ausdrücklich darum gebeten, dass ich sie ihr einbaue. */
+    if(alt.v < 4){
+      alt.kampagnen = alt.kampagnen || [];
+      if(!alt.kampagnen.some(k=> (k.name||"").toLowerCase() === "hochzeit"))
+        alt.kampagnen = alt.kampagnen.concat(START.kampagnen);
+      alt.energie = alt.energie || [];
+      alt.v = 4;
     }
     return Object.assign(frisch, alt);
   }
@@ -869,7 +888,10 @@ function tagPruefen(){
       if(q.fertig) q.ort = "archiv";
     });
   }
+  /* Angefangenes hört über Nacht kommentarlos auf — kein „seit 14 Stunden". */
+  D.quests.forEach(q=>{ q.laeuft = null; });
   geburtstageBauen();
+  kampagnenPruefen();
   ueberlaufRaeumen();
   sichern();
 }
@@ -939,6 +961,7 @@ function zeichnen(){
   /* Am Ruhetag soll der Würfel keine Arbeit anbieten. */
   if(istRuhetag()) document.getElementById("wuerfel-halter").style.display = "none";
   tagesfrageZeigen();
+  kampagneNachfrageZeigen();
   sonntagsrufZeigen();
 }
 
@@ -1254,6 +1277,8 @@ function karteBauen(q){
        der Berg; wie viele es werden, weiß ohnehin niemand vorher. */
     if(istEtappe(q)) unten.push(((q.etappe||0) + 1) + ". Etappe");
     if(q.wieder) unten.push(WIEDER_WORT[q.wieder] || "wiederkehrend");
+    /* Läuft gerade? Eine ruhige Feststellung, kein Zähler, der einen anschreit. */
+    if(q.laeuft) unten.push("läuft seit " + laufWort(q.laeuft));
     if(q.verschoben >= 2) unten.push("wartet seit " + q.verschoben + " Tagen");
     if(q.wennDann) unten.push("↳ " + q.wennDann);
   }
@@ -1264,7 +1289,10 @@ function karteBauen(q){
     (schritt ? '<span class="karte-schritt"></span>' : '') +
     (unten.length ? '<span class="karte-unter"></span>' : '') + '</span>' +
     (faellig ? '<span class="tage'+(tageBisDatum(q.faellig) <= 0 ? " faellig" : "")+'"></span>' : '');
-  b.querySelector(".karte-titel").textContent = q.titel;
+  /* Das Zeichen der Kampagne steht vor dem Titel — so sieht man auf Heute,
+     woher eine Quest kommt, ohne dass eine zweite Zeile dazukommt. */
+  const kp = kampagneVon(q);
+  b.querySelector(".karte-titel").textContent = (kp && kp.zeichen ? kp.zeichen + " " : "") + q.titel;
   if(schritt) b.querySelector(".karte-schritt").textContent = "▸ " + schritt;
   if(unten.length){
     const u = b.querySelector(".karte-unter");
@@ -1295,7 +1323,7 @@ function fachZeichnen(fach, wohin, leerText){
 }
 
 function fachWaehlen(fach){
-  const liste = D.quests.filter(q=>q.ort==="buch" && !q.fertig).sort((a,b)=>rang(a)-rang(b));
+  const liste = D.quests.filter(q=>q.ort==="buch" && !q.fertig && wach(q)).sort((a,b)=>rang(a)-rang(b));
   blattZeigen('<h3>' + FACH_WORT[fach] + ' für heute</h3>' +
     '<p class="sub">Aus dem Auftragsbuch. Oben steht, was am dringendsten wartet.</p>', b=>{
     if(!liste.length){
@@ -1325,12 +1353,266 @@ function rang(q){
   return 20 - Math.min(q.verschoben || 0, 8);
 }
 
+/* ═══════════ Kampagnen ═══════════
+   Eine Hochzeit ist kein Alltag. Die Quests gehören zusammen, sollen sich
+   aber nicht jeden Morgen dazwischendrängen — und wenn man den Ordner
+   aufmacht, darf einem trotzdem keine Wand entgegenfallen.
+
+   Der Maßstab ist nicht, OB eine Liste existiert, sondern WER sie aufruft.
+   Ihre eigenen Worte: „dass ich bewusst den Berg betrete und keine Wand in
+   mein Gesicht knallt." Also: ganze Liste hinter dem Filter, nie auf Heute. */
+function kampagneVon(q){
+  return q && q.kampagne ? (D.kampagnen||[]).find(k=>k.id===q.kampagne) : null;
+}
+/* Zählt die Quest gerade nicht mit — weder im Vorschlag noch im Würfel noch
+   im Auftragsbuch? Zwei Sicherheitsventile: Vorlauf-Fragen wecken immer, und
+   eine Frist durchbricht das Ruhen. Ruhen heißt Pause, nicht Vergessen. */
+function schlaeft(q){
+  if((q.marke||"").startsWith("kp-")) return false;
+  if(q.faellig && tageBisDatum(q.faellig) <= 0) return false;
+  const k = kampagneVon(q);
+  return !!(k && (k.ruht || k.archiv));
+}
+function wach(q){ return !schlaeft(q); }
+
+/* Wie bei den Geburtstagen: der Stichtag wirft rechtzeitig EINE Karte aus,
+   keine Liste. Drei Monate, ein Monat, eine Woche vorher. */
+const KAMPAGNE_STUFEN = [{tage:90, frist:7}, {tage:30, frist:7}, {tage:7, frist:2}];
+
+function kampagnenPruefen(){
+  (D.kampagnen||[]).forEach(k=>{
+    if(k.archiv || !k.datum) return;
+    const bis = tageBisDatum(k.datum);
+    /* Kommt der Stichtag in Sichtweite, weckt sich die Kampagne selbst. */
+    if(k.ruht && bis !== null && bis <= 14 && bis >= 0) k.ruht = false;
+    KAMPAGNE_STUFEN.forEach(st=>{
+      if(bis === null || bis > st.tage || bis < 0) return;
+      const marke = "kp-" + k.id + "-" + st.tage;
+      if(D.quests.some(q=>q.marke === marke)) return;
+      D.quests.push({
+        id:id(), marke:marke, kampagne:k.id,
+        titel:"Durchgehen — was fehlt noch?",
+        etikett:"neutral", grosse:2, ort:"buch", fach:"neben",
+        fertig:false, verschoben:0, wennDann:"", faellig: inTagen(st.frist)
+      });
+    });
+  });
+}
+
+/* Am Stichtag passiert nichts. Erst danach fragt die App einmal nach — denn
+   nach dem Fest kommen noch Dankeskarten, und die gehören dazu. */
+function kampagneNachfrageZeigen(){
+  if(blattGrund.classList.contains("on")) return;
+  const k = (D.kampagnen||[]).find(k=>{
+    if(k.archiv || !k.datum) return false;
+    const bis = tageBisDatum(k.datum);
+    if(bis === null || bis >= 0) return false;
+    return !k.nachfrageAm || k.nachfrageAm <= D.tag;
+  });
+  if(!k) return;
+  const aufschub = tage=>{ k.nachfrageAm = inTagen(tage); sichern(); blattSchliessen(); zeichnen(); };
+  blattZeigen('<h3></h3><p class="sub"></p>', b=>{
+    b.querySelector("h3").textContent = (k.zeichen ? k.zeichen + " " : "") + k.name + " — der Tag ist durch";
+    b.querySelector(".sub").textContent =
+      "Das war der " + tagWort(k.datum) + ". Wenn noch etwas nachkommt, lass es ruhig stehen — das gehört auch dazu.";
+    b.appendChild(machKnopf("Alles erledigt — ins Archiv", "stark", ()=> kampagneArchivieren(k.id)));
+    b.appendChild(machKnopf("Noch eine Woche", "", ()=> aufschub(7)));
+    b.appendChild(machKnopf("Noch einen Monat", "ruhig", ()=> aufschub(30)));
+  });
+}
+function tagWort(iso){
+  const [j,m,t] = iso.split("-").map(Number);
+  return t + ". " + MONATE[m-1] + " " + j;
+}
+
+function kampagneArchivierenZahlen(k){
+  const meine = D.quests.filter(q=>q.kampagne===k.id);
+  const geschafft = meine.filter(q=>q.fertig).length;
+  const monate = k.seit ? Math.max(1, Math.round(-tageBisDatum(k.seit)/30)) : 0;
+  return {geschafft:geschafft, monate:monate};
+}
+function kampagneArchivieren(kid){
+  const k = (D.kampagnen||[]).find(x=>x.id===kid); if(!k) return;
+  const zahl = kampagneArchivierenZahlen(k);
+  k.archiv = true; k.ruht = false;
+  /* Was offen blieb, geht mit ins Archiv statt im Auftragsbuch zu spuken. */
+  D.quests.forEach(q=>{ if(q.kampagne===kid) q.ort = "archiv"; });
+  if(buchFilter === kid) buchFilter = "alles";
+  sichern(); zeichnen();
+  /* Die Zahl kommt erst hier — genau wie bei den Etappen. Vorher wäre sie
+     der Berg gewesen, jetzt steht man oben. */
+  blattZeigen('<h3>Ins Archiv gelegt</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent = zahl.geschafft
+      ? mehrzahl(zahl.geschafft,"Quest","Quests") + " geschafft"
+        + (zahl.monate ? " in " + mehrzahl(zahl.monate,"Monat","Monaten") : "") + "."
+      : "Abgehakt. Manche Dinge erledigen sich anders als geplant.";
+    b.appendChild(machKnopf("Schön", "stark", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+/* ————— Auftragsbuch mit Filterzeile ————— */
+let buchFilter = "alles";
+
+function buchFilterZeichnen(){
+  const ziel = document.getElementById("buch-filter");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+  const offen = (D.kampagnen||[]).filter(k=>!k.archiv);
+  /* Ohne Kampagnen ist die Zeile nur Lärm. */
+  if(!offen.length){ document.getElementById("buch-filter-halter").style.display = "none"; return; }
+  document.getElementById("buch-filter-halter").style.display = "block";
+
+  const box = document.createElement("div");
+  box.className = "kacheln";
+  /* Bewusst OHNE Zahlen an den Kacheln — eine „12" hinter Hochzeit wäre
+     wieder genau der Berg, den wir vermeiden. */
+  [["alles","Alles"],["alltag","Alltag"]]
+    .concat(offen.map(k=>[k.id, (k.zeichen ? k.zeichen + " " : "") + k.name]))
+    .forEach(([wert, wort])=>{
+      const kn = document.createElement("button");
+      kn.className = "kachel" + (buchFilter === wert ? " an" : "");
+      kn.textContent = wort;
+      kn.addEventListener("click", ()=>{ buchFilter = wert; zeichnen(); });
+      box.appendChild(kn);
+    });
+  ziel.appendChild(box);
+
+  const k = offen.find(x=>x.id === buchFilter);
+  if(k){
+    const kopf = document.createElement("p");
+    kopf.className = "hinweis";
+    kopf.style.margin = "0 0 10px";
+    const teile = [];
+    /* Der Countdown lebt HIER, nie auf Heute. Zeitdruck hilft ihr, zieht aber
+       Kraft — sie soll ihn holen können, statt ihn serviert zu bekommen. */
+    if(k.datum) teile.push("Stichtag " + tagWort(k.datum) + " — " + faelligWort(k.datum));
+    if(k.ruht) teile.push("ruht gerade: schlägt nichts vor, meldet sich aber bei Fristen");
+    kopf.textContent = teile.join(" · ");
+    if(teile.length) ziel.appendChild(kopf);
+  }
+
+  const knopf = machKnopf(k ? "Kampagne ändern" : "Kampagnen", "", ()=> k ? kampagneBlatt(k.id) : kampagnenBlatt());
+  knopf.className = "klein-knopf";
+  ziel.appendChild(knopf);
+}
+
 function buchZeichnen(){
+  buchFilterZeichnen();
   const ziel = document.getElementById("liste-buch");
   ziel.innerHTML = "";
-  const drin = D.quests.filter(q=>q.ort==="buch" && !q.fertig).sort((a,b)=>rang(a)-rang(b));
-  if(!drin.length){ const p=document.createElement("p"); p.className="leer"; p.textContent="Das Auftragsbuch ist leer."; ziel.appendChild(p); return; }
+  let drin = D.quests.filter(q=>q.ort==="buch" && !q.fertig);
+  if(buchFilter === "alles") drin = drin.filter(wach);
+  else if(buchFilter === "alltag") drin = drin.filter(q=>!q.kampagne);
+  else drin = drin.filter(q=>q.kampagne === buchFilter);
+  drin.sort((a,b)=>rang(a)-rang(b));
+  if(!drin.length){
+    const p=document.createElement("p"); p.className="leer";
+    p.textContent = buchFilter === "alles" ? "Das Auftragsbuch ist leer."
+      : (buchFilter === "alltag" ? "Im Alltag wartet gerade nichts." : "In dieser Kampagne wartet nichts.");
+    ziel.appendChild(p); return;
+  }
   drin.forEach(q=> ziel.appendChild(karteBauen(q)));
+}
+
+/* ————— Kampagnen anlegen und ändern ————— */
+function kampagnenBlatt(){
+  blattZeigen('<h3>Kampagnen</h3><p class="sub">Zusammengehörige Quests, die nicht immer in den Alltag gehören. Eine ruhende Kampagne schlägt nichts vor — meldet sich aber, wenn etwas fällig wird.</p>', b=>{
+    (D.kampagnen||[]).filter(k=>!k.archiv).forEach(k=>{
+      b.appendChild(machKnopf(
+        (k.zeichen ? k.zeichen + " " : "") + k.name + (k.ruht ? "   ·   ruht" : ""),
+        k.ruht ? "ruhig" : "", ()=> kampagneBlatt(k.id)));
+    });
+    b.appendChild(machKnopf("＋ Neue Kampagne", "stark", ()=> kampagneBlatt(null)));
+    const alt = (D.kampagnen||[]).filter(k=>k.archiv);
+    if(alt.length){
+      const p = document.createElement("p");
+      p.className = "hinweis"; p.style.margin = "16px 0 0";
+      p.textContent = "Im Archiv: " + alt.map(k=>k.name).join(", ") + ".";
+      b.appendChild(p);
+    }
+    b.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+function kampagneBlatt(kid){
+  const k = kid ? (D.kampagnen||[]).find(x=>x.id===kid) : null;
+  blattZeigen('<h3>' + (k ? "Kampagne" : "Neue Kampagne") + '</h3>' +
+    '<p class="sub">Der Name reicht. Ein Stichtag ist erlaubt, aber nicht nötig.</p>' +
+    '<input class="feld" id="k-name" placeholder="z. B. Hochzeit">' +
+    '<p class="mini">Zeichen — ein Emoji, damit du es auf der Karte erkennst</p>' +
+    '<input class="feld" id="k-zeichen" placeholder="💍" maxlength="2">' +
+    '<p class="mini">Stichtag — darf leer bleiben</p>' +
+    '<div class="datum-reihe">' +
+      '<input class="feld tt" id="k-tt" placeholder="TT" inputmode="numeric" maxlength="2">' +
+      '<span class="punktchen">.</span>' +
+      '<input class="feld mm" id="k-mm" placeholder="MM" inputmode="numeric" maxlength="2">' +
+      '<span class="punktchen">.</span>' +
+      '<input class="feld jjjj" id="k-jjjj" placeholder="JJJJ" inputmode="numeric" maxlength="4">' +
+    '</div>', b=>{
+    const nf = b.querySelector("#k-name"), zf = b.querySelector("#k-zeichen");
+    const tt = b.querySelector("#k-tt"), mm = b.querySelector("#k-mm"), jj = b.querySelector("#k-jjjj");
+    zahlFeld(tt, 31, mm); zahlFeld(mm, 12, jj); zahlFeld(jj, 0, null);
+    if(k){
+      nf.value = k.name; zf.value = k.zeichen || "";
+      if(k.datum){ const [j,m,t] = k.datum.split("-"); tt.value = t; mm.value = m; jj.value = j; }
+    }
+    b.appendChild(machKnopf("Sichern", "stark", ()=>{
+      const meckern = txt=>{ b.querySelector(".sub").textContent = txt; };
+      const name = nf.value.trim();
+      if(!name){ meckern("Wie soll die Kampagne heißen?"); nf.focus(); return; }
+      let datum = null;
+      if(tt.value && mm.value && jj.value.length === 4){
+        const t = Number(tt.value), mo = Number(mm.value);
+        if(!(t>=1 && t<=31 && mo>=1 && mo<=12 && t<=TAGE_IM_MONAT[mo-1])){
+          meckern("Dieses Datum gibt es nicht."); tt.focus(); return;
+        }
+        datum = jj.value + "-" + String(mo).padStart(2,"0") + "-" + String(t).padStart(2,"0");
+      }else if(tt.value || mm.value || jj.value){
+        meckern("Für einen Stichtag brauche ich Tag, Monat und Jahr — oder lass alle drei leer.");
+        return;
+      }
+      if(k){ k.name = name; k.zeichen = zf.value.trim(); k.datum = datum; k.nachfrageAm = null; }
+      else{
+        D.kampagnen = (D.kampagnen||[]).concat([{
+          id:id(), name:name, zeichen:zf.value.trim(), datum:datum,
+          ruht:false, archiv:false, seit:heuteStr(), nachfrageAm:null
+        }]);
+      }
+      kampagnenPruefen(); sichern(); blattSchliessen(); zeichnen();
+    }));
+    if(k){
+      b.appendChild(machKnopf(k.ruht ? "Läuft wieder mit" : "Ruhen lassen", k.ruht ? "" : "ruhig", ()=>{
+        k.ruht = !k.ruht; sichern(); zeichnen(); kampagneBlatt(kid);
+      }));
+      b.appendChild(machKnopf("Ins Archiv legen", "ruhig", ()=> kampagneArchivieren(kid)));
+      b.appendChild(machKnopf("Kampagne auflösen", "ruhig", ()=>{
+        /* Auflösen darf keine Quests mitreißen — sie werden wieder Alltag. */
+        D.quests.forEach(q=>{ if(q.kampagne===kid) q.kampagne = null; });
+        D.quests = D.quests.filter(q=>!(q.marke||"").startsWith("kp-"+kid));
+        D.kampagnen = D.kampagnen.filter(x=>x.id!==kid);
+        if(buchFilter === kid) buchFilter = "alles";
+        sichern(); blattSchliessen(); zeichnen();
+      }));
+    }
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+    if(!k) setTimeout(()=>nf.focus(), 60);
+  });
+}
+
+function kampagneWaehlenBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  blattZeigen('<h3>Zu welcher Kampagne?</h3><p class="sub">Höchstens eine je Quest.</p>', b=>{
+    (D.kampagnen||[]).filter(k=>!k.archiv).forEach(k=>{
+      b.appendChild(machKnopf((k.zeichen ? k.zeichen + " " : "") + k.name,
+        q.kampagne === k.id ? "stark" : "", ()=>{
+        q.kampagne = k.id; sichern(); blattSchliessen(); zeichnen();
+      }));
+    });
+    b.appendChild(machKnopf("Gehört zum Alltag", !q.kampagne ? "stark" : "ruhig", ()=>{
+      q.kampagne = null; sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("＋ Neue Kampagne", "ruhig", ()=> kampagneBlatt(null)));
+  });
 }
 
 /* ═══════════ Was ist heute dran ═══════════ */
@@ -1373,6 +1655,9 @@ function tagesfrageZeigen(){
       b.appendChild(machKnopf(wort, "", ()=>{
         tagesformSetzen(wert, ruhe);
         blattSchliessen(); zeichnen();
+        /* An einem schmalen Tag kommt gleich die Stichfrage hinterher: nicht
+           „was ist wichtig", sondern „wenn nur eins geht, welches?". */
+        if(!ruhe && wert <= 3) stichfrageZeigen();
       }));
     });
   });
@@ -1449,7 +1734,7 @@ function vorschlagZeichnen(){
 }
 
 function vorschlagStarten(){
-  const liste = D.quests.filter(q=>q.ort==="buch" && !q.fertig)
+  const liste = D.quests.filter(q=>q.ort==="buch" && !q.fertig && wach(q))
                         .sort((a,b)=>rang(a)-rang(b)).slice(0,10);
   let i = 0, aufgenommen = 0;
 
@@ -2220,6 +2505,14 @@ function abendBlatt(){
     inhalt += '<p class="sub">Auf der Liste stand heute nichts. Das ist keine Schuld — Tage sind unterschiedlich. Und vielleicht war ja doch etwas?</p>';
   }
   blattZeigen(inhalt, b=>{
+    /* Ein Satz, kein Diagramm — und erst, wenn genug Antworten da sind. */
+    const satz = energieSatz();
+    if(satz){
+      const s = document.createElement("p");
+      s.className = "hinweis"; s.style.margin = "14px 0 0"; s.style.color = "var(--accent)";
+      s.textContent = satz;
+      b.appendChild(s);
+    }
     /* Am Ruhetag steht die Fürsorge vorn und die Bilanz hinten — an einem
        Tag, den man sich genommen hat, darf nicht als Erstes eine Liste
        kommen. Sonst zuerst das Geschaffte, dann die Lange Rast. */
@@ -2272,9 +2565,17 @@ function blattFuerQuest(qid){
       s.textContent = q.getan.map(x=>"✓ " + x).join("     ");
       b.appendChild(l); b.appendChild(s);
     }
+    if(q.wofuer){
+      const w = document.createElement("p");
+      w.className = "hinweis"; w.style.margin = "0 0 14px"; w.style.color = "var(--accent)";
+      w.textContent = "Wofür: " + q.wofuer;
+      b.appendChild(w);
+    }
     if(!q.fertig){
       b.appendChild(machKnopf("✓ Quest abgeschlossen", "stark", ()=>{ erledigen(q.id); blattSchliessen(); }));
       b.appendChild(machKnopf("▸ Ein Stück geschafft", "", ()=> etappeGeschafft(q.id)));
+      b.appendChild(machKnopf(q.laeuft ? "❙❙ Doch nicht jetzt" : "▶ Ich fange an",
+        q.laeuft ? "ruhig" : "", ()=> q.laeuft ? questPausieren(q.id) : questStarten(q.id)));
       b.appendChild(machKnopf("🎯 5 Minuten Anlauf", "", ()=>{ blattSchliessen(); anlaufStarten(q.id); }));
     }
     if(q.ort !== "heute" && !q.fertig){
@@ -2290,6 +2591,17 @@ function blattFuerQuest(qid){
       "ruhig", ()=> naechsterBlatt(q.id, {erster: !istEtappe(q)})));
     b.appendChild(machKnopf(q.wieder ? "Wiederholung — " + (WIEDER_WORT[q.wieder]||"eigen") : "Wiederholt sich?",
       "ruhig", ()=> wiederBlatt(q.id)));
+    const kp2 = kampagneVon(q);
+    b.appendChild(machKnopf(kp2 ? "Kampagne — " + (kp2.zeichen ? kp2.zeichen + " " : "") + kp2.name : "Zu einer Kampagne",
+      "ruhig", ()=> kampagneWaehlenBlatt(q.id)));
+    b.appendChild(machKnopf(q.wofuer ? "Wofür ändern" : "Wofür ist das gut?", "ruhig",
+      ()=> textBlatt(q.id, "wofuer", "Wofür ist das gut?",
+        "Die Aufgabe darf blöd sein — es geht um das, was danach da ist. Steht später im Anlauf, wenn du es brauchst.",
+        "z. B. Dann ist die Küche wieder meine")));
+    b.appendChild(machKnopf(q.folge ? "Was sonst passiert — " + kurz(q.folge) : "Was passiert, wenn nicht?", "ruhig",
+      ()=> textBlatt(q.id, "folge", "Was passiert, wenn es nicht passiert?",
+        "Keine Drohung — nur konkret statt abstrakt. Wichtig zieht nicht, Mahnung ab Freitag schon.",
+        "z. B. Mahnung, 5 € mehr")));
     b.appendChild(machKnopf("Umbenennen", "ruhig", ()=> umbenennenBlatt(q.id)));
     b.appendChild(machKnopf("Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
     b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
@@ -2437,6 +2749,88 @@ function naechsterBlatt(qid, opt){
   });
 }
 
+/* ═══════════ Anfangen und aufhören ═══════════
+   Anfangen ist freiwillig — „Fertig" geht immer direkt. Wer den Knopf drückt,
+   soll nur eine ruhige Feststellung bekommen, nie einen Zähler, der drängelt.
+   Deshalb: nie rot, keine Zielzeit, und beim Tageswechsel hört es kommentarlos
+   auf. Und immer nur eins auf einmal — Neues startet, Altes geht still aus. */
+function laufWort(seit){
+  const min = Math.max(0, Math.floor((Date.now() - seit)/60000));
+  if(min < 1) return "eben erst";
+  if(min < 60) return min + " Min.";
+  const std = Math.floor(min/60);
+  return std + " Std." + (min%60 ? " " + (min%60) + " Min." : "");
+}
+function questStarten(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  D.quests.forEach(x=>{ if(x !== q) x.laeuft = null; });
+  q.laeuft = Date.now();
+  /* Wer anfängt, hat sich entschieden — dann gehört es auch auf Heute. */
+  if(q.ort !== "heute"){ const f = fachFuer(q); if(f){ q.ort = "heute"; q.fach = f; } }
+  sichern(); blattSchliessen(); zeichnen();
+}
+function questPausieren(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  q.laeuft = null; sichern(); blattSchliessen(); zeichnen();
+}
+
+/* ═══════════ Wofür und Was-wenn-nicht ═══════════
+   Ihr Satz: „was wenn die task selbst blöd ist, aber der outcome genial?"
+   Und beim Schieben von Wichtigem: sie WEISS, dass die Rechnung wichtiger ist
+   als die Küche. Wichtigkeit noch einmal hinzuschreiben hilft deshalb nicht —
+   was hilft, ist eine konkrete, nahe Folge statt eines abstrakten „wichtig".
+   Beide Felder sind freiwillig und tauchen dort auf, wo man sie braucht:
+   im Anlauf, nicht auf der Karte. */
+function textBlatt(qid, feld, kopf, sub, platz){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  blattZeigen('<h3>' + kopf + '</h3><p class="sub">' + sub + '</p>' +
+    '<input class="feld" id="tx-feld">', b=>{
+    const f = b.querySelector("#tx-feld");
+    f.placeholder = platz;
+    f.value = q[feld] || "";
+    f.setAttribute("enterkeyhint", "done");
+    const merken = ()=>{ q[feld] = f.value.trim(); sichern(); blattSchliessen(); zeichnen(); };
+    f.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); merken(); } });
+    b.appendChild(machKnopf("Merken", "stark", merken));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+    setTimeout(()=>f.focus(), 60);
+  });
+}
+
+/* ═══════════ Die Stichfrage ═══════════
+   Wenn der Tag schmal ist, legt die App genau ZWEI Karten nebeneinander.
+   Zwischen zweien zu wählen ist billig, zwölf zu ordnen unmöglich — und
+   genau daran scheitert jede Prioritätenliste. */
+function stichfrageZeigen(){
+  const kandidaten = D.quests
+    .filter(q=>!q.fertig && q.ort!=="archiv" && wach(q) && !spaeterAmTag(q))
+    .sort((a,b)=>rang(a)-rang(b)).slice(0,2);
+  if(kandidaten.length < 2) return false;
+  blattZeigen('<h3>Wenn heute nur eins geht</h3>' +
+    '<p class="sub">Welches wäre es? Das andere ist damit nicht weg — es ist nur nicht heute.</p>', b=>{
+    kandidaten.forEach(q=>{
+      const zusatz = [];
+      if(q.folge) zusatz.push("sonst: " + q.folge);
+      if(q.faellig) zusatz.push(faelligWort(q.faellig));
+      zusatz.push(ETIKETT_WORT[q.etikett] || "");
+      const kp = kampagneVon(q);
+      b.appendChild(machKnopf(
+        (kp && kp.zeichen ? kp.zeichen + " " : "") + q.titel +
+        (zusatz.filter(Boolean).length ? "\n" + zusatz.filter(Boolean).join(" · ") : ""),
+        "", ()=>{
+        /* Die Gewählte wird der Hauptpunkt und macht dafür Platz. */
+        const alt = D.quests.find(x=>x!==q && x.ort==="heute" && x.fach==="haupt" && !x.fertig);
+        if(alt){ alt.ort = "buch"; alt.haupt = false; }
+        D.quests.forEach(x=>{ x.haupt = false; });
+        q.haupt = true; q.ort = "heute"; q.fach = "haupt";
+        sichern(); blattSchliessen(); zeichnen();
+      }));
+    });
+    b.appendChild(machKnopf("Beides nicht", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+  return true;
+}
+
 /* ═══════════ Wiederkehrendes ═══════════
    Bad putzen, Müll, Wäsche. Entscheidend ist, dass so etwas NICHT als Schuld
    auflaufen kann: es wird dieselbe Quest zurückgesetzt, nie eine zweite
@@ -2483,7 +2877,7 @@ function umbenennenBlatt(qid){
 const GOLD = {spass:1, neutral:3, zaeh:5};
 function erledigen(qid){
   const q = D.quests.find(x=>x.id===qid); if(!q || q.fertig) return;
-  q.fertig = true; q.fertigAm = D.tag;
+  q.fertig = true; q.fertigAm = D.tag; q.laeuft = null;
   /* Der volle Betrag kommt erst beim Ankommen — die Etappen davor waren
      Zwischenstopps zu je 1 Gold. Der Sechser-Jackpot gilt nur hier: bei
      1 Gold zu verdoppeln wäre ein trauriger Jackpot. */
@@ -2497,10 +2891,37 @@ function erledigen(qid){
   if(q.wieder) q.wiederAm = inTagen(q.wieder);
   D.geschafft.push(q.titel);
   sichern(); zeichnen();
-  lobZeigen(q.titel, g, bonus, q.etikett, etappen > 1 ? etappen : 0, q.wieder || 0);
+  lobZeigen(q.titel, g, bonus, q.etikett, etappen > 1 ? etappen : 0, q.wieder || 0, q);
 }
 
-function lobZeigen(titel, g, bonus, etikett, etappen, wiederIn){
+/* ═══════════ War es so schlimm wie gedacht? ═══════════
+   Ihr Wunsch nach einem Tagebuch („der anruf war gar nicht so schlimm!") ist
+   in Wahrheit eine korrigierte Vorhersage — und damit dasselbe wie die
+   Energie-Abfrage. Also eine Frage statt zweier Funktionen: ein Tipp, kein
+   Tippen, immer wegtippbar. Nur bei mittel/groß/zäh — bei einem Botengang
+   wäre es Bürokratie. */
+const ENERGIE = [
+  ["leichter", "War leichter als gedacht",  1],
+  ["wie",      "War wie erwartet",          0],
+  ["gezogen",  "Hat mich gezogen",         -1]
+];
+function energieMerken(q, art, richtung){
+  D.energie = (D.energie||[]).concat([{t:D.tag, e:q.etikett, g:q.grosse||1, a:art}]).slice(-300);
+  /* Leichter als gedacht gibt die Kosten zurück, Gezogenes nimmt einen Punkt
+     mehr. Der Tag soll sich hinterher so anfühlen, wie er wirklich war. */
+  if(richtung > 0) D.heuteAusdauer = ausdauerHeute() + kosten(q);
+  if(richtung < 0) D.heuteAusdauer = Math.max(1, ausdauerHeute() - 1);
+  sichern(); zeichnen();
+}
+function energieSatz(){
+  const l = (D.energie||[]).filter(x=>x.e === "zaeh");
+  if(l.length < 8) return "";
+  const leichter = l.filter(x=>x.a === "leichter").length;
+  if(!leichter) return "";
+  return "Von " + l.length + " zähen Sachen waren " + leichter + " leichter als gedacht.";
+}
+
+function lobZeigen(titel, g, bonus, etikett, etappen, wiederIn, quest){
   const rest = D.quests.filter(q=>q.ort==="heute" && !q.fertig);
   let text = bonus ? "Bonuswurf! Doppeltes Gold." : "";
   /* Erst hier wird verraten, wie viele es waren. Vorher hätte die Zahl nur
@@ -2508,15 +2929,38 @@ function lobZeigen(titel, g, bonus, etikett, etappen, wiederIn){
   if(etappen) text = "In " + etappen + " Etappen geschafft. " + text;
   if(!rest.length) text = "Heute ist alles durch. " + text;
   if(wiederIn) text = (text || "") + " Kommt in " + mehrzahl(wiederIn,"Tag","Tagen") + " wieder.";
+  const fragen = !!quest && ((quest.grosse||1) >= 2 || etikett === "zaeh");
   const marke = blattZeigen('<h3>+'+g+' Gold</h3><p class="sub"></p>', b=>{
     b.querySelector(".sub").textContent = text || ("„"+kurz(titel)+"“ ist erledigt.");
+
+    if(fragen){
+      const l = document.createElement("p");
+      l.className = "mini"; l.style.margin = "18px 0 8px";
+      l.textContent = "War es so schlimm wie gedacht?";
+      b.appendChild(l);
+      ENERGIE.forEach(([art, wort, richtung])=>{
+        b.appendChild(machKnopf(wort, "", ()=>{
+          energieMerken(quest, art, richtung);
+          blattZeigen('<h3>Gemerkt</h3><p class="sub"></p>', x=>{
+            x.querySelector(".sub").textContent =
+              richtung > 0 ? "Dann hast du heute noch mehr übrig, als du dachtest — die Ausdauer ist zurück."
+              : richtung < 0 ? "Dann darf der Rest des Tages ruhiger werden. Ein Punkt weniger."
+              : "Gut eingeschätzt.";
+            x.appendChild(machKnopf("Weiter", "stark", ()=>{ blattSchliessen(); zeichnen(); }));
+          });
+        }));
+      });
+    }
+
     /* Nach etwas Zähem bewusst etwas Leichtes vorschlagen. */
     const naechste = (etikett==="zaeh" ? rest.find(q=>q.etikett!=="zaeh") : null) || rest.find(q=>q.etikett==="spass") || rest[0];
-    if(naechste) b.appendChild(machKnopf("Weiter: "+kurz(naechste.titel), "stark", ()=>{ blattSchliessen(); anlaufStarten(naechste.id); }));
+    if(naechste) b.appendChild(machKnopf("Weiter: "+kurz(naechste.titel), fragen ? "" : "stark", ()=>{ blattSchliessen(); anlaufStarten(naechste.id); }));
     b.appendChild(machKnopf("Pause", "ruhig", blattSchliessen));
   });
+  /* Von selbst zugehen darf es nur, wenn nichts darauf wartet, beantwortet
+     zu werden — sonst schnappt es einem die Frage vor der Nase weg. */
   setTimeout(()=>{
-    if(blattMarke === marke && blattGrund.classList.contains("on") && !bonus && rest.length) blattSchliessen();
+    if(blattMarke === marke && blattGrund.classList.contains("on") && !bonus && !fragen && rest.length) blattSchliessen();
   }, 4200);
 }
 
@@ -2527,7 +2971,7 @@ document.getElementById("wuerfel").addEventListener("click", ()=>{
   setTimeout(()=>w.classList.remove("rollt"), 620);
 
   let topf = D.quests.filter(q=>q.ort==="heute" && !q.fertig && !spaeterAmTag(q));
-  if(!topf.length) topf = D.quests.filter(q=>q.ort==="buch" && !q.fertig && !spaeterAmTag(q));
+  if(!topf.length) topf = D.quests.filter(q=>q.ort==="buch" && !q.fertig && !spaeterAmTag(q) && wach(q));
   if(!topf.length){
     const spaeter = D.quests.some(q=>!q.fertig && spaeterAmTag(q));
     setTimeout(()=> blattZeigen('<h3>Nichts für jetzt</h3><p class="sub">' +
@@ -2579,6 +3023,9 @@ function anlaufStarten(qid){
   anlaufTicken();
 }
 function provianntVorschlag(q){
+  /* Am Punkt der Ausführung zählt nicht, wie wichtig es ist, sondern was
+     danach da ist. Deshalb steht das Wofür hier — und nur hier. */
+  if(q.wofuer) return q.wofuer;
   if(q.etikett === "zaeh"){
     const v = (D.begleitung||[]).filter(Boolean);
     if(v.length) return "Lass was nebenher laufen: " + v[Math.floor(Math.random()*v.length)];
@@ -2614,16 +3061,21 @@ document.getElementById("neu-grosse").addEventListener("click", e=>{
 });
 function eintragen(){
   const feld = document.getElementById("neu-titel");
+  const wf = document.getElementById("neu-wofuer");
   const t = feld.value.trim();
   if(!t) return;
   D.quests.push({id:id(), titel:t, etikett:neuEtikett, grosse:neuGrosse,
     ort:"buch", fach: neuGrosse===3 ? "haupt" : (neuGrosse===1 ? "boten" : "neben"),
-    fertig:false, verschoben:0, wennDann:""});
-  feld.value = "";
+    fertig:false, verschoben:0, wennDann:"", wofuer: wf.value.trim(),
+    /* Steht gerade eine Kampagne im Filter, landet Neues gleich dort —
+       sonst tippt man es ein und muss es hinterher einsortieren. */
+    kampagne: (D.kampagnen||[]).some(k=>k.id===buchFilter && !k.archiv) ? buchFilter : null});
+  feld.value = ""; wf.value = "";
   sichern(); zeichnen();
 }
 document.getElementById("neu-speichern").addEventListener("click", eintragen);
-document.getElementById("neu-titel").addEventListener("keydown", e=>{ if(e.key==="Enter") eintragen(); });
+document.getElementById("neu-titel").addEventListener("keydown", e=>{ if(e.key==="Enter") document.getElementById("neu-wofuer").focus(); });
+document.getElementById("neu-wofuer").addEventListener("keydown", e=>{ if(e.key==="Enter") eintragen(); });
 
 /* ═══════════ Gefährten ═══════════ */
 function gefaehrtenZeichnen(){
