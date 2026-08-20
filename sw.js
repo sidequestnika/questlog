@@ -3,7 +3,7 @@
    Verbindung aus dem Zwischenspeicher liefern. Deine Quests liegen NICHT
    hier drin, sondern im Speicher des Browsers — die fasst diese Datei nie an. */
 
-const SPEICHER = "questlog-2026-08-20g";
+const SPEICHER = "questlog-2026-08-20h";
 const DATEIEN = [
   "./",
   "./index.html",

@@ -587,6 +587,8 @@ const START = {
   tagesfrage:null, ruhetag:null,
   /* Die fünf Vorschläge des Tages und wie oft sie schon dran waren. */
   rastTag:null, rastAuswahl:[], rastGetan:{},
+  /* Wie viel abends nachgetragen wurde — nur für den Gold-Deckel. */
+  nachtrag:0,
   quests:[], gefaehrten:[], termine:[],
   /* Drei verschiedene Dinge, die man nicht verwechseln darf:
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
@@ -719,6 +721,7 @@ function tagPruefen(){
   D.rastTag = null;
   D.rastAuswahl = [];
   D.rastGetan = {};
+  D.nachtrag = 0;
   if(!ersterStart){
     D.quests.forEach(q=>{
       /* Nicht Geschafftes bleibt NICHT stehen, sondern geht zurück ins
@@ -1710,16 +1713,51 @@ function abendZeichnen(){
   halter.appendChild(k);
 }
 
+/* Nachtragen, was gar nicht auf der Liste stand. Ein ADHS-Tag fühlt sich
+   abends oft nach „nichts geschafft" an, weil das Geleistete nirgends steht —
+   dazwischengekommenes, spontanes, einfach Passiertes taucht in keiner Planung
+   auf. Damit wird aus der To-do-Liste auch eine Done-Liste. Gold gibt es
+   dafür, aber gedeckelt: nachtragen soll man, um es zu SEHEN, nicht um zu
+   verdienen. Wie bei der Kurzen Rast begrenzt der Deckel das Gutschreiben,
+   nicht das Eintragen. */
+const GOLD_NACHTRAG = 2;
+const NACHTRAG_DECKEL = 3;
+
 function abendBlatt(){
   const geschafft = D.geschafft.slice();
   let inhalt = '<h3>Das war heute</h3>';
   if(geschafft.length){
-    inhalt += '<p class="sub">'+(geschafft.length===1 ? "Eine Quest abgeschlossen." : geschafft.length+" Quests abgeschlossen.")+'</p>';
+    inhalt += '<p class="sub">'+mehrzahl(geschafft.length,"Sache","Sachen")+' geschafft.</p>';
     inhalt += geschafft.map(t=>'<div class="karte fertig"><span class="punkt p-neutral"></span><span class="karte-txt"><span class="karte-titel">'+entschaerfen(t)+'</span></span></div>').join("");
   }else{
-    inhalt += '<p class="sub">Heute stand nichts auf der Liste. Das ist keine Schuld — Tage sind unterschiedlich.</p>';
+    inhalt += '<p class="sub">Auf der Liste stand heute nichts. Das ist keine Schuld — Tage sind unterschiedlich. Und vielleicht war ja doch etwas?</p>';
   }
   blattZeigen(inhalt, b=>{
+    const l = document.createElement("p");
+    l.className = "mini"; l.style.margin = "20px 0 5px";
+    l.textContent = "Noch etwas geschafft?";
+    const h = document.createElement("p");
+    h.className = "hinweis"; h.style.margin = "0 0 10px";
+    h.textContent = "Was gar nicht auf der Liste stand — dazwischengekommen, spontan, einfach passiert. Das zählt genauso.";
+    const feld = document.createElement("input");
+    feld.className = "feld";
+    feld.placeholder = "z. B. Mit der Nachbarin geredet";
+    feld.setAttribute("enterkeyhint", "done");
+    b.appendChild(l); b.appendChild(h); b.appendChild(feld);
+
+    const rest = Math.max(0, NACHTRAG_DECKEL - (D.nachtrag||0));
+    const eintragen = machKnopf("Dazu" + (rest ? "  ＋" + GOLD_NACHTRAG : ""), "", ()=>{
+      const t = feld.value.trim();
+      if(!t) return;
+      D.geschafft.push(t);
+      if(rest) D.gold += GOLD_NACHTRAG;
+      D.nachtrag = (D.nachtrag||0) + 1;
+      sichern(); zeichnen();
+      abendBlatt();
+    });
+    feld.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); eintragen.click(); } });
+    b.appendChild(eintragen);
+
     b.appendChild(machKnopf("Gute Nacht", "stark", ()=>{
       D.letzterAbschluss = D.tag; sichern(); blattSchliessen(); zeichnen();
     }));
