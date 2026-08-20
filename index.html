@@ -499,6 +499,14 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 <section class="view wrap" id="v-rast">
   <div class="kopf"><p class="datum">Vorrat und Einstellungen</p><h1 class="gruss">Rastplatz</h1></div>
 
+  <p class="label">Licht</p>
+  <div class="wahl" id="thema-wahl">
+    <button data-t="">Automatisch</button>
+    <button data-t="light">Hell</button>
+    <button data-t="dark">Dunkel</button>
+  </div>
+  <p class="hinweis" style="margin:0 0 4px"><strong>Automatisch</strong> folgt deinem iPhone — dunkel, sobald dein Telefon dunkel wird. Hier kannst du es festnageln.</p>
+
   <p class="label">Speicher</p>
   <div class="zustand" id="zustand"></div>
   <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
@@ -646,6 +654,8 @@ function vereinen(vorschlaege, eigene){
 
 const START = {
   v:3, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  /* null heißt: folge dem Telefon. "light"/"dark" nageln es fest. */
+  thema:null,
   heuteAusdauer:null, rastHeute:0,
   /* Die Tagesform wird morgens einmal gefragt und gilt nur für heute. */
   tagesfrage:null, ruhetag:null,
@@ -728,6 +738,34 @@ function id(){ return Math.random().toString(36).slice(2,10); }
 speicherGeht = speicherPruefen();
 D = laden();
 if(!D.angelegt) D.angelegt = new Date().toISOString();
+
+/* ═══════════ Licht ═══════════
+   Beide Paletten gab es von Anfang an, aber ohne Schalter — die App folgte
+   stumm dem Telefon. Wer sie festnageln will, konnte das nirgends sagen.
+   Gleich hier oben angewandt, damit die Seite nicht erst hell aufblitzt. */
+function themaAnwenden(){
+  if(D.thema) document.documentElement.setAttribute("data-theme", D.thema);
+  else document.documentElement.removeAttribute("data-theme");
+  /* Der Streifen ganz oben am iPhone nimmt diese Farbe an — sonst steht ein
+     dunkler Balken über einer hellen Seite. */
+  const dunkel = D.thema === "dark" ||
+    (!D.thema && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const marke = document.querySelector('meta[name="theme-color"]');
+  if(marke) marke.setAttribute("content", dunkel ? "#0E1A13" : "#BCCDAC");
+}
+function themaZeichnen(){
+  document.querySelectorAll("#thema-wahl button")
+    .forEach(b=> b.classList.toggle("on", (b.dataset.t||"") === (D.thema||"")));
+}
+themaAnwenden();
+document.getElementById("thema-wahl").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  D.thema = b.dataset.t || null;
+  sichern(); themaAnwenden(); themaZeichnen();
+});
+/* Steht es auf Automatisch, mitgehen, wenn das Telefon abends umschaltet. */
+window.matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", ()=>{ if(!D.thema) themaAnwenden(); });
 
 /* ═══════════ Datum ═══════════ */
 function heuteStr(d){ d = d || new Date();
@@ -889,6 +927,7 @@ function zeichnen(){
   document.getElementById("gold-zahl").textContent = D.gold;
   haendlerZeichnen();
   budgetZeichnen();
+  themaZeichnen();
   zustandZeichnen();
   /* Am Ruhetag soll der Würfel keine Arbeit anbieten. */
   if(istRuhetag()) document.getElementById("wuerfel-halter").style.display = "none";
