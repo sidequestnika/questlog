@@ -3,7 +3,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Questlog">
-<meta name="theme-color" content="#112218">
+<meta name="theme-color" content="#0E1A13">
 <meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -16,13 +16,17 @@
    Blutrot steht bewusst NUR am Speicher-Alarm: ein echter Fehler, keine Scham.
    Für „seit 2 Tagen fällig" bleibt es bei Bernstein. ————— */
 :root{
-  --ground:#112218;      /* Waldgrün — der Grund, auf dem alles liegt */
-  --surface:#422F20;     /* Lederbraun — die Felder für die Aufgaben */
-  --surface-2:#4F3B29;
-  --line:#6A4E33;
+  /* Wie ein Spielmenü: der Grund ist tiefes Waldgrün, die Tafeln sind dunkles,
+     ruhiges Leder — fast so dunkel wie der Grund. Was die Tafel heraushebt,
+     ist nicht ihre Helligkeit, sondern die dünne Bronzekante. Großflächiges
+     mittleres Braun sieht nie nach Spiel aus; Gold an den Rändern schon. */
+  --ground:#0E1A13;      /* Waldgrün, fast Nacht */
+  --surface:#241B14;     /* dunkles Leder — die Felder für die Aufgaben */
+  --surface-2:#2F241A;
+  --line:#8A6E3C;        /* Bronze — trägt die Abgrenzung */
   --ink:#EFE3CC;         /* Pergament als Schrift */
   --ink-soft:#C4AF8D;
-  --ink-faint:#C2AA8B;
+  --ink-faint:#A98F6E;
   --accent:#C9A86A;      /* Runen-Gold */
   --accent-ink:#2A1A08;
   --calm:#4FAF9F;        /* Arcane-Türkis */
@@ -47,7 +51,7 @@
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --ground:#BCCDAC; --surface:#F9F2E1; --surface-2:#EFE1C4; --line:#AD9569;
+    --ground:#BCCDAC; --surface:#F9F2E1; --surface-2:#EFE1C4; --line:#9C8149;
     --ink:#2E2116; --ink-soft:#4E3D28; --ink-faint:#5F4B32;
     --accent:#764810; --accent-ink:#FFF6E6; --calm:#1D5242; --cool:#544364;
     --warn:#7C4110; --alarm:#8C2F2F; --moss:#3F6139; --forest:#2F4F3A;
@@ -56,7 +60,7 @@
   }
 }
 :root[data-theme="light"]{
-  --ground:#BCCDAC; --surface:#F9F2E1; --surface-2:#EFE1C4; --line:#AD9569;
+  --ground:#BCCDAC; --surface:#F9F2E1; --surface-2:#EFE1C4; --line:#9C8149;
   --ink:#2E2116; --ink-soft:#4E3D28; --ink-faint:#5F4B32;
   --accent:#764810; --accent-ink:#FFF6E6; --calm:#1D5242; --cool:#544364;
   --warn:#7C4110; --alarm:#8C2F2F; --moss:#3F6139; --forest:#2F4F3A;
