@@ -195,6 +195,13 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
 .knopf:active{transform:scale(.98)}
 .knopf.stark{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .knopf.ruhig{background:transparent;border-color:var(--line);color:var(--ink-soft);font-weight:500}
+/* Werkzeug, keine Ware: „Liste ändern" darf nicht aussehen wie etwas, das man
+   sich holen kann — sonst stehen unter jeder Stufe drei gleich große Knöpfe
+   und einer davon ist gar keine Belohnung. */
+.klein-knopf{display:inline-block;width:auto;font-size:13px;font-weight:500;padding:7px 13px;
+  border-radius:11px;background:transparent;border:1px dashed var(--line);color:var(--ink-faint);
+  margin:3px 0 6px;font-family:var(--schrift-ui)}
+.klein-knopf:active{transform:scale(.97)}
 
 /* ————— Würfel ————— */
 .wuerfel-halter{position:fixed;left:0;right:0;bottom:calc(78px + env(safe-area-inset-bottom));
@@ -212,8 +219,11 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
   background:color-mix(in srgb,var(--ground) 88%,transparent);
   backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);
   border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-.tabs-innen{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr)}
-.tab{position:relative;padding:11px 1px 12px;text-align:center;font-size:10px;color:var(--ink-faint);font-weight:600;letter-spacing:0}
+.tabs-innen{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(7,1fr)}
+/* Sieben Reiter auf 375 px sind 53 px je Reiter — „Gefährten" und „Rastplatz"
+   passen da nur ohne Umbruch und eine Spur schmaler. Gemessen, nicht geschätzt. */
+.tab{position:relative;padding:11px 0 12px;text-align:center;font-size:9.5px;color:var(--ink-faint);
+  font-weight:600;letter-spacing:-.01em;white-space:nowrap}
 .tab .ti{display:block;width:22px;height:22px;margin:0 auto 3px}
 .tab.on{color:var(--accent)}
 /* Goldener Riegel über dem aktiven Reiter statt nur anderer Schriftfarbe. */
@@ -279,6 +289,10 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .beutel-zahl{font-family:var(--schrift-titel);font-size:52px;font-weight:800;
   letter-spacing:-.03em;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.05}
 .beutel-wort{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+/* Die Selfcare-Reihe steht leise unter dem Gold — sie ist kein Ergebnis, das
+   man vorzeigt, sondern eine Feststellung. */
+.beutel-stand{margin-top:12px;font-size:13px;line-height:1.45;color:var(--moss);font-family:var(--schrift-ui);font-weight:600}
+.beutel-stand:empty{display:none}
 
 .gefaehrte{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px 16px;
   margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left}
@@ -455,6 +469,23 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <div style="height:20px"></div>
 </section>
 
+<!-- ═══════════ HÄNDLER ═══════════ -->
+<section class="view wrap" id="v-haendler">
+  <div class="kopf"><p class="datum">Wofür du gespart hast</p><h1 class="gruss">Händler</h1></div>
+
+  <div class="beutel">
+    <div class="beutel-zahl" id="gold-zahl">0</div>
+    <div class="beutel-wort">Gold im Beutel</div>
+    <div class="beutel-stand" id="selfcare-stand"></div>
+  </div>
+
+  <div id="haendler-waren"></div>
+
+  <p class="hinweis" style="margin-top:26px"><strong>Erholung steht hier nicht.</strong> Die ist gratis und wohnt auf der Heute-Seite unter <em>Kurze Rast</em> — und was du abends für dich tust, kostet auch nichts. Hier steht nur, wofür du bezahlst.<br><br>
+  Der Maßstab: <strong>klein = ein guter Tag, groß = eine gute Woche.</strong> Ob das hinkommt, wissen wir erst nach ein paar Wochen — wenn du nie an die große rankommst oder in Gold schwimmst, sag Bescheid, dann ziehen wir die Preise nach.</p>
+  <div style="height:30px"></div>
+</section>
+
 <!-- ═══════════ NOTIZEN ═══════════ -->
 <section class="view wrap" id="v-notizen">
   <div class="kopf"><p class="datum">Einfälle, die nicht verlorengehen sollen</p><h1 class="gruss">Notizen</h1></div>
@@ -466,20 +497,14 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 
 <!-- ═══════════ RASTPLATZ ═══════════ -->
 <section class="view wrap" id="v-rast">
-  <div class="kopf"><p class="datum">Vorrat, Gold und Einstellungen</p><h1 class="gruss">Rastplatz</h1></div>
-
-  <div class="beutel">
-    <div class="beutel-zahl" id="gold-zahl">0</div>
-    <div class="beutel-wort">Gold im Beutel</div>
-    <button class="knopf stark" id="gold-einloesen" style="margin-top:16px">Belohnung einlösen</button>
-  </div>
+  <div class="kopf"><p class="datum">Vorrat und Einstellungen</p><h1 class="gruss">Rastplatz</h1></div>
 
   <p class="label">Speicher</p>
   <div class="zustand" id="zustand"></div>
   <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
 
   <p class="label">Deine Listen</p>
-  <p class="hinweis" style="margin:0 0 4px">Bei den Textfeldern: eine Sache pro Zeile. <strong>Überschreib die Beispiele</strong> — mit fremden Vorschlägen funktioniert das nicht.</p>
+  <p class="hinweis" style="margin:0 0 4px">Tipp weg, was nichts für dich ist, und trag ein, was fehlt. <strong>Mit fremden Vorschlägen funktioniert das nicht</strong> — es zählt nur, was wirklich deins ist. <em>Belohnungen stehen beim Händler.</em></p>
   <div id="listen-felder"></div>
 
   <p class="label">Ausdauer an einem normalen Tag</p>
@@ -517,6 +542,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <button class="tab" data-v="woche"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.8"/><path d="M12 4.6l1.7 5.7 5.7 1.7-5.7 1.7-1.7 5.7-1.7-5.7-5.7-1.7 5.7-1.7z"/></svg>Woche</button>
   <button class="tab" data-v="buch"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.4 4.4h9.2v13.2a2.6 2.6 0 0 1-2.6 2.6H7.4z"/><path d="M7.4 4.4a2.2 2.2 0 1 0 0 4.4h9.2"/><path d="M10.4 12h4.2M10.4 15.2h2.8"/></svg>Aufträge</button>
   <button class="tab" data-v="gefaehrten"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.8 4.2h10.4v3.2a5.2 5.2 0 0 1-10.4 0z"/><path d="M12 12.6v5.2"/><path d="M8.8 20.2c0-1.3 1.4-2.4 3.2-2.4s3.2 1.1 3.2 2.4z"/></svg>Gefährten</button>
+  <button class="tab" data-v="haendler"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.8v14.4M8.8 19.2h6.4"/><path d="M4.6 8.2h14.8"/><path d="M4.6 8.4 2.3 13.1h4.6z"/><path d="M19.4 8.4 17.1 13.1h4.6z"/></svg>Händler</button>
   <button class="tab" data-v="notizen"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.8C10.2 5.4 7.8 4.8 4.5 4.8v12.4c3.3 0 5.7.6 7.5 2 1.8-1.4 4.2-2 7.5-2V4.8c-3.3 0-5.7.6-7.5 2z"/><path d="M12 6.8v12.4"/></svg>Notizen</button>
   <button class="tab" data-v="rast"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.6 8.4h6.8c2.6 1.8 4 4.2 4 6.8a4.6 4.6 0 0 1-4.6 4.6H9.2a4.6 4.6 0 0 1-4.6-4.6c0-2.6 1.4-5 4-6.8z"/><path d="M9.4 8.4 8.2 4.6l3.8 1.4 3.8-1.4-1.2 3.8"/></svg>Rastplatz</button>
 </div></nav>
@@ -591,6 +617,27 @@ const RAST_PLUS = 2;    /* was eine Erholung an Ausdauer zurückbringt */
 const RAST_DECKEL = 6;  /* ab hier ist der Tank voll — Erholung geht weiter, nur ohne Punkte */
 const RAST_ANZAHL = 5;  /* wie viele Vorschläge pro Tag gezogen werden */
 
+/* Die Lange Rast ist das Abendritual: nicht ein Reset zwischendurch, sondern
+   etwas, das man sich nimmt. Ihre eigene Liste — Fremdes funktioniert hier
+   noch weniger als bei der Erholung. */
+const SELFCARE_POOL = [
+  "Baden",
+  "Facemask",
+  "Fußcreme",
+  "Tee trinken",
+  "Häkeln",
+  "Film gucken"
+];
+/* Zwei Gold pro ABEND, nicht pro Handlung: sonst wird der Abend zur
+   Verdienstgelegenheit („nachher mache ich nur noch Selfcare"), und aus
+   Fürsorge wird eine Aufgabe. */
+const GOLD_SELFCARE = 2;
+/* Der einzige Streak in Questlog — und er zählt Fürsorge, nicht Leistung.
+   An einem miesen Tag reicht eine Tasse Tee, man kann also fast immer
+   gewinnen. Zwei geschenkte Tage pro Woche fangen den Rest ab. */
+const SELFCARE_STUFEN = [[7,10],[30,50],[100,100]];
+const EIS_PRO_WOCHE = 2;
+
 function vereinen(vorschlaege, eigene){
   const raus = vorschlaege.slice();
   (eigene||[]).filter(Boolean).forEach(x=>{ if(!raus.includes(x)) raus.push(x); });
@@ -612,6 +659,14 @@ const START = {
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
   erholung: ERHOLUNG_POOL.slice(),
   begleitung:["Hörbuch","Lieblingsalbum laut","Podcast","Fenster auf und Musik an","Serie nebenher","Trash TV","YouTube nebenher"],
+  /* Lange Rast: was sie abends für sich getan hat. Gefragt wird nicht
+     „ja/nein", sondern nach dem Namen — benennen ist die Sicherung gegen
+     Schummeln UND das bewusste Wahrnehmen, um das es dabei geht.
+     selfcareLog: Tag → Liste der benannten Sachen. selfcareGold: an welchem
+     Tag die zwei Gold schon geflossen sind. selfcareStand: welche
+     Meilensteine in DIESER Reihe schon bezahlt wurden. */
+  selfcare: SELFCARE_POOL.slice(),
+  selfcareLog:{}, selfcareGold:null, selfcareStand:{seit:null, bezahlt:[]},
   belohnung:{
     klein:["Heiße Schokolade","Eine Folge von der Lieblingsserie","Eine Stunde häkeln"],
     mittel:["Etwas bestellen, worauf du Lust hast","Ein ganzer Abend nur für dich","Ein neues Knäuel Wolle"],
@@ -700,6 +755,11 @@ function tageBisDatum(iso){
   const jetzt = new Date(); jetzt.setHours(0,0,0,0);
   const [j,m,t] = iso.split("-").map(Number);
   return Math.round((new Date(j, m-1, t) - jetzt)/86400000);
+}
+/* Abstand zweier Tage in Tagen, beide als "JJJJ-MM-TT". */
+function tageZwischen(a, b){
+  const lesen = s=>{ const [j,m,t] = s.split("-").map(Number); return new Date(j, m-1, t); };
+  return Math.round((lesen(a) - lesen(b)) / 86400000);
 }
 /* Bewusst ohne Rot und ohne Ausrufezeichen — nur eine ruhige Feststellung. */
 function faelligWort(iso){
@@ -827,6 +887,7 @@ function zeichnen(){
   wochenZeichnen();
   gefaehrtenZeichnen();
   document.getElementById("gold-zahl").textContent = D.gold;
+  haendlerZeichnen();
   budgetZeichnen();
   zustandZeichnen();
   /* Am Ruhetag soll der Würfel keine Arbeit anbieten. */
@@ -1767,10 +1828,147 @@ function abendZeichnen(){
   const halter = document.getElementById("abend-halter");
   halter.innerHTML = "";
   if(new Date().getHours() < 17) return;
-  if(D.letzterAbschluss === D.tag) return;
-  const k = machKnopf("Lager aufschlagen", "", abendBlatt);
+  /* Auch nach „Gute Nacht" bleibt eine Tür offen: das Bad um zehn ist kein
+     Grund, dass der Abend nicht mehr zählt. Nur leiser. */
+  const zu = D.letzterAbschluss === D.tag;
+  const k = machKnopf(zu ? "Nochmal ans Feuer" : "Lager aufschlagen", zu ? "ruhig" : "", abendOeffnen);
   k.style.marginTop = "26px";
   halter.appendChild(k);
+}
+
+/* ═══════════ Lange Rast ═══════════
+   Der eine Streak, den es hier gibt. Er zählt Fürsorge, nicht Leistung —
+   deshalb kann man ihn fast immer gewinnen, und deshalb darf er wehtun, wenn
+   er reißt. Zwei geschenkte Tage pro Woche (rollierend) fangen das ab, wie
+   bei Duolingo. Gefragt wird nach dem NAMEN, nicht nach ja/nein: mit „ja"
+   schummelt man sich in zwei Sekunden durch, ein Wort muss man sich holen. */
+function selfcareStreak(){
+  const log = D.selfcareLog || {};
+  const luecken = [];
+  let tage = 0, seit = null;
+  let d = new Date(); d.setHours(0,0,0,0);
+  /* Heute zählt nur, wenn schon etwas dasteht — sonst ist der Tag noch offen
+     und darf nicht als Lücke gelten. Der Abend ist ja noch nicht vorbei. */
+  if(!((log[datumStr(d)]||[]).length)) d.setDate(d.getDate()-1);
+  for(let i=0; i<800; i++){
+    const iso = datumStr(d);
+    if((log[iso]||[]).length){ tage++; seit = iso; }
+    else{
+      /* Höchstens zwei Lücken in sieben Tagen — die dritte reißt die Reihe. */
+      if(luecken.filter(x=> tageZwischen(x, iso) < 7).length >= EIS_PRO_WOCHE) break;
+      luecken.push(iso);
+    }
+    d.setDate(d.getDate()-1);
+  }
+  /* Lücken hinter dem Anfang der Reihe sind keine geschenkten Tage, sondern
+     einfach die Zeit davor. */
+  return {tage:tage, seit:seit, eis: seit ? luecken.filter(x=> x > seit).length : 0};
+}
+
+/* Meilensteine gelten je Reihe: reißt sie und fängt neu an, kann man sie
+   wieder verdienen — dafür muss man sie aber erst verloren haben. Innerhalb
+   einer Reihe zahlt jede Stufe genau einmal. */
+function meilensteinPruefen(){
+  const st = selfcareStreak();
+  if(!D.selfcareStand) D.selfcareStand = {seit:null, bezahlt:[]};
+  const stand = D.selfcareStand;
+  if(stand.seit !== st.seit){ stand.seit = st.seit; stand.bezahlt = []; }
+  let treffer = null;
+  SELFCARE_STUFEN.forEach(([tage, gold])=>{
+    if(st.tage >= tage && stand.bezahlt.indexOf(tage) < 0){
+      D.gold += gold; stand.bezahlt.push(tage); treffer = {tage:tage, gold:gold};
+    }
+  });
+  return treffer;
+}
+
+function selfcareUmschalten(wort, inDieListe){
+  const w = (wort||"").trim();
+  if(!w) return;
+  abendEntwurfLesen();
+  D.selfcareLog = D.selfcareLog || {};
+  const heute = D.selfcareLog[D.tag] || [];
+  const drin = heute.indexOf(w) >= 0;
+  const neu = drin ? heute.filter(x=>x!==w) : heute.concat([w]);
+  if(neu.length) D.selfcareLog[D.tag] = neu; else delete D.selfcareLog[D.tag];
+  /* Etwas selbst Getipptes wandert in ihre Liste — zweimal dasselbe tippen
+     wäre die Reibung, an der so etwas stirbt. Im Rastplatz kann sie es
+     wieder wegtippen. */
+  if(inDieListe && !drin && (D.selfcare||[]).indexOf(w) < 0)
+    D.selfcare = (D.selfcare||[]).concat([w]);
+
+  if(neu.length && D.selfcareGold !== D.tag){ D.gold += GOLD_SELFCARE; D.selfcareGold = D.tag; }
+  if(!neu.length && D.selfcareGold === D.tag){
+    D.gold = Math.max(0, D.gold - GOLD_SELFCARE); D.selfcareGold = null;
+  }
+
+  const m = meilensteinPruefen();
+  sichern(); zeichnen();
+  if(m){
+    blattZeigen('<h3>+' + m.gold + ' Gold</h3><p class="sub"></p>', x=>{
+      x.querySelector(".sub").textContent =
+        m.tage + " Tage in Folge für dich gesorgt. Das ist die Reihe, die zählt.";
+      x.appendChild(machKnopf("Weiter", "stark", abendBlatt));
+    });
+    return;
+  }
+  abendNeu();
+}
+
+function langeRastTeil(b){
+  const heute = (D.selfcareLog||{})[D.tag] || [];
+  const l = document.createElement("p");
+  l.className = "mini"; l.style.margin = "26px 0 5px";
+  l.textContent = "Was hast du für dich getan?";
+  const h = document.createElement("p");
+  h.className = "hinweis"; h.style.margin = "0 0 10px";
+  h.textContent = heute.length
+    ? "Angetippt heißt: heute gemacht. Nochmal antippen nimmt es zurück."
+    : "Nicht, was du erledigt hast — was dir gutgetan hat. Eine Tasse Tee reicht."
+      + (D.selfcareGold === D.tag ? "" : " Der Abend bringt " + GOLD_SELFCARE + " Gold, egal wie viele Sachen.");
+  b.appendChild(l); b.appendChild(h);
+
+  const box = document.createElement("div");
+  box.className = "kacheln";
+  const liste = (D.selfcare||[]).filter(Boolean);
+  /* Was sie heute benannt hat, aber nicht mehr in der Liste steht, gehört
+     trotzdem noch auf den Schirm — sonst verschwindet es unter der Hand. */
+  liste.concat(heute.filter(x=> liste.indexOf(x) < 0)).forEach(w=>{
+    const an = heute.indexOf(w) >= 0;
+    const k = document.createElement("button");
+    k.className = "kachel" + (an ? " an" : "");
+    k.textContent = an ? "✓ " + w : w;
+    k.addEventListener("click", ()=> selfcareUmschalten(w));
+    box.appendChild(k);
+  });
+  b.appendChild(box);
+
+  const feld = document.createElement("input");
+  feld.className = "feld";
+  feld.id = "abend-selfcare";
+  feld.placeholder = "Etwas anderes …";
+  feld.setAttribute("enterkeyhint", "done");
+  feld.value = abendEntwurf.selfcare;
+  b.appendChild(feld);
+  const dazu = machKnopf("Das war es", "", ()=>{
+    const t = feld.value.trim();
+    if(!t) return;
+    feld.value = "";
+    selfcareUmschalten(t, true);
+  });
+  feld.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); dazu.click(); } });
+  b.appendChild(dazu);
+
+  const st = selfcareStreak();
+  if(st.tage){
+    const s = document.createElement("p");
+    s.className = "hinweis"; s.style.margin = "12px 0 0"; s.style.color = "var(--moss)";
+    s.textContent = (st.tage === 1
+      ? "Der Anfang einer Reihe."
+      : st.tage + " Tage am Stück für dich gesorgt.")
+      + (st.eis ? "  " + mehrzahl(st.eis, "Tag", "Tage") + " davon aufs Eis gelegt — die sind geschenkt." : "");
+    b.appendChild(s);
+  }
 }
 
 /* Nachtragen, was gar nicht auf der Liste stand. Ein ADHS-Tag fühlt sich
@@ -1783,44 +1981,83 @@ function abendZeichnen(){
 const GOLD_NACHTRAG = 2;
 const NACHTRAG_DECKEL = 3;
 
+function nachtragTeil(b, leise){
+  const l = document.createElement("p");
+  l.className = "mini"; l.style.margin = "20px 0 5px";
+  l.textContent = leise ? "Und falls doch etwas war?" : "Noch etwas geschafft?";
+  const h = document.createElement("p");
+  h.className = "hinweis"; h.style.margin = "0 0 10px";
+  h.textContent = "Was gar nicht auf der Liste stand — dazwischengekommen, spontan, einfach passiert. Das zählt genauso.";
+  const feld = document.createElement("input");
+  feld.className = "feld";
+  feld.id = "abend-nachtrag";
+  feld.placeholder = "z. B. Mit der Nachbarin geredet";
+  feld.setAttribute("enterkeyhint", "done");
+  feld.value = abendEntwurf.nachtrag;
+  b.appendChild(l); b.appendChild(h); b.appendChild(feld);
+
+  const rest = Math.max(0, NACHTRAG_DECKEL - (D.nachtrag||0));
+  const eintragen = machKnopf("Dazu" + (rest ? "  ＋" + GOLD_NACHTRAG : ""), "", ()=>{
+    const t = feld.value.trim();
+    if(!t) return;
+    feld.value = "";
+    D.geschafft.push(t);
+    if(rest) D.gold += GOLD_NACHTRAG;
+    D.nachtrag = (D.nachtrag||0) + 1;
+    sichern(); zeichnen();
+    abendNeu();
+  });
+  feld.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); eintragen.click(); } });
+  b.appendChild(eintragen);
+}
+
+/* Das Abendblatt baut sich bei jedem Tipp neu auf. Halb Getipptes im jeweils
+   anderen Feld darf dabei nicht verschwinden — sonst tippt man einmal daneben
+   und der Satz ist weg, den man sich gerade abgerungen hat. */
+let abendEntwurf = {nachtrag:"", selfcare:""};
+function abendEntwurfLesen(){
+  const n = document.getElementById("abend-nachtrag");
+  const s = document.getElementById("abend-selfcare");
+  if(n) abendEntwurf.nachtrag = n.value;
+  if(s) abendEntwurf.selfcare = s.value;
+}
+function abendOeffnen(){ abendEntwurf = {nachtrag:"", selfcare:""}; abendBlatt(); }
+/* Neu aufbauen, ohne dass einem die Stelle wegspringt, an der man gerade war. */
+function abendNeu(){
+  abendEntwurfLesen();
+  const hoehe = blattEl.scrollTop;
+  abendBlatt();
+  blattEl.scrollTop = hoehe;
+}
+
 function abendBlatt(){
+  const ruhe = istRuhetag();
   const geschafft = D.geschafft.slice();
-  let inhalt = '<h3>Das war heute</h3>';
-  if(geschafft.length){
+  let inhalt = '<h3>' + (ruhe ? "Ruhetag" : "Das war heute") + '</h3>';
+  if(ruhe){
+    inhalt += '<p class="sub">Heute war frei — das war eine Entscheidung, kein verlorener Tag. Die Reihe läuft weiter.</p>';
+  }else if(geschafft.length){
     inhalt += '<p class="sub">'+mehrzahl(geschafft.length,"Sache","Sachen")+' geschafft.</p>';
     inhalt += geschafft.map(t=>'<div class="karte fertig"><span class="punkt p-neutral"></span><span class="karte-txt"><span class="karte-titel">'+entschaerfen(t)+'</span></span></div>').join("");
   }else{
     inhalt += '<p class="sub">Auf der Liste stand heute nichts. Das ist keine Schuld — Tage sind unterschiedlich. Und vielleicht war ja doch etwas?</p>';
   }
   blattZeigen(inhalt, b=>{
-    const l = document.createElement("p");
-    l.className = "mini"; l.style.margin = "20px 0 5px";
-    l.textContent = "Noch etwas geschafft?";
-    const h = document.createElement("p");
-    h.className = "hinweis"; h.style.margin = "0 0 10px";
-    h.textContent = "Was gar nicht auf der Liste stand — dazwischengekommen, spontan, einfach passiert. Das zählt genauso.";
-    const feld = document.createElement("input");
-    feld.className = "feld";
-    feld.placeholder = "z. B. Mit der Nachbarin geredet";
-    feld.setAttribute("enterkeyhint", "done");
-    b.appendChild(l); b.appendChild(h); b.appendChild(feld);
-
-    const rest = Math.max(0, NACHTRAG_DECKEL - (D.nachtrag||0));
-    const eintragen = machKnopf("Dazu" + (rest ? "  ＋" + GOLD_NACHTRAG : ""), "", ()=>{
-      const t = feld.value.trim();
-      if(!t) return;
-      D.geschafft.push(t);
-      if(rest) D.gold += GOLD_NACHTRAG;
-      D.nachtrag = (D.nachtrag||0) + 1;
-      sichern(); zeichnen();
-      abendBlatt();
-    });
-    feld.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); eintragen.click(); } });
-    b.appendChild(eintragen);
-
-    b.appendChild(machKnopf("Gute Nacht", "stark", ()=>{
+    /* Am Ruhetag steht die Fürsorge vorn und die Bilanz hinten — an einem
+       Tag, den man sich genommen hat, darf nicht als Erstes eine Liste
+       kommen. Sonst zuerst das Geschaffte, dann die Lange Rast. */
+    if(ruhe){
+      langeRastTeil(b);
+      nachtragTeil(b, true);
+    }else{
+      nachtragTeil(b, false);
+      langeRastTeil(b);
+    }
+    const nacht = machKnopf("Gute Nacht", "stark", ()=>{
       D.letzterAbschluss = D.tag; sichern(); blattSchliessen(); zeichnen();
-    }));
+    });
+    nacht.style.marginTop = "22px";
+    b.appendChild(nacht);
   });
 }
 function entschaerfen(t){ const d=document.createElement("div"); d.textContent=t; return d.innerHTML; }
@@ -2440,38 +2677,33 @@ document.getElementById("budget-wahl").addEventListener("click", e=>{
   sichern(); zeichnen();
 });
 
+/* Die Belohnungslisten stehen seit dem Händler-Reiter dort, wo man sie auch
+   ausgibt — zwei Wege für dieselbe Sache sind kein Komfort, sondern eine
+   Falle. Hier bleibt nur, was nicht mit Gold zu tun hat. */
 const LISTEN = [
-  ["begleitung",      "Begleitung", "Was nebenher laufen darf, wenn etwas zäh ist. Podcast, Musik, Serie."],
-  ["belohnung.klein", "Kleine Belohnung — " + PREIS.klein + " Gold", "Für einen guten Tag."],
-  ["belohnung.mittel","Mittlere Belohnung — " + PREIS.mittel + " Gold", "Etwas mehr als zwischendurch."],
-  ["belohnung.gross", "Große Belohnung — " + PREIS.gross + " Gold", "Wofür sich eine gute Woche lohnt."]
+  ["begleitung", "Begleitung", "Was nebenher laufen darf, wenn etwas zäh ist. Podcast, Musik, Serie."]
 ];
-function listeHolen(pfad){
-  return pfad.includes(".") ? (D.belohnung[pfad.split(".")[1]] || []) : (D[pfad] || []);
-}
-function listeSetzen(pfad, werte){
-  if(pfad.includes(".")) D.belohnung[pfad.split(".")[1]] = werte; else D[pfad] = werte;
-}
-/* Erholung ist kein Textfeld mehr. „Überschreib die Beispiele" hat nie
-   funktioniert — sie soll mit einem Tipp rausschmeißen können, was nicht ihrs
-   ist, statt eine fremde Liste abtippen zu müssen. */
-function erholungKachelnZeichnen(){
-  const ziel = document.getElementById("erholung-kacheln");
+
+/* Ein Vorrat als antippbare Kacheln statt als Textfeld. „Überschreib die
+   Beispiele" hat nie funktioniert — sie soll mit einem Tipp rausschmeißen
+   können, was nicht ihrs ist, statt eine fremde Liste abzutippen. */
+function poolZeichnen(zielId, schluessel, pool, standText){
+  const ziel = document.getElementById(zielId);
   if(!ziel) return;
   ziel.innerHTML = "";
   const box = document.createElement("div");
   box.className = "kacheln";
-  const drin = (D.erholung||[]).filter(Boolean);
-  const eigene = drin.filter(w => !ERHOLUNG_POOL.includes(w));
-  ERHOLUNG_POOL.concat(eigene).forEach(w=>{
-    const ausPool = ERHOLUNG_POOL.includes(w);
-    const an = drin.includes(w);
+  const drin = (D[schluessel]||[]).filter(Boolean);
+  const eigene = drin.filter(w => pool.indexOf(w) < 0);
+  pool.concat(eigene).forEach(w=>{
+    const ausPool = pool.indexOf(w) >= 0;
+    const an = drin.indexOf(w) >= 0;
     const k = document.createElement("button");
     k.className = "kachel" + (ausPool ? (an ? " an" : "") : " eigen");
     k.textContent = ausPool ? w : w + "  ×";
     k.addEventListener("click", ()=>{
-      D.erholung = an ? drin.filter(x=>x!==w) : drin.concat([w]);
-      sichern(); erholungKachelnZeichnen();
+      D[schluessel] = an ? drin.filter(x=>x!==w) : drin.concat([w]);
+      sichern(); poolZeichnen(zielId, schluessel, pool, standText);
     });
     box.appendChild(k);
   });
@@ -2482,97 +2714,170 @@ function erholungKachelnZeichnen(){
   const stand = document.createElement("p");
   stand.className = "hinweis";
   stand.style.margin = "0 0 10px";
-  stand.textContent = drin.length
-    ? drin.length + " von " + (ERHOLUNG_POOL.length + eigene.length)
-      + " sind dabei. Daraus würfelt die App dir jeden Tag " + RAST_ANZAHL
-      + " auf die Heute-Seite — gemacht wird es dort unter ☕ Kurze Rast."
-    : "Gerade ist nichts dabei — dann bleibt die Kurze Rast leer.";
+  stand.textContent = standText(drin.length, pool.length + eigene.length);
   ziel.appendChild(stand);
+}
+
+function poolBlock(ziel, titel, erklaerung, zielId, schluessel, pool, standText, platzhalter){
+  const l = document.createElement("p");
+  l.className = "mini"; l.style.margin = "18px 0 5px"; l.textContent = titel;
+  const e = document.createElement("p");
+  e.className = "hinweis"; e.style.margin = "0 0 10px"; e.textContent = erklaerung;
+  const kacheln = document.createElement("div");
+  kacheln.id = zielId;
+  ziel.appendChild(l); ziel.appendChild(e); ziel.appendChild(kacheln);
+  poolZeichnen(zielId, schluessel, pool, standText);
+
+  const feld = document.createElement("input");
+  feld.className = "feld";
+  feld.placeholder = platzhalter;
+  feld.setAttribute("enterkeyhint", "done");
+  const dazu = machKnopf("＋ Hinzufügen", "", ()=>{
+    const w = feld.value.trim();
+    if(!w) return;
+    if((D[schluessel]||[]).indexOf(w) < 0) D[schluessel] = (D[schluessel]||[]).concat([w]);
+    feld.value = "";
+    sichern(); poolZeichnen(zielId, schluessel, pool, standText);
+  });
+  feld.addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); dazu.click(); }
+  });
+  ziel.appendChild(feld); ziel.appendChild(dazu);
 }
 
 function listenZeichnen(){
   const ziel = document.getElementById("listen-felder");
   ziel.innerHTML = "";
 
-  const l = document.createElement("p");
-  l.className = "mini"; l.style.margin = "18px 0 5px";
-  l.textContent = "Erholung — für die Kurze Rast";
-  const e = document.createElement("p");
-  e.className = "hinweis"; e.style.margin = "0 0 10px";
-  e.textContent = "Tipp weg, was nichts für dich ist. Aus dem Rest legt dir die App jeden Tag "
-    + RAST_ANZAHL + " Vorschläge auf die Heute-Seite. Eigene Einträge sind grün — antippen löscht sie.";
-  const kacheln = document.createElement("div");
-  kacheln.id = "erholung-kacheln";
-  ziel.appendChild(l); ziel.appendChild(e); ziel.appendChild(kacheln);
-  erholungKachelnZeichnen();
+  poolBlock(ziel, "Erholung — für die Kurze Rast",
+    "Tipp weg, was nichts für dich ist. Aus dem Rest legt dir die App jeden Tag "
+      + RAST_ANZAHL + " Vorschläge auf die Heute-Seite. Eigene Einträge sind grün — antippen löscht sie.",
+    "erholung-kacheln", "erholung", ERHOLUNG_POOL,
+    (an, ganz)=> an
+      ? an + " von " + ganz + " sind dabei. Daraus würfelt die App dir jeden Tag "
+        + RAST_ANZAHL + " auf die Heute-Seite — gemacht wird es dort unter Kurze Rast."
+      : "Gerade ist nichts dabei — dann bleibt die Kurze Rast leer.",
+    "Eigene Erholung hinzufügen");
 
-  const feld = document.createElement("input");
-  feld.className = "feld";
-  feld.placeholder = "Eigene Erholung hinzufügen";
-  feld.setAttribute("enterkeyhint", "done");
-  const dazu = machKnopf("＋ Hinzufügen", "", ()=>{
-    const w = feld.value.trim();
-    if(!w) return;
-    if(!(D.erholung||[]).includes(w)) D.erholung = (D.erholung||[]).concat([w]);
-    feld.value = "";
-    sichern(); erholungKachelnZeichnen();
-  });
-  feld.addEventListener("keydown", ev=>{
-    if(ev.key === "Enter"){ ev.preventDefault(); dazu.click(); }
-  });
-  ziel.appendChild(feld); ziel.appendChild(dazu);
+  poolBlock(ziel, "Selfcare — für die Lange Rast",
+    "Was du dir abends gibst, wenn der Tag vorbei ist. Beim Lager aufschlagen fragt die App, was davon du getan hast — benannt, nicht abgehakt.",
+    "selfcare-kacheln", "selfcare", SELFCARE_POOL,
+    (an, ganz)=> an
+      ? an + " von " + ganz + " stehen dir abends zur Auswahl."
+      : "Gerade ist nichts dabei — dann fragt der Abend nur nach deinen eigenen Worten.",
+    "Eigene Selfcare hinzufügen");
 
-  LISTEN.forEach(([pfad,wort,erklaerung])=>{
+  LISTEN.forEach(([schluessel,wort,erklaerung])=>{
     const l = document.createElement("p"); l.className="mini"; l.style.margin="18px 0 5px"; l.textContent=wort;
     const e = document.createElement("p"); e.className="hinweis"; e.style.margin="0 0 8px"; e.textContent=erklaerung;
     const t = document.createElement("textarea"); t.className="feld"; t.style.minHeight="92px";
-    t.value = listeHolen(pfad).join("\n");
+    t.value = (D[schluessel]||[]).join("\n");
     t.addEventListener("change", ()=>{
-      listeSetzen(pfad, t.value.split("\n").map(x=>x.trim()).filter(Boolean)); sichern();
+      D[schluessel] = t.value.split("\n").map(x=>x.trim()).filter(Boolean); sichern();
     });
     ziel.appendChild(l); ziel.appendChild(e); ziel.appendChild(t);
   });
 }
 
-document.getElementById("gold-einloesen").addEventListener("click", ()=>{
-  blattZeigen('<h3>Belohnungen</h3><p class="sub">Du hast <strong>' + D.gold + ' Gold</strong>. ' +
-    'Erholung steht hier nicht — die ist gratis und wohnt bei der Ausdauer.</p>', b=>{
-    let etwasDa = false;
-    [["klein","Kleine Belohnung"],["mittel","Mittlere Belohnung"],["gross","Große Belohnung"]].forEach(([stufe,wort])=>{
-      const liste = (D.belohnung[stufe]||[]).filter(Boolean);
-      if(!liste.length) return;
-      etwasDa = true;
-      const l = document.createElement("p");
-      l.className = "mini"; l.style.margin = "16px 0 8px";
-      l.textContent = wort + " — " + PREIS[stufe] + " Gold";
-      b.appendChild(l);
-      liste.forEach(w=>{
-        const reicht = D.gold >= PREIS[stufe];
-        const k = machKnopf(w, reicht ? "" : "ruhig", ()=>{
-          if(!reicht){
-            blattZeigen('<h3>Noch ' + (PREIS[stufe]-D.gold) + ' Gold</h3>' +
-              '<p class="sub">Dann kannst du dir das nehmen. Zähe Quests bringen am meisten.</p>',
-              x=> x.appendChild(machKnopf("Verstanden","stark",blattSchliessen)));
-            return;
-          }
-          D.gold -= PREIS[stufe]; sichern(); zeichnen();
-          blattZeigen('<h3>Viel Freude damit</h3><p class="sub"></p>', x=>{
-            x.querySelector(".sub").textContent = w + " — " + PREIS[stufe] + " Gold abgezogen, " + D.gold + " übrig.";
-            x.appendChild(machKnopf("Danke", "stark", blattSchliessen));
-          });
-        });
-        b.appendChild(k);
-      });
-    });
-    if(!etwasDa){
+/* ═══════════ Händler ═══════════
+   Belohnung kostet Gold, Erholung nicht. Der Unterschied ist nicht die
+   Uhrzeit, sondern die Verdrängung: Selfcare ist, was in den Platz passt,
+   der da ist — Belohnung ist, wofür du dir Platz kaufst. Deshalb darf
+   Häkeln in beiden Listen stehen; entschieden wird das im Moment, nicht
+   von der App.
+   Vorher hing das alles hinter einem unbeschrifteten Knopf im Goldbeutel
+   und wurde nie gefunden. Was täglich gebraucht wird, gehört in die
+   Hauptleiste. */
+const STUFEN = [
+  ["klein",  "Kleine Belohnung",   "Für einen guten Tag."],
+  ["mittel", "Mittlere Belohnung", "Mehr als nur zwischendurch."],
+  ["gross",  "Große Belohnung",    "Wofür sich eine gute Woche lohnt."]
+];
+
+function haendlerZeichnen(){
+  const stand = document.getElementById("selfcare-stand");
+  if(stand){
+    const st = selfcareStreak();
+    stand.textContent = !st.tage ? ""
+      : (st.tage === 1 ? "Heute für dich gesorgt" : st.tage + " Tage am Stück für dich gesorgt");
+  }
+  const ziel = document.getElementById("haendler-waren");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+
+  STUFEN.forEach(([stufe, wort, erklaerung])=>{
+    const l = document.createElement("p");
+    l.className = "label";
+    l.textContent = wort;
+    const em = document.createElement("em");
+    em.textContent = PREIS[stufe] + " Gold";
+    l.appendChild(em);
+    ziel.appendChild(l);
+
+    const liste = (D.belohnung[stufe]||[]).filter(Boolean);
+    if(!liste.length){
+      /* Ein leeres Regal muss einladen, nicht bloß feststellen, dass es leer ist. */
       const p = document.createElement("p");
-      p.className = "hinweis";
-      p.textContent = "Deine Belohnungslisten sind leer. Trag unten ein, worauf du wirklich Lust hast.";
-      b.appendChild(p);
+      p.className = "leer";
+      p.textContent = "Hier ist noch nichts eingetragen. " + erklaerung;
+      ziel.appendChild(p);
+      ziel.appendChild(machKnopf("＋ Eintragen, worauf du Lust hast", "", ()=> wareBlatt(stufe, wort, erklaerung)));
+      return;
     }
-    b.appendChild(machKnopf("Später", "ruhig", blattSchliessen));
+    /* Was noch fehlt, steht am Knopf. Das ist kein Mahnzähler, sondern ein
+       Sparziel — und man sieht auf einen Blick, dass es eine Ware ist. */
+    const fehlt = PREIS[stufe] - D.gold;
+    liste.forEach(w=>{
+      ziel.appendChild(machKnopf(
+        w + (fehlt > 0 ? "   ·   noch " + fehlt : ""),
+        fehlt > 0 ? "ruhig" : "",
+        ()=> kaufen(stufe, w)));
+    });
+    const aendern = machKnopf("Liste ändern", "", ()=> wareBlatt(stufe, wort, erklaerung));
+    aendern.className = "klein-knopf";
+    ziel.appendChild(aendern);
   });
-});
+}
+
+function kaufen(stufe, w){
+  if(D.gold < PREIS[stufe]){
+    blattZeigen('<h3>Noch ' + (PREIS[stufe] - D.gold) + ' Gold</h3>' +
+      '<p class="sub">Dann gehört das dir. Zähe Quests bringen am meisten — und jeder Abend, an dem du etwas für dich getan hast, ' +
+      GOLD_SELFCARE + ' Gold dazu.</p>',
+      x=> x.appendChild(machKnopf("Verstanden", "stark", blattSchliessen)));
+    return;
+  }
+  blattZeigen('<h3></h3><p class="sub"></p>', x=>{
+    x.querySelector("h3").textContent = w;
+    x.querySelector(".sub").textContent =
+      "Kostet " + PREIS[stufe] + " Gold. Danach hast du noch " + (D.gold - PREIS[stufe]) + ".";
+    x.appendChild(machKnopf("Nehmen", "stark", ()=>{
+      D.gold -= PREIS[stufe]; sichern(); zeichnen();
+      blattZeigen('<h3>Viel Freude damit</h3><p class="sub"></p>', y=>{
+        y.querySelector(".sub").textContent =
+          w + " — " + PREIS[stufe] + " Gold abgezogen, " + D.gold + " übrig. Bezahlt ist bezahlt: jetzt ohne schlechtes Gewissen.";
+        y.appendChild(machKnopf("Danke", "stark", blattSchliessen));
+      });
+    }));
+    x.appendChild(machKnopf("Doch nicht", "ruhig", blattSchliessen));
+  });
+}
+
+function wareBlatt(stufe, wort, erklaerung){
+  blattZeigen('<h3></h3><p class="sub"></p>' +
+    '<textarea class="feld" id="ware-feld" style="min-height:150px"></textarea>', b=>{
+    b.querySelector("h3").textContent = wort + " — " + PREIS[stufe] + " Gold";
+    b.querySelector(".sub").textContent = erklaerung +
+      " Eine Sache pro Zeile. Trag ein, worauf du wirklich Lust hast — nicht, was vernünftig klingt.";
+    const feld = b.querySelector("#ware-feld");
+    feld.value = (D.belohnung[stufe]||[]).join("\n");
+    b.appendChild(machKnopf("Übernehmen", "stark", ()=>{
+      D.belohnung[stufe] = feld.value.split("\n").map(x=>x.trim()).filter(Boolean);
+      sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+  });
+}
 
 /* ═══════════ Einlesen ═══════════ */
 document.getElementById("import-los").addEventListener("click", ()=>{
