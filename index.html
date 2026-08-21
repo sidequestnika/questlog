@@ -1,3 +1,4 @@
+<html lang="de">
 <title>Questlog</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3915,6 +3916,9 @@ function listenZeichnen(){
     const l = document.createElement("p"); l.className="mini"; l.style.margin="18px 0 5px"; l.textContent=wort;
     const e = document.createElement("p"); e.className="hinweis"; e.style.margin="0 0 8px"; e.textContent=erklaerung;
     const t = document.createElement("textarea"); t.className="feld"; t.style.minHeight="92px";
+    /* Die Überschrift darüber sagt einem Sehenden, worum es geht — einem
+       Screenreader sagt sie nichts, solange sie nicht am Feld hängt. */
+    t.setAttribute("aria-label", wort);
     t.value = (D[schluessel]||[]).join("\n");
     t.addEventListener("change", ()=>{
       D[schluessel] = t.value.split("\n").map(x=>x.trim()).filter(Boolean); sichern();
