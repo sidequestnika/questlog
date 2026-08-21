@@ -1,4 +1,10 @@
 <html lang="de">
+<!-- Fehlte bisher ganz. Auf GitHub Pages ging es trotzdem gut, weil der Server
+     „charset=utf-8“ im Kopf mitschickt — ohne diese Zeile hängt also die
+     gesamte Darstellung an einer fremden Einstellung. Ohne Server-Angabe
+     (Datei direkt geöffnet) fällt der Browser auf windows-1252 zurück und aus
+     „vernünftig“ wird „vernÃ¼nftig“. Nachgemessen und bestätigt. -->
+<meta charset="utf-8">
 <title>Questlog</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -103,6 +109,10 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
 /* ————— Kopf ————— */
 .kopf{margin-bottom:18px}
 .gruss{font-size:26px;font-weight:700;letter-spacing:-.02em;text-wrap:balance;margin:0}
+/* Ein Wanderersatz ist länger als „Guten Morgen“. In 26px wären das drei
+   Zeilen — der ganze Tag rutschte nach unten. Ab einer gewissen Länge also
+   kleiner und ruhiger gesetzt: ein gesprochener Satz, keine Überschrift. */
+.gruss.lang{font-size:19px;font-weight:600;letter-spacing:0;line-height:1.35}
 .datum{font-size:12px;color:var(--ink-faint);letter-spacing:.1em;text-transform:uppercase;margin:0 0 4px}
 
 /* ————— Ausdauer ————— */
@@ -1108,16 +1118,153 @@ function ueberlaufRaeumen(){
   });
 }
 
-/* ═══════════ Zeichnen ═══════════ */
-const GRUESSE_FRUEH = ["Guten Morgen","Na, wach?","Ein neuer Anlauf","Frisch dabei"];
-const GRUESSE_TAG   = ["Mitten im Tag","Hallo du","Weiter geht's","Schön, dass du da bist"];
-const GRUESSE_ABEND = ["Guten Abend","Feierabend naht","Der Tag klingt aus","Fast geschafft"];
+/* ═══════════ Begrüßungen ═══════════
+   Ihre Bitte: nicht „Guten Abend“, sondern was ein Wanderer sagen würde oder
+   jemand in einer Taverne nach einem aufregenden Tag. Ansprechen ist von ihr
+   ausdrücklich erwünscht.
 
+   Zwei Regeln bestimmen den Bau:
+   1. NICHT zufällig. zeichnen() läuft bei jedem Antippen — ein Math.random()
+      hier ließe den Gruß flackern. Gezogen wird aus Datum und Tageszeit: er
+      steht einen Vormittag lang still und wechselt zum Mittag.
+   2. Kein Wort über Aufgaben. Der Gruß darf wissen, wie sie gestern selbst den
+      Tag genannt hat — nie, was sie geschafft hat. Sonst ist es eine Bilanz im
+      Wandererumhang, und die Karten sagen: nie mit dem Geschafften verrechnen. */
+const GRUESSE = {
+  nacht: [
+    "Die Kerze ist fast runter.",
+    "Um diese Zeit gehört die Straße dir allein.",
+    "Der Wirt wischt schon die Tische. Bleib ruhig sitzen.",
+    "Spät. Das nimmt dir die Nacht nicht übel."
+  ],
+  frueh: [
+    "Die Straße ist noch feucht vom Tau.",
+    "Der Wirt hat schon Feuer gemacht.",
+    "Ein neuer Tag, und noch keine Fußspuren drin.",
+    "Der Weg wartet. Aber er hat es nicht eilig.",
+    "Du bist früh auf. Oder spät dran. Sagt hier keiner.",
+    "Frisch aufgesattelt?",
+    "Erst der Kaffee, dann die Welt.",
+    "Draußen ist es hell geworden, ganz von allein."
+  ],
+  tag: [
+    "Hoch steht die Sonne, und der Weg ist noch lang.",
+    "Halbzeit. Der Krug ist auch erst halb leer.",
+    "Mitten drin — der unbequemste Teil jeder Reise.",
+    "Der Nachmittag läuft dir nicht weg.",
+    "Schön, dich zu sehen. Rutsch rüber.",
+    "Der Tag hat sich warmgelaufen.",
+    "Von hier sieht man schon, wo es abends hingeht."
+  ],
+  abend: [
+    "Der Sternenhimmel ist heute großzügig, nicht wahr?",
+    "Die Lichter im Tal gehen an.",
+    "Feuer brennt, Stiefel aus.",
+    "Guten Abend. Rutsch näher ran, hier ist es warm.",
+    "Der Tag legt sich schlafen. Du darfst mit.",
+    "Draußen wird es blau. Die schönste Stunde.",
+    "Was für ein Tag. Erzähl oder schweig — beides geht."
+  ]
+};
+
+/* Die Jahreszeit spricht mit. Einträge ohne `zeit` passen überall, die anderen
+   nur zu ihrer Tageszeit: „es will nicht dunkel werden“ ist kein Morgensatz. */
+const JAHRESZEIT_GRUSS = {
+  winter: [
+    {t:"Draußen knirscht es. Drinnen ist es warm."},
+    {t:"Kalt heute. Zieh was drüber, bevor du losgehst.", zeit:"frueh"},
+    {t:"Kurze Tage, lange Abende. Kein schlechter Tausch.", zeit:"abend"}
+  ],
+  fruehling: [
+    {t:"Es riecht nach nassem Holz und Anfang."},
+    {t:"Alles treibt aus, sogar der alte Zaunpfahl."},
+    {t:"Die Vögel sind seit Stunden wach. Angeber.", zeit:"frueh"}
+  ],
+  sommer: [
+    {t:"Die Luft steht. Trink was."},
+    {t:"Früh und schon warm. Das wird ein langer Tag.", zeit:"frueh"},
+    {t:"So ein Abend, an dem es nicht dunkel werden will.", zeit:"abend"}
+  ],
+  herbst: [
+    {t:"Der Nebel nimmt heute alles auf halbe Sicht."},
+    {t:"Blätter auf dem Weg. Es raschelt bei jedem Schritt."},
+    {t:"Draußen zieht es. Drinnen brennt das Feuer.", zeit:"abend"}
+  ]
+};
+
+/* Was einen Tag besonders macht, geht vor — aber NUR morgens. Danach bleibt es
+   reine Stimmung: einmal gesagt ist gesagt, sonst hält die App ihr den ganzen
+   Tag vor die Nase, wie gestern war. */
+const GRUESSE_LAGE = {
+  ruhetag: "Heute geht niemand irgendwohin.",
+  hoch:    "Man hört noch die Musik von gestern, oder?",
+  schwer:  "Gestern war rau. Heute ist ein anderer Weg.",
+  still:   "Gestern war still. Das hält manchmal an."
+};
+
+const ZEIT_REIHE = ["nacht","frueh","tag","abend"];
+
+function jahreszeit(m){
+  if(m <= 1 || m === 11) return "winter";
+  if(m <= 4) return "fruehling";
+  if(m <= 7) return "sommer";
+  return "herbst";
+}
+function tageszeit(st){
+  if(st >= 22 || st < 5) return "nacht";
+  if(st < 11) return "frueh";
+  if(st < 17) return "tag";
+  return "abend";
+}
+
+function grussWort(jetzt){
+  const zeit = tageszeit(jetzt.getHours());
+  if(zeit === "frueh"){
+    if(istRuhetag()) return GRUESSE_LAGE.ruhetag;
+    /* nachwehenGrund() vereint schon „von Hand gesetzt“ und „gestern Abend so
+       genannt“ — das hier ist derselbe Sachverhalt, also dieselbe Quelle. */
+    const g = nachwehenGrund();
+    if(g && GRUESSE_LAGE[g]) return GRUESSE_LAGE[g];
+    if((D.tagsform||{})[gesternStr()] === "ruhig") return GRUESSE_LAGE.still;
+  }
+  const topf = GRUESSE[zeit].concat(
+    (JAHRESZEIT_GRUSS[jahreszeit(jetzt.getMonth())] || [])
+      .filter(x=> !x.zeit || x.zeit === zeit)
+      .map(x=> x.t));
+  return topf[streu(datumStr(jetzt) + zeit) % topf.length];
+}
+
+/* Warum gestreut und nicht durchgezählt: die erste Fassung nahm
+   `Tag*3 + Monat + Tageszeit` als Nummer. Bei einem Topf mit 9 Sätzen trifft
+   eine Schrittweite von 3 aber nur jeden dritten — gemessen kamen im ganzen
+   August genau DREI verschiedene Abendgrüße heraus. Ein Streuwert hat dieses
+   Problem bei keiner Topfgröße, also auch nicht, wenn später Sätze dazukommen.
+   Gleicher Tag und gleiche Tageszeit ergeben denselben Wert: der Gruß steht
+   still, solange man in der App herumtippt, und wechselt zum Mittag. */
+function streu(text){
+  let h = 2166136261;
+  for(let i=0; i<text.length; i++){ h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+/* Ob ein Satz in eine Zeile passt, hängt an der Schriftgröße UND an der Breite
+   des Geräts. Nach Zeichenzahl geraten habe ich hier schon falsch: „Die Kerze
+   ist fast runter.“ sind 26 Zeichen und brauchte in 26px trotzdem drei Zeilen.
+   Also nachmessen — kostet zwei Messungen je Zeichnen und stimmt auf jedem
+   Telefon, auch wenn später längere Sätze dazukommen. */
+function grussSetzen(el, wort){
+  el.classList.remove("lang");
+  el.textContent = "X";
+  const einzeilig = el.getBoundingClientRect().height;
+  el.textContent = wort;
+  if(el.getBoundingClientRect().height > einzeilig + 2) el.classList.add("lang");
+}
+
+/* ═══════════ Zeichnen ═══════════ */
 function zeichnen(){
   tagPruefen();
-  const jetzt = new Date(), st = jetzt.getHours();
-  const gruesse = st<11 ? GRUESSE_FRUEH : (st<17 ? GRUESSE_TAG : GRUESSE_ABEND);
-  document.getElementById("gruss").textContent = gruesse[(jetzt.getDate()+jetzt.getMonth()) % gruesse.length];
+  const jetzt = new Date();
+  grussSetzen(document.getElementById("gruss"), grussWort(jetzt));
   document.getElementById("datum").textContent =
     WOCHENTAGE[jetzt.getDay()] + ", " + jetzt.getDate() + ". " + MONATE[jetzt.getMonth()];
 
@@ -2813,7 +2960,16 @@ function planBlatt(qid){
 
 function tagWaehlenBlatt(plan, zurueck){
   const start = wochenStart();
-  blattZeigen('<h3>Auf welchen Tag?</h3><p class="sub">Der Abschnitt bleibt: ' + TEIL_WORT[plan.teil] + '.</p>', b=>{
+  blattZeigen('<h3>Auf welchen Tag?</h3><p class="sub">Der Abschnitt bleibt: ' + TEIL_WORT[plan.teil] + '.</p>' +
+    '<p class="mini">Datum — für alles, was weiter weg ist</p><input class="feld" type="date" id="tw-datum">', b=>{
+    /* Die vierzehn Knöpfe reichen nur bis zum Ende der nächsten Woche. „In drei
+       Wochen“ war damit unerreichbar — dafür steht das Feld darüber. */
+    const df = b.querySelector("#tw-datum");
+    df.value = plan.tag || D.tag;
+    df.addEventListener("change", ()=>{
+      if(!df.value) return;
+      plan.tag = df.value; sichern(); zeichnen(); if(zurueck) zurueck();
+    });
     for(let i=0; i<14; i++){
       const d = new Date(start); d.setDate(d.getDate()+i);
       const iso = datumStr(d);
@@ -2824,6 +2980,77 @@ function tagWaehlenBlatt(plan, zurueck){
       ));
     }
     b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ if(zurueck) zurueck(); else blattSchliessen(); }));
+  });
+}
+
+/* ═══════════ Auf einen Tag legen ═══════════
+   Ihr Fall, wörtlich: „es wäre für mich aufwendiger zu nächster woche mittwoch
+   zu gehen (oder vielleicht wäre es auch in drei wochen) da würde ich gerne
+   direkt das datum eintragen und es in die schiebe liste aufnehmen.“
+
+   Bis hierher gab es genau EINEN Weg in den Wochenplan: im Woche-Reiter den
+   Abschnitt antippen und die Quest aus einer Liste heraussuchen. Von der
+   Aufgabe aus führte gar nichts hin — dabei ist das die Richtung, in der man
+   denkt: erst die Sache, dann wann.
+
+   Der Unterschied zur Frist ist ihrer, und er stimmt: „Bis wann?“ ist ein
+   Spielraum und gut zum Verschieben, ein Tag mit Abschnitt ist eine
+   Verabredung. Deshalb zwei getrennte Knöpfe und kein Umschalter. */
+function planWort(plan){
+  const [j,m,t] = plan.tag.split("-").map(Number);
+  const d = new Date(j, m-1, t);
+  return KURZTAG[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()] + " · " + TEIL_WORT[plan.teil];
+}
+
+function tagLegenBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  let teil = (q.plan && q.plan.teil) || jetzigerTeil();
+  blattZeigen('<h3>Auf einen Tag legen</h3><p class="sub"></p>' +
+    '<p class="mini">Datum</p><input class="feld" type="date" id="tl-datum">' +
+    '<div class="kacheln" id="tl-schnell"></div>' +
+    '<p class="mini">Wann an dem Tag?</p><div class="kacheln" id="tl-teil"></div>', b=>{
+    b.querySelector(".sub").textContent = kurz(q.titel);
+    const df = b.querySelector("#tl-datum");
+    df.value = (q.plan && q.plan.tag) || D.tag;
+
+    /* Die nächsten drei Tage ohne Datumsrad — das ist der häufige Fall. Alles
+       Weitere kommt aus dem Feld darüber. */
+    const schnell = b.querySelector("#tl-schnell");
+    [["Heute",0],["Morgen",1],["Übermorgen",2]].forEach(([wort,n])=>{
+      const k = document.createElement("button");
+      k.className = "kachel";
+      k.textContent = wort;
+      k.addEventListener("click", ()=>{ df.value = inTagen(n); });
+      schnell.appendChild(k);
+    });
+
+    const tw = b.querySelector("#tl-teil");
+    TEILE.forEach(([wert,wort])=>{
+      const k = document.createElement("button");
+      k.className = "kachel" + (teil===wert ? " an" : "");
+      k.textContent = wort;
+      k.addEventListener("click", ()=>{
+        teil = wert;
+        /* Nur die Markierung umsetzen, nicht das Blatt neu bauen — sonst wäre
+           das eingetippte Datum wieder weg. */
+        [...tw.children].forEach((x,i)=> x.classList.toggle("an", TEILE[i][0] === wert));
+      });
+      tw.appendChild(k);
+    });
+
+    b.appendChild(machKnopf("Merken", "stark", ()=>{
+      const tag = df.value;
+      if(!tag) return;
+      q.plan = {tag:tag, teil:teil, zeit:(q.plan && q.plan.zeit) || null,
+                pos: abschnittStuecke(tag, teil).length};
+      neuOrdnen(tag, teil);
+      sichern(); blattSchliessen(); zeichnen();
+    }));
+    if(q.plan)
+      b.appendChild(machKnopf("Vom Plan nehmen", "ruhig", ()=>{
+        q.plan = null; sichern(); blattSchliessen(); zeichnen();
+      }));
+    b.appendChild(machKnopf("‹ Zurück", "ruhig", ()=> questAendernBlatt(q.id)));
   });
 }
 
@@ -3366,6 +3593,10 @@ function questAendernBlatt(qid){
       "", ()=> naechsterBlatt(q.id, {erster: !istEtappe(q)})));
     b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
     b.appendChild(machKnopf(q.faellig ? "Frist ändern — " + faelligWort(q.faellig) : "Bis wann?", "ruhig", ()=> faelligBlatt(q.id)));
+    /* Direkt unter der Frist, weil sie beides an derselben Stelle gesucht hat —
+       aber bewusst ein eigener Knopf: Frist ist Spielraum, ein Tag mit
+       Abschnitt ist eine Verabredung. */
+    b.appendChild(machKnopf(q.plan ? "Eingeplant — " + planWort(q.plan) : "Auf einen Tag legen …", "ruhig", ()=> tagLegenBlatt(q.id)));
     /* Nachträglich eintragbar, weil es genau so passiert ist: Aufgabe
        gestartet, DANN Musik angemacht — und dann gab es keinen Weg mehr,
        es in der App sichtbar zu machen. */
