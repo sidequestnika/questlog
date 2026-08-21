@@ -265,6 +265,10 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
   font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .anlauf-titel{font-family:var(--schrift-titel);font-size:24px;font-weight:700;
   margin:0 0 8px;text-wrap:balance;max-width:340px}
+/* Welche Strecke gerade läuft — steht zwischen Titel und Tipp, damit man beim
+   Zurückkommen ohne Nachdenken weiß, worauf man sich eingelassen hat. */
+.anlauf-strecke{font-family:var(--schrift-runen);font-size:12px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 12px}
 .anlauf-happen{color:var(--ink-soft);font-size:15px;margin:0 0 26px;max-width:320px;line-height:1.5}
 .anlauf-knoepfe{width:100%;max-width:320px;display:flex;flex-direction:column;gap:9px}
 
@@ -589,8 +593,8 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
     <button data-b="9">Viel</button>
   </div>
 
-  <p class="label">Ton am Ende des Anlaufs</p>
-  <p class="hinweis" style="margin:0 0 12px">Wenn die fünf Minuten um sind, spielt ein kurzer Klang — <strong>nur solange die App offen vor dir liegt</strong>. Ein Ton, der dich über den Sperrbildschirm erreicht, ist bei einer Webseite nicht möglich.<br><br>Das hier ist ein Platzhalter. Wenn dein Tavernenstück fertig ist, tauschen wir es aus.</p>
+  <p class="label">Ton am Ende der Strecke</p>
+  <p class="hinweis" style="margin:0 0 12px">Ist die Strecke um, spielt ein kurzer Klang — <strong>nur solange die App offen vor dir liegt</strong>. Ein Ton, der dich über den Sperrbildschirm erreicht, ist bei einer Webseite nicht möglich.<br><br>Bei „drei Lieder" oder einem Podcast bist du ohnehin woanders — da ist die Musik der Wecker, nicht die App. Der Ton lohnt sich also vor allem für die fünf Minuten.<br><br>Das hier ist ein Platzhalter. Wenn dein Stück da ist, tauschen wir es aus.</p>
   <div class="wahl" id="ton-wahl">
     <button data-ton="1">Ton an</button>
     <button data-ton="0">Still</button>
@@ -639,10 +643,12 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
     <div class="zahl" id="ring-zahl">5:00</div>
   </div>
   <h2 class="anlauf-titel" id="anlauf-titel"></h2>
+  <p class="anlauf-strecke" id="anlauf-strecke"></p>
   <p class="anlauf-happen" id="anlauf-happen"></p>
   <div class="anlauf-knoepfe">
-    <button class="knopf stark" id="anlauf-fertig">Quest abgeschlossen</button>
-    <button class="knopf" id="anlauf-mehr">Noch 5 Minuten</button>
+    <button class="knopf stark" id="anlauf-fertig">✓ Fertig — die Sache ist durch</button>
+    <button class="knopf" id="anlauf-stueck">▸ Ein Stück geschafft</button>
+    <button class="knopf" id="anlauf-mehr">Noch ein Stück</button>
     <button class="knopf ruhig" id="anlauf-stopp">Gut so für heute</button>
   </div>
 </div>
@@ -1019,8 +1025,9 @@ function tagPruefen(){
       if(q.fertig) q.ort = "archiv";
     });
   }
-  /* Angefangenes hört über Nacht kommentarlos auf — kein „seit 14 Stunden". */
-  D.quests.forEach(q=>{ q.laeuft = null; });
+  /* Angefangenes hört über Nacht kommentarlos auf — kein „seit 14 Stunden",
+     und keine Strecke, die seit gestern Abend offen dasteht. */
+  D.quests.forEach(q=>{ q.laeuft = null; q.strecke = null; q.streckeBis = null; });
   geburtstageBauen();
   kampagnenPruefen();
   ueberlaufRaeumen();
@@ -1503,8 +1510,10 @@ function karteBauen(q){
        der Berg; wie viele es werden, weiß ohnehin niemand vorher. */
     if(istEtappe(q)) unten.push(((q.etappe||0) + 1) + ". Etappe");
     if(q.wieder) unten.push(WIEDER_WORT[q.wieder] || "wiederkehrend");
-    /* Läuft gerade? Eine ruhige Feststellung, kein Zähler, der einen anschreit. */
-    if(q.laeuft) unten.push("läuft seit " + laufWort(q.laeuft));
+    /* Läuft gerade? Eine ruhige Feststellung, kein Zähler, der einen anschreit.
+       Ist eine Strecke gewählt, steht sie hier — auch dann noch, wenn die App
+       zwischendurch zu war: gerechnet wird aus dem Zeitstempel. */
+    if(q.laeuft) unten.push(unterwegsWort(q));
     if(q.verschoben >= 2) unten.push("wartet seit " + q.verschoben + " Tagen");
     if(q.wennDann) unten.push("↳ " + q.wennDann);
   }
@@ -3061,7 +3070,7 @@ function blattFuerQuest(qid){
       b.appendChild(machKnopf("▸ Ein Stück geschafft", "", ()=> etappeGeschafft(q.id)));
       b.appendChild(machKnopf(q.laeuft ? "❙❙ Doch nicht jetzt" : "▶ Ich fange an",
         q.laeuft ? "ruhig" : "", ()=> q.laeuft ? questPausieren(q.id) : questStarten(q.id)));
-      b.appendChild(machKnopf("🎯 5 Minuten Anlauf", "", ()=>{ blattSchliessen(); anlaufStarten(q.id); }));
+      b.appendChild(machKnopf("🎯 Auf den Weg", "", ()=>{ blattSchliessen(); anlaufStarten(q.id); }));
     }
     if(q.ort !== "heute" && !q.fertig){
       b.appendChild(machKnopf("Heute: Mainquest", "", ()=> nachHeute(q.id,"haupt")));
@@ -3256,7 +3265,8 @@ function questStarten(qid){
 }
 function questPausieren(qid){
   const q = D.quests.find(x=>x.id===qid); if(!q) return;
-  q.laeuft = null; sichern(); blattSchliessen(); zeichnen();
+  q.laeuft = null; q.strecke = null; q.streckeBis = null;
+  sichern(); blattSchliessen(); zeichnen();
 }
 
 /* ═══════════ Wofür und Was-wenn-nicht ═══════════
@@ -3481,63 +3491,183 @@ document.getElementById("wuerfel").addEventListener("click", ()=>{
   setTimeout(()=>{
     blattZeigen('<h3></h3><p class="sub">Der Würfel hat entschieden. Du darfst trotzdem nein sagen.</p>', b=>{
       b.querySelector("h3").textContent = treffer.titel;
-      b.appendChild(machKnopf("🎯 5 Minuten Anlauf", "stark", ()=>{ blattSchliessen(); anlaufStarten(treffer.id); }));
+      b.appendChild(machKnopf("🎯 Auf den Weg", "stark", ()=>{ blattSchliessen(); anlaufStarten(treffer.id); }));
       b.appendChild(machKnopf("✓ Ist schon erledigt", "", ()=>{ erledigen(treffer.id); }));
       b.appendChild(machKnopf("Nochmal würfeln", "ruhig", ()=>{ blattSchliessen(); document.getElementById("wuerfel").click(); }));
     });
   }, 640);
 });
 
-/* ═══════════ Anlauf ═══════════ */
+/* ═══════════ Anlauf: eine Strecke, keine Uhr ═══════════
+   Ihre Idee, und sie ist besser als eine Minutenzahl: „zehn Minuten" ist
+   abstrakt, „drei Lieder" ist etwas, das man erlebt. Zeit einzuschätzen ist
+   bei ADHS notorisch schwer — eine Strecke, die von selbst zu Ende geht,
+   umgeht das Problem, statt es zu verwalten. Dazu Zentall: was nebenher
+   läuft, ist keine Ablenkung, sondern Behandlung; hier steht es an der
+   stärksten Stelle, nämlich im Moment des Anfangens.
+
+   DIE ENTSCHEIDENDE EINSCHRÄNKUNG: Wechselt sie zu Spotify, friert iOS jeden
+   Zähler ein, und ein Ton kommt nicht durch. Die App KANN also nicht die Uhr
+   sein. Sie muss es auch nicht — die Musik hört von selbst auf. Deshalb ist
+   die Aufgabe der App klein und ehrlich: die Entscheidung vorher abnehmen und
+   mit der Frage da sein, wenn sie zurückkommt.
+
+   Daraus die harte Regel: NICHTS hängt daran, dass die App im Hintergrund
+   läuft. Alles wird aus Zeitstempeln gerechnet (q.laeuft, q.streckeBis), die
+   im Speicher stehen. Vorher zog der Anlauf jede Sekunde eins von einem
+   Zähler ab — wer zwanzig Minuten weg war, sah bei der Rückkehr immer noch
+   „4:12". Das ist damit erledigt.
+
+   Die Minuten sind SCHÄTZUNGEN, kein Versprechen. Sie treiben nur den Ring
+   und den Satz auf der Karte; die Wahrheit ist, wann die Lieder aus sind. */
+const STRECKEN = [
+  {schluessel:"kurz",    wort:"Nur fünf Minuten",              min:5,  kurz:"fünf Minuten",
+   tipp:"Nach fünf Minuten darfst du wirklich aufhören. Das ist der Deal."},
+  {schluessel:"lieder",  wort:"Drei Lieder, die du aussuchst", min:12, kurz:"drei Lieder",
+   tipp:"Aussuchen ist selbst ein Kaninchenbau — nimm die ersten drei, die dir einfallen."},
+  {schluessel:"glueck",  wort:"Drei Lieder auf gut Glück",     min:12, kurz:"drei Lieder",
+   tipp:"Shuffle an, nicht nachdenken. Das spart dir die Entscheidung vor der Entscheidung."},
+  {schluessel:"podcast", wort:"Zehn Minuten Podcast",          min:10, kurz:"der Podcast",
+   tipp:"Eine Folge anfangen reicht. Läuft sie länger, läufst du mit."},
+  {schluessel:"video",   wort:"Ein Video, halbe Stunde",       min:30, kurz:"das Video",
+   tipp:"Etwas, das du sowieso schauen wolltest. Die halbe Stunde ist großzügig gerechnet."}
+];
+const STRECKE = {};
+STRECKEN.forEach(s=> STRECKE[s.schluessel] = s);
+
 const UMFANG = 2 * Math.PI * 43;
-let anlaufQuest = null, anlaufRest = 300, anlaufUhr = null, anlaufGanz = 300;
+let anlaufQuest = null, anlaufUhr = null, tonGespielt = false;
 const anlaufEl = document.getElementById("anlauf");
 
+/* Beide aus dem Zeitstempel, nie aus einem mitlaufenden Zähler. */
+function anlaufRestSek(){
+  if(!anlaufQuest || !anlaufQuest.streckeBis) return 0;
+  return Math.max(0, Math.round((anlaufQuest.streckeBis - Date.now())/1000));
+}
+function anlaufGanzSek(){
+  if(!anlaufQuest || !anlaufQuest.streckeBis || !anlaufQuest.laeuft) return 1;
+  return Math.max(1, Math.round((anlaufQuest.streckeBis - anlaufQuest.laeuft)/1000));
+}
+
+/* Was auf der Karte steht, solange etwas unterwegs ist. Bewusst ohne Rot und
+   ohne Ausrufezeichen: „ist um" ist eine Feststellung, keine Mahnung. */
+function unterwegsWort(q){
+  const s = STRECKE[q.strecke];
+  if(!s) return "läuft seit " + laufWort(q.laeuft);
+  return (Date.now() >= (q.streckeBis||0) ? "Strecke ist um · " : "unterwegs · ") + s.kurz;
+}
+
+/* Der Einstieg. Erst die Strecke, dann der Schirm — ein Weg für eine Absicht,
+   und „nur fünf Minuten" ist einfach die kürzeste Strecke. */
+function anlaufStarten(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  /* Den Klangraum beim Antippen wecken — später erlaubt iOS es nicht mehr. */
+  tonBereit();
+  blattZeigen('<h3>Wie weit gehst du mit?</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent =
+      kurz(q.titel) + " — such dir eine Strecke aus. Was nebenher läuft, ist die Uhr: ist es zu Ende, ist das Stück zu Ende.";
+    /* Ihre eigene Begleitung-Liste bekommt hier ihren Auftritt. Vorher wurde
+       sie nur bei zähen Quests ohne Wofür erwähnt und war praktisch nie zu
+       sehen — dabei ist genau das der Moment, in dem sie zählt. */
+    const meine = (D.begleitung||[]).filter(Boolean);
+    if(meine.length){
+      const p = document.createElement("p");
+      p.className = "hinweis"; p.style.margin = "-8px 0 14px";
+      p.textContent = "Läuft bei dir gern nebenher: " + meine.slice(0,4).join(" · ");
+      b.appendChild(p);
+    }
+    STRECKEN.forEach(s=> b.appendChild(machKnopf(s.wort, "", ()=> streckeStarten(qid, s.schluessel))));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+function streckeStarten(qid, schluessel){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  const s = STRECKE[schluessel] || STRECKE.kurz;
+  /* Immer nur eins auf einmal — Altes geht still aus. */
+  D.quests.forEach(x=>{ if(x !== q){ x.laeuft = null; x.strecke = null; x.streckeBis = null; } });
+  q.laeuft = Date.now();
+  q.strecke = s.schluessel;
+  q.streckeBis = q.laeuft + s.min * 60000;
+  /* Wer losgeht, hat sich entschieden — dann gehört es auch auf Heute. */
+  if(q.ort !== "heute"){ const f = fachFuer(q); if(f){ q.ort = "heute"; q.fach = f; } }
+  sichern();
+  anlaufQuest = q; tonGespielt = false;
+  blattSchliessen();
+  anlaufOeffnen();
+}
+
+function anlaufOeffnen(){
+  if(!anlaufQuest) return;
+  const s = STRECKE[anlaufQuest.strecke] || STRECKE.kurz;
+  document.getElementById("anlauf-titel").textContent = anlaufQuest.titel;
+  document.getElementById("anlauf-strecke").textContent = s.wort;
+  document.getElementById("anlauf-happen").textContent = anlaufVorschlag(anlaufQuest, s);
+  anlaufEl.classList.add("on");
+  ringZeichnen(); anlaufKnoepfe(); anlaufTicken();
+}
+
+function anlaufVorschlag(q, s){
+  /* Am Punkt der Ausführung zählt nicht, wie wichtig es ist, sondern was
+     danach da ist. Deshalb steht das Wofür hier — und nur hier. */
+  if(q.wofuer) return q.wofuer;
+  return s ? s.tipp : STRECKE.kurz.tipp;
+}
+
 function anlaufTicken(){
-  clearInterval(anlaufUhr);
+  clearInterval(anlaufUhr); anlaufUhr = null;
+  if(anlaufRestSek() <= 0){ ringZeichnen(); anlaufKnoepfe(); return; }
   anlaufUhr = setInterval(()=>{
-    anlaufRest--;
-    if(anlaufRest <= 0){
-      anlaufRest = 0; clearInterval(anlaufUhr); anlaufUhr = null;
-      tonSpielen();
+    const rest = anlaufRestSek();
+    /* Nur klingen, wenn sie auch da ist. Ist sie weg, hört ohnehin die Musik
+       auf — und ein Ton, der beim Zurückkommen nachträglich losgeht, wäre ein
+       Überfall statt einer Rückmeldung. */
+    if(rest <= 0){
+      if(!tonGespielt && !document.hidden){ tonGespielt = true; tonSpielen(); }
+      clearInterval(anlaufUhr); anlaufUhr = null;
+      ringZeichnen(); anlaufKnoepfe();
+      return;
     }
     ringZeichnen();
   }, 1000);
 }
-function anlaufStarten(qid){
-  anlaufQuest = D.quests.find(x=>x.id===qid);
-  if(!anlaufQuest) return;
-  anlaufRest = 300; anlaufGanz = 300;
-  /* Den Klangraum beim Antippen aufwecken — später erlaubt iOS es nicht mehr. */
-  tonBereit();
-  document.getElementById("anlauf-titel").textContent = anlaufQuest.titel;
-  document.getElementById("anlauf-happen").textContent = anlaufVorschlag(anlaufQuest);
-  anlaufEl.classList.add("on");
-  ringZeichnen();
-  anlaufTicken();
-}
-function anlaufVorschlag(q){
-  /* Am Punkt der Ausführung zählt nicht, wie wichtig es ist, sondern was
-     danach da ist. Deshalb steht das Wofür hier — und nur hier. */
-  if(q.wofuer) return q.wofuer;
-  if(q.etikett === "zaeh"){
-    const v = (D.begleitung||[]).filter(Boolean);
-    if(v.length) return "Lass was nebenher laufen: " + v[Math.floor(Math.random()*v.length)];
-  }
-  return "Nach fünf Minuten darfst du wirklich aufhören. Das ist der Deal.";
-}
+
 function ringZeichnen(){
-  const m = Math.floor(anlaufRest/60), s = anlaufRest%60;
+  const rest = anlaufRestSek(), ganz = anlaufGanzSek();
+  const m = Math.floor(rest/60), s = rest%60;
   document.getElementById("ring-zahl").textContent = m + ":" + String(s).padStart(2,"0");
-  document.getElementById("ring-lauf").style.strokeDashoffset =
-    String(UMFANG * (1 - (anlaufGanz ? anlaufRest/anlaufGanz : 0)));
+  document.getElementById("ring-lauf").style.strokeDashoffset = String(UMFANG * (1 - rest/ganz));
 }
-function anlaufBeenden(){ clearInterval(anlaufUhr); anlaufUhr=null; anlaufEl.classList.remove("on"); anlaufQuest = null; }
+
+/* „Noch ein Stück" gibt es erst, wenn die Strecke um ist — vorher wäre es
+   eine Frage auf eine Frage, die sich noch gar nicht stellt. */
+function anlaufKnoepfe(){
+  document.getElementById("anlauf-mehr").style.display = anlaufRestSek() <= 0 ? "" : "none";
+}
+
+function anlaufBeenden(){
+  clearInterval(anlaufUhr); anlaufUhr = null;
+  if(anlaufQuest){
+    anlaufQuest.laeuft = null; anlaufQuest.strecke = null; anlaufQuest.streckeBis = null;
+    sichern();
+  }
+  anlaufEl.classList.remove("on"); anlaufQuest = null;
+}
+
 document.getElementById("anlauf-fertig").addEventListener("click", ()=>{
   const qid = anlaufQuest && anlaufQuest.id; anlaufBeenden(); if(qid) erledigen(qid);
 });
+/* Führt in naechsterBlatt() — „Was ist als Nächstes dran?". Das ist ihre
+   „neue Teilaufgabe", und es steht schon seit den Etappen genau so da. */
+document.getElementById("anlauf-stueck").addEventListener("click", ()=>{
+  const qid = anlaufQuest && anlaufQuest.id; anlaufBeenden(); if(qid) etappeGeschafft(qid);
+});
 document.getElementById("anlauf-mehr").addEventListener("click", ()=>{
-  anlaufRest += 300; anlaufGanz = Math.max(anlaufGanz, anlaufRest); ringZeichnen(); anlaufTicken();
+  if(!anlaufQuest) return;
+  const s = STRECKE[anlaufQuest.strecke] || STRECKE.kurz;
+  anlaufQuest.streckeBis = Date.now() + s.min * 60000;
+  tonGespielt = false; sichern();
+  ringZeichnen(); anlaufKnoepfe(); anlaufTicken();
 });
 document.getElementById("anlauf-stopp").addEventListener("click", ()=>{ anlaufBeenden(); zeichnen(); });
 
@@ -4203,7 +4333,17 @@ wahlZeichnen();
 listenZeichnen();
 zeichnen();
 sichern();
-document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) zeichnen(); });
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden) return;
+  zeichnen();
+  /* Zurück aus Spotify: der Ring hat währenddessen nicht getickt, also neu
+     aus dem Zeitstempel rechnen. Ist die Strecke inzwischen abgelaufen, wird
+     der Ton unterdrückt — sie soll die Frage sehen, nicht überfallen werden. */
+  if(anlaufEl.classList.contains("on") && anlaufQuest){
+    if(anlaufRestSek() <= 0) tonGespielt = true;
+    ringZeichnen(); anlaufKnoepfe(); anlaufTicken();
+  }
+});
 
 /* Offline-Helfer anmelden — sorgt dafür, dass die App ohne Netz startet. */
 if("serviceWorker" in navigator){
