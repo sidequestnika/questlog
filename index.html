@@ -680,9 +680,13 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <p class="hinweis" style="margin:0 0 10px">Was unten stehen soll. <strong>Heute bleibt immer dabei</strong>, alles Abgewählte findest du hier im Lager. Weniger Reiter heißt breitere Knöpfe.</p>
   <div id="leiste-wahl"></div>
 
-  <p class="label">Belegtes über ADHS</p>
-  <p class="hinweis" style="margin:0 0 10px">Zum Nachlesen, wenn du dich fragst, warum gerade etwas nicht geht. Jede Karte sagt, woher sie kommt und ob es eine Studie ist oder ein Fachtext. <strong>Fragt nichts, zählt nichts.</strong> In der Taverne schlägt der Magier davon eine Seite pro Tag auf; hier und im Rückzug kannst du blättern.</p>
-  <button class="knopf" id="wanderer-lager">Eine Seite aufschlagen</button>
+<!-- Hier stand „Eine Seite aufschlagen“ — dieselbe ADHS-Bibliothek wie beim
+       Magier. Ihr Einwand: „ist das das gleiche wie in der Taverne? Evtl kann
+       man das zusammenpacken? Im Lager geht's mir etwas unter.“ Stimmt beides.
+       Es war ein Rest aus der Zeit, als der Wanderer hier wohnte, und zwei
+       Wege für dieselbe Absicht sind kein Komfort, sondern eine Falle. Jetzt
+       gibt es zwei Türen mit klarer Aufgabe: der Magier in der Taverne (eine
+       Seite am Tag) und der Rückzug (blättern, wenn es gerade nötig ist). -->
 
   <p class="label">Speicher</p>
   <div class="zustand" id="zustand"></div>
@@ -2544,9 +2548,14 @@ function taverneZeichnen(){
     q.className = "beleg";
     q.textContent = "✓ Belegt · " + (m.quelle || "ADHS");
     km.appendChild(q);
+    /* Blättern erst NACH der Seite des Tages — nie davor. Die eine Seite ist
+       das, was trägt („ein Grund mehr, morgen wiederzukommen“); wer erst
+       blättern kann, sieht sie gar nicht mehr an. So bleibt die Reihenfolge
+       richtig: heute zuerst, mehr auf ausdrücklichen Wunsch. */
+    km.appendChild(machKnopf("Hast du noch mehr?", "ruhig", ()=> adhsBlatt()));
     const nz = document.createElement("p");
     nz.className = "gast-fuss";
-    nz.textContent = "Morgen schlägt er eine andere Seite auf.";
+    nz.textContent = "Morgen schlägt er von selbst eine andere Seite auf.";
     km.appendChild(nz);
   }else{
     km.appendChild(machKnopf("Was liest du da?", "", ()=>{ magierOffen = true; taverneZeichnen(); }));
@@ -6019,10 +6028,6 @@ document.getElementById("ton-probe").addEventListener("click", ()=>{
 document.getElementById("ton-taverne-probe").addEventListener("click", ()=>{
   tonBereit(); tonAbspielen("taverne");
 });
-/* Nicht adhsBlatt direkt hängen: der Listener reicht sonst das
-   Klick-Ereignis als „letzter Titel" durch. */
-document.getElementById("wanderer-lager").addEventListener("click", ()=> adhsBlatt());
-
 /* Antippen UND Tastatur: der Gruß ist ein Knopf, also muss er sich auch wie
    einer bedienen lassen. */
 document.getElementById("gruss").addEventListener("click", namensBlatt);
