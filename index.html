@@ -752,7 +752,7 @@ const SELFCARE_POOL = [
 const BEGLEITUNG_POOL = [
   "Lieblingsalbum laut",
   "Musik zum Mitsingen",
-  "Ein Album, das du auswendig kannst",
+  "Album, das du auswendig kannst",
   "Fenster auf und Musik an",
   "Playlist auf gut Glück",
   "Podcast",
@@ -1659,6 +1659,9 @@ function karteBauen(q){
     /* Wer helfen könnte, steht auf der Karte — sonst ist der Gedanke wieder
        weg, wenn der Moment da ist, in dem man fragen könnte. */
     if(q.hilfe) unten.push("↝ " + q.hilfe);
+    /* Was nebenher läuft, steht mit auf der Karte — das war der ganze Punkt:
+       es soll in der App sichtbar sein, nicht nur im Kopfhörer. */
+    if(q.begleiter) unten.push("♪ " + q.begleiter);
     /* Läuft gerade? Eine ruhige Feststellung, kein Zähler, der einen anschreit.
        Ist eine Strecke gewählt, steht sie hier — auch dann noch, wenn die App
        zwischendurch zu war: gerechnet wird aus dem Zeitstempel. */
@@ -3340,15 +3343,35 @@ function blattFuerQuest(qid){
     }else if(!q.fertig){
       b.appendChild(machKnopf("Nicht heute", "", ()=> nichtHeute(q.id)));
     }
-    b.appendChild(machKnopf(q.faellig ? "Frist ändern — " + faelligWort(q.faellig) : "Bis wann?", "ruhig", ()=> faelligBlatt(q.id)));
-    b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
+    /* Alles Selten-Gebrauchte hinter EINE Tür. Vorher standen hier sechzehn
+       Knöpfe: 1101 px Inhalt in einem 633-px-Fenster, 468 davon unter der
+       Kante — mehr als das Lager, das ich aus genau diesem Grund nicht von
+       selbst aufgehen lasse. Ihre Beobachtung: „da sind aktuell sehr viele
+       Möglichkeiten … ob wir das nicht verbessern können, damit es ADHS-
+       freundlich bleibt." Der Maßstab ist ihr eigener: sie betritt den Berg
+       bewusst, er knallt ihr nicht ins Gesicht. */
+    b.appendChild(machKnopf("Ändern …", "ruhig", ()=> questAendernBlatt(q.id)));
+  });
+}
+
+/* Die zweite Ebene: alles, was man einmal einstellt und dann jahrelang nicht
+   mehr anfasst. Sortiert nach Gebrauch, nicht nach Verwandtschaft — was oben
+   steht, wird gefunden. */
+function questAendernBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  blattZeigen('<h3>Ändern</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent = kurz(q.titel);
+
     b.appendChild(machKnopf(q.naechster ? "Nächsten Schritt ändern" : "Nächsten Schritt notieren",
-      "ruhig", ()=> naechsterBlatt(q.id, {erster: !istEtappe(q)})));
-    b.appendChild(machKnopf(q.wieder ? "Wiederholung — " + (WIEDER_WORT[q.wieder]||"eigen") : "Wiederholt sich?",
-      "ruhig", ()=> wiederBlatt(q.id)));
-    const kp2 = kampagneVon(q);
-    b.appendChild(machKnopf(kp2 ? "Kampagne — " + (kp2.zeichen ? kp2.zeichen + " " : "") + kp2.name : "Zu einer Kampagne",
-      "ruhig", ()=> kampagneWaehlenBlatt(q.id)));
+      "", ()=> naechsterBlatt(q.id, {erster: !istEtappe(q)})));
+    b.appendChild(machKnopf("Wie fühlt sich das an?", "ruhig", ()=> etikettBlatt(q.id)));
+    b.appendChild(machKnopf(q.faellig ? "Frist ändern — " + faelligWort(q.faellig) : "Bis wann?", "ruhig", ()=> faelligBlatt(q.id)));
+    /* Nachträglich eintragbar, weil es genau so passiert ist: Aufgabe
+       gestartet, DANN Musik angemacht — und dann gab es keinen Weg mehr,
+       es in der App sichtbar zu machen. */
+    b.appendChild(machKnopf(q.begleiter ? "♪ Nebenher: " + q.begleiter : "Was läuft nebenher?",
+      "ruhig", ()=> begleiterBlatt(q.id)));
+    b.appendChild(machKnopf(q.hilfe ? "↝ Hilfe: " + q.hilfe : "Wer kann helfen?", "ruhig", ()=> hilfeBlatt(q.id)));
     b.appendChild(machKnopf(q.wofuer ? "Wofür ändern" : "Wofür ist das gut?", "ruhig",
       ()=> textBlatt(q.id, "wofuer", "Wofür ist das gut?",
         "Die Aufgabe darf blöd sein — es geht um das, was danach da ist. Steht später im Anlauf, wenn du es brauchst.",
@@ -3357,14 +3380,49 @@ function blattFuerQuest(qid){
       ()=> textBlatt(q.id, "folge", "Was passiert, wenn es nicht passiert?",
         "Keine Drohung — nur konkret statt abstrakt. Wichtig zieht nicht, Mahnung ab Freitag schon.",
         "z. B. Mahnung, 5 € mehr")));
+    b.appendChild(machKnopf(q.wennDann ? "Wenn-Dann ändern" : "Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
+    b.appendChild(machKnopf(q.wieder ? "Wiederholung — " + (WIEDER_WORT[q.wieder]||"eigen") : "Wiederholt sich?",
+      "ruhig", ()=> wiederBlatt(q.id)));
+    const kp = kampagneVon(q);
+    b.appendChild(machKnopf(kp ? "Kampagne — " + (kp.zeichen ? kp.zeichen + " " : "") + kp.name : "Zu einer Kampagne",
+      "ruhig", ()=> kampagneWaehlenBlatt(q.id)));
     b.appendChild(machKnopf("Umbenennen", "ruhig", ()=> umbenennenBlatt(q.id)));
-    b.appendChild(machKnopf("Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
-    /* Von Hand eintragbar, lange bevor etwas liegenbleibt — bei manchen Sachen
-       weiß sie von Anfang an, wer das leichter kann als sie. */
-    b.appendChild(machKnopf(q.hilfe ? "↝ Hilfe: " + q.hilfe : "Wer kann helfen?", "ruhig", ()=> hilfeBlatt(q.id)));
     b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
       D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); blattSchliessen(); zeichnen();
     }));
+    b.appendChild(machKnopf("‹ Zurück", "ruhig", ()=> blattFuerQuest(q.id)));
+  });
+}
+
+/* Was nebenher läuft, gehört an die Aufgabe — nicht nur in den Vorrat. Sonst
+   sieht man hinterher nicht, WOMIT es ging. */
+function begleiterBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  const meine = (D.begleitung||[]).filter(Boolean);
+  blattZeigen('<h3>Was läuft nebenher?</h3>' +
+    '<p class="sub">Keine Ablenkung — es hebt die Erregung auf ein Niveau, auf dem Arbeiten überhaupt geht. Nochmal auf dasselbe nimmt es zurück.</p>', b=>{
+    if(!meine.length){
+      const p = document.createElement("p");
+      p.className = "hinweis";
+      p.textContent = "Deine Begleitung-Liste ist leer. Im Rastplatz kannst du dir welche aussuchen.";
+      b.appendChild(p);
+    }
+    const box = document.createElement("div");
+    box.className = "kacheln";
+    meine.forEach(w=>{
+      const k = document.createElement("button");
+      k.className = "kachel" + (q.begleiter === w ? " an" : "");
+      k.textContent = w;
+      k.addEventListener("click", ()=>{
+        const warAn = q.begleiter === w;
+        q.begleiter = warAn ? "" : w;
+        sichern(); zeichnen();
+        [...box.children].forEach(x=> x.classList.toggle("an", x === k && !warAn));
+      });
+      box.appendChild(k);
+    });
+    b.appendChild(box);
+    b.appendChild(machKnopf("Fertig", "stark", ()=>{ blattSchliessen(); zeichnen(); }));
   });
 }
 
@@ -3830,15 +3888,42 @@ function anlaufStarten(qid){
   blattZeigen('<h3>Wie weit gehst du mit?</h3><p class="sub"></p>', b=>{
     b.querySelector(".sub").textContent =
       kurz(q.titel) + " — such dir eine Strecke aus. Was nebenher läuft, ist die Uhr: ist es zu Ende, ist das Stück zu Ende.";
-    /* Ihre eigene Begleitung-Liste bekommt hier ihren Auftritt. Vorher wurde
-       sie nur bei zähen Quests ohne Wofür erwähnt und war praktisch nie zu
-       sehen — dabei ist genau das der Moment, in dem sie zählt. */
-    const meine = (D.begleitung||[]).filter(Boolean);
+    /* Ihre Begleitung-Liste, und zwar ANTIPPBAR. Als bloßer Hinweistext war
+       sie zwar sichtbar, aber folgenlos — ihre Rückmeldung: Aufgabe gestartet,
+       Musik angemacht, „konnte es in der App nicht für mich sichtbar machen".
+       Ein Tipp genügt, und es steht danach auf der Karte. Freiwillig: wer
+       nichts antippt, wählt einfach eine Strecke. */
+    const alle = (D.begleitung||[]).filter(Boolean);
+    /* Höchstens sechs. Mit allen zwölf wuchs dieses Blatt auf 747 px in einem
+       633-px-Fenster und fing an zu scrollen — also genau die Wand, die wir
+       eine Zeile weiter oben gerade abgerissen haben. Die Strecke ist hier die
+       Hauptsache; die Begleitung ist Beiwerk und darf sie nicht verdrängen.
+       Was gerade läuft, ist immer dabei, und die volle Liste steht im
+       Questblatt unter Ändern. Gemessen nachgezogen: mit sechs blieben 28 px
+       Überstand, mit vier passt es. */
+    const meine = alle.slice(0, 4);
+    if(q.begleiter && meine.indexOf(q.begleiter) < 0 && alle.indexOf(q.begleiter) >= 0)
+      meine[meine.length - 1] = q.begleiter;
     if(meine.length){
-      const p = document.createElement("p");
-      p.className = "hinweis"; p.style.margin = "-8px 0 14px";
-      p.textContent = "Läuft bei dir gern nebenher: " + meine.slice(0,4).join(" · ");
-      b.appendChild(p);
+      const l = document.createElement("p");
+      l.className = "mini"; l.style.margin = "-6px 0 7px";
+      l.textContent = "Was läuft nebenher?";
+      b.appendChild(l);
+      const box = document.createElement("div");
+      box.className = "kacheln";
+      meine.forEach(w=>{
+        const k = document.createElement("button");
+        k.className = "kachel" + (q.begleiter === w ? " an" : "");
+        k.textContent = w;
+        k.addEventListener("click", ()=>{
+          const warAn = q.begleiter === w;
+          q.begleiter = warAn ? "" : w;
+          sichern();
+          [...box.children].forEach(x=> x.classList.toggle("an", x === k && !warAn));
+        });
+        box.appendChild(k);
+      });
+      b.appendChild(box);
     }
     STRECKEN.forEach(s=> b.appendChild(machKnopf(s.wort, "", ()=> streckeStarten(qid, s.schluessel))));
     b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
@@ -3865,7 +3950,8 @@ function anlaufOeffnen(){
   if(!anlaufQuest) return;
   const s = STRECKE[anlaufQuest.strecke] || STRECKE.kurz;
   document.getElementById("anlauf-titel").textContent = anlaufQuest.titel;
-  document.getElementById("anlauf-strecke").textContent = s.wort;
+  document.getElementById("anlauf-strecke").textContent =
+    s.wort + (anlaufQuest.begleiter ? "  ·  ♪ " + anlaufQuest.begleiter : "");
   document.getElementById("anlauf-happen").textContent = anlaufVorschlag(anlaufQuest, s);
   anlaufEl.classList.add("on");
   ringZeichnen(); anlaufKnoepfe(); anlaufTicken();
