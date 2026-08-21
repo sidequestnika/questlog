@@ -741,6 +741,29 @@ const SELFCARE_POOL = [
   "Häkeln",
   "Film gucken"
 ];
+/* Was nebenher laufen darf. Nach Zentall hebt Zusatzstimulation die Erregung
+   auf ein Niveau, auf dem Arbeiten überhaupt geht — das ist Behandlung, keine
+   Nachlässigkeit. Deshalb steht Musik oben und Bildschirm unten: was oben
+   steht, wird genommen.
+
+   „Musik zum Mitsingen" steht drin, weil sie beim Aufräumen genau das gemacht
+   hat und es in keiner Liste stand. Singen ist nicht dasselbe wie Musik
+   hören — es bindet Stimme und Atem mit ein. */
+const BEGLEITUNG_POOL = [
+  "Lieblingsalbum laut",
+  "Musik zum Mitsingen",
+  "Ein Album, das du auswendig kannst",
+  "Fenster auf und Musik an",
+  "Playlist auf gut Glück",
+  "Podcast",
+  "Hörbuch",
+  "Hörspiel",
+  "Serie nebenher",
+  "Trash TV",
+  "YouTube nebenher",
+  "Radio"
+];
+
 /* Zwei Gold pro ABEND, nicht pro Handlung: sonst wird der Abend zur
    Verdienstgelegenheit („nachher mache ich nur noch Selfcare"), und aus
    Fürsorge wird eine Aufgabe. */
@@ -758,7 +781,7 @@ function vereinen(vorschlaege, eigene){
 }
 
 const START = {
-  v:5, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  v:6, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
   /* null heißt: folge dem Telefon. "light"/"dark" nageln es fest. */
   thema:null,
   /* null heißt: alle Reiter. Sonst die Namen der Ansichten, die unten stehen. */
@@ -799,7 +822,7 @@ const START = {
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
   erholung: ERHOLUNG_POOL.slice(),
-  begleitung:["Hörbuch","Lieblingsalbum laut","Podcast","Fenster auf und Musik an","Serie nebenher","Trash TV","YouTube nebenher"],
+  begleitung: BEGLEITUNG_POOL.slice(),
   /* Lange Rast: was sie abends für sich getan hat. Gefragt wird nicht
      „ja/nein", sondern nach dem Namen — benennen ist die Sicherung gegen
      Schummeln UND das bewusste Wahrnehmen, um das es dabei geht.
@@ -885,6 +908,14 @@ function laden(){
       if(alt.tagesfrage && (alt.formWert === null || alt.formWert === undefined))
         alt.tagesfrage = null;
       alt.v = 5;
+    }
+    /* v6: Die Begleitung ist von einem Textfeld auf Kacheln umgestellt. Der
+       erweiterte Vorrat kommt dazu und ist gleich an — was sie nicht will,
+       tippt sie mit einem Griff weg. Ihre eigenen Einträge bleiben unangetastet
+       und stehen weiterhin grün dabei. */
+    if(alt.v < 6){
+      alt.begleitung = vereinen(BEGLEITUNG_POOL, alt.begleitung);
+      alt.v = 6;
     }
     return Object.assign(frisch, alt);
   }
@@ -4166,10 +4197,6 @@ document.getElementById("budget-wahl").addEventListener("click", e=>{
 /* Die Belohnungslisten stehen seit dem Händler-Reiter dort, wo man sie auch
    ausgibt — zwei Wege für dieselbe Sache sind kein Komfort, sondern eine
    Falle. Hier bleibt nur, was nicht mit Gold zu tun hat. */
-const LISTEN = [
-  ["begleitung", "Begleitung", "Was nebenher laufen darf, wenn etwas zäh ist. Podcast, Musik, Serie."]
-];
-
 /* Ein Vorrat als antippbare Kacheln statt als Textfeld. „Überschreib die
    Beispiele" hat nie funktioniert — sie soll mit einem Tipp rausschmeißen
    können, was nicht ihrs ist, statt eine fremde Liste abzutippen. */
@@ -4275,19 +4302,21 @@ function listenZeichnen(){
     "Eigene Selfcare hinzufügen",
     "du findest es abends beim Lager aufschlagen");
 
-  LISTEN.forEach(([schluessel,wort,erklaerung])=>{
-    const l = document.createElement("p"); l.className="mini"; l.style.margin="18px 0 5px"; l.textContent=wort;
-    const e = document.createElement("p"); e.className="hinweis"; e.style.margin="0 0 8px"; e.textContent=erklaerung;
-    const t = document.createElement("textarea"); t.className="feld"; t.style.minHeight="92px";
-    /* Die Überschrift darüber sagt einem Sehenden, worum es geht — einem
-       Screenreader sagt sie nichts, solange sie nicht am Feld hängt. */
-    t.setAttribute("aria-label", wort);
-    t.value = (D[schluessel]||[]).join("\n");
-    t.addEventListener("change", ()=>{
-      D[schluessel] = t.value.split("\n").map(x=>x.trim()).filter(Boolean); sichern();
-    });
-    ziel.appendChild(l); ziel.appendChild(e); ziel.appendChild(t);
-  });
+  /* Die Begleitung war bis zuletzt die einzige Liste, die noch ein rohes
+     Textfeld war — Zeile für Zeile tippen, ohne zu sehen, was daraus wird.
+     Ihre Rückmeldung nach einem Nachmittag Aufräumen mit Musik: „ich hatte
+     keine EINFACHE Möglichkeit, es einzutragen." Damit ist sie auf die letzte
+     Stelle gestoßen, an der wir unsere eigene Lehre nicht angewendet hatten —
+     der Kommentar über poolBlock sagt seit Wochen, dass „überschreib die
+     Beispiele" nie funktioniert hat. */
+  poolBlock(ziel, "Begleitung — was nebenher läuft",
+    "Musik, Podcast, Serie. Tipp weg, was nichts für dich ist. Was nebenher läuft, ist keine Ablenkung — es hebt die Erregung auf ein Niveau, auf dem Arbeiten überhaupt geht.",
+    "begleitung-kacheln", "begleitung", BEGLEITUNG_POOL,
+    (an, ganz)=> an
+      ? an + " von " + ganz + " sind dabei. Du siehst sie, sobald du eine Quest auf den Weg schickst."
+      : "Gerade ist nichts dabei — dann fragt die App beim Anfangen nicht danach.",
+    "Eigene Begleitung hinzufügen",
+    "du findest es beim Anfangen unter Auf den Weg");
 }
 
 /* ═══════════ Händler ═══════════
