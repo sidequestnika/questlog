@@ -517,6 +517,7 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <p class="hinweis">Die Auswahl bleibt stehen — mehrere zähe Sachen hintereinander gehen also schnell.</p>
   <p class="label">Im Auftragsbuch</p>
   <div id="buch-filter-halter" style="display:none"><div id="buch-filter"></div></div>
+  <div id="buch-sorte"></div>
   <div id="liste-buch"></div>
   <div style="height:20px"></div>
 </section>
@@ -819,6 +820,12 @@ const START = {
   zettel:[], zettelLetzte:null,
   /* Welcher Sonntag schon zur Wochenplanung gerufen hat. */
   sonntagsruf:null,
+  /* Ansicht des Auftragsbuchs, jetzt gemerkt. Vorgabe ist ALLTAG, nicht
+     „Alles" — ihre eigene Beobachtung: „ich sollte mir angewöhnen, direkt auf
+     Alltag zu gehen, aktuell fühle ich mich von der Alle-Wucht erschlagen."
+     „Alles" bleibt einen Tipp entfernt; seine Aufgabe ist, vertrauenswürdig zu
+     sein, nicht gelesen zu werden. */
+  buchFilter:"alltag", buchSorte:"stand",
   /* Freier Platz für Einfälle. Bewusst ein einziges Feld ohne Struktur —
      wo ein Impuls entsteht, muss er sich sofort abladen lassen. */
   notizen:"",
@@ -1054,7 +1061,7 @@ function geburtstageBauen(){
       if(D.quests.some(q=>q.marke === marke)) return;
       D.quests.push({
         id:id(), marke:marke, titel:st.wort(g.name), etikett:st.etikett, grosse:st.grosse,
-        ort: st.tage===0 ? "heute" : "buch", fach: st.fach, fertig:false, verschoben:0, wennDann:"",
+        ort: st.tage===0 ? "heute" : "buch", fach: st.fach, fertig:false, verschoben:0, wennDann:"", neu:D.tag,
         /* Der Geburtstag selbst ist die Frist — dann zeigt die Karte denselben
            Tage-Zähler wie bei den Gefährten. */
         faellig: datumStr(naechsterTag(g.tag))
@@ -1566,7 +1573,7 @@ function zettelBlatt(){
       b.appendChild(h);
       b.appendChild(machKnopf("＋ Einkaufen jede Woche einplanen", "", ()=>{
         const q = {id:id(), titel:"Einkaufen", etikett:"neutral", grosse:2, ort:"buch", fach:"neben",
-                   fertig:false, verschoben:0, wennDann:"", wieder:7, wiederAm:null};
+                   fertig:false, verschoben:0, wennDann:"", neu:D.tag, wieder:7, wiederAm:null};
         D.quests.push(q);
         sichern(); zeichnen();
         blattZeigen('<h3>Steht im Auftragsbuch</h3><p class="sub">„Einkaufen" kommt ab jetzt jede Woche von selbst zurück. Wann genau du losgehst, entscheidest du — im Wochenplan kannst du es auf den Samstag legen.</p>', x=>{
@@ -1695,8 +1702,44 @@ function rang(q){
   if(q.plan && q.plan.tag === D.tag) return -50;   /* für heute eingeplant */
   if(q.faellig) return tageBisDatum(q.faellig);
   if(q.marke) return 0;
+  /* Frisch Eingetragenes stand vorher GANZ UNTEN — schlechter als etwas, das
+     acht Tage liegt. Man notiert also etwas und es verschwindet nach unten aus
+     dem Blick. Genau das füttert die Angst, etwas zu verpassen, und wer dem
+     Zettel nicht traut, behält alles im Kopf. Zwei Tage lang steht Neues
+     deshalb weit oben, danach greift die normale Reihenfolge. */
+  if(q.neu && (q.neu === D.tag || q.neu === gesternStr())) return 10;
   if(q.etikett === "spass") return 12;
   return 20 - Math.min(q.verschoben || 0, 8);
+}
+
+/* ═══════════ Wonach ist dir gerade? ═══════════
+   Ihre Wunschliste war: zuletzt hinzugefügt, Spaß, Langeweile, anstrengend,
+   groß, klein. Das sind in Wahrheit keine sechs Sortierungen, sondern drei
+   ZUSTÄNDE — „Spaß" heißt „ich brauch was Leichtes", „klein" heißt „ich hab
+   fünf Minuten", „anstrengend" heißt „ich hab heute Kraft". Als Zustand
+   gefragt ist es eine Antwort; als Attribut gefragt wäre es eine
+   Konfiguration, also eine Entscheidung VOR der Entscheidung.
+
+   Sortieren ist ohnehin das schwächste der Werkzeuge: es ordnet den Berg um,
+   statt ihn kleiner zu machen. Deshalb bewusst nur vier Kacheln und keine
+   Kombinationen. */
+const SORTEN = [
+  ["stand",   "Wie es dasteht"],
+  ["leicht",  "Was leicht fällt"],
+  ["schnell", "Was schnell geht"],
+  ["kraft",   "Was Kraft braucht"]
+];
+const ETIKETT_RANG = {spass:0, neutral:1, zaeh:2};
+function etikettRang(q){
+  const r = ETIKETT_RANG[q.etikett];
+  return r === undefined ? 1 : r;
+}
+function sortieren(liste, sorte){
+  const l = liste.slice();
+  if(sorte === "leicht")  return l.sort((a,b)=> etikettRang(a)-etikettRang(b) || kosten(a)-kosten(b));
+  if(sorte === "schnell") return l.sort((a,b)=> kosten(a)-kosten(b) || rang(a)-rang(b));
+  if(sorte === "kraft")   return l.sort((a,b)=> kosten(b)-kosten(a) || rang(a)-rang(b));
+  return l.sort((a,b)=> rang(a)-rang(b));
 }
 
 /* ═══════════ Kampagnen ═══════════
@@ -1739,7 +1782,7 @@ function kampagnenPruefen(){
         id:id(), marke:marke, kampagne:k.id,
         titel:"Durchgehen — was fehlt noch?",
         etikett:"neutral", grosse:2, ort:"buch", fach:"neben",
-        fertig:false, verschoben:0, wennDann:"", faellig: inTagen(st.frist)
+        fertig:false, verschoben:0, wennDann:"", neu:D.tag, faellig: inTagen(st.frist)
       });
     });
   });
@@ -1783,7 +1826,7 @@ function kampagneArchivieren(kid){
   k.archiv = true; k.ruht = false;
   /* Was offen blieb, geht mit ins Archiv statt im Auftragsbuch zu spuken. */
   D.quests.forEach(q=>{ if(q.kampagne===kid) q.ort = "archiv"; });
-  if(buchFilter === kid) buchFilter = "alles";
+  if(D.buchFilter === kid) D.buchFilter = "alltag";
   sichern(); zeichnen();
   /* Die Zahl kommt erst hier — genau wie bei den Etappen. Vorher wäre sie
      der Berg gewesen, jetzt steht man oben. */
@@ -1797,12 +1840,43 @@ function kampagneArchivieren(kid){
 }
 
 /* ————— Auftragsbuch mit Filterzeile ————— */
-let buchFilter = "alles";
+/* Der Filter wird jetzt GEMERKT. Das nimmt eine frühere Entscheidung von mir
+   zurück: ich hatte ihn absichtlich nicht gespeichert, aus Sorge, sie öffnet
+   das Buch und denkt, alles sei weg. Ihre Rückmeldung dreht die Abwägung —
+   „Alle" erschlägt sie, und ihre eigene Absicht ist, direkt auf Alltag zu
+   gehen. Gegen die alte Sorge hilft die sichtbar aktive Kachel, nicht das
+   Zurücksetzen bei jedem Öffnen. */
+function buchFilterJetzt(){
+  const f = D.buchFilter || "alltag";
+  if(f === "alles" || f === "alltag") return f;
+  /* Ein gemerkter Filter darf nie ins Leere zeigen: ist die Kampagne weg oder
+     archiviert, stünde sonst ein scheinbar leeres Buch da. */
+  return (D.kampagnen||[]).some(k=>k.id === f && !k.archiv) ? f : "alltag";
+}
+function buchFilterSetzen(wert){ D.buchFilter = wert; sichern(); zeichnen(); }
+
+function buchSorteZeichnen(zeigen){
+  const ziel = document.getElementById("buch-sorte");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+  if(!zeigen) return;
+  const box = document.createElement("div");
+  box.className = "kacheln";
+  SORTEN.forEach(([wert, wort])=>{
+    const kn = document.createElement("button");
+    kn.className = "kachel" + ((D.buchSorte || "stand") === wert ? " an" : "");
+    kn.textContent = wort;
+    kn.addEventListener("click", ()=>{ D.buchSorte = wert; sichern(); zeichnen(); });
+    box.appendChild(kn);
+  });
+  ziel.appendChild(box);
+}
 
 function buchFilterZeichnen(){
   const ziel = document.getElementById("buch-filter");
   if(!ziel) return;
   ziel.innerHTML = "";
+  const jetzt = buchFilterJetzt();
   const offen = (D.kampagnen||[]).filter(k=>!k.archiv);
   /* Ohne Kampagnen ist die Zeile nur Lärm. */
   if(!offen.length){ document.getElementById("buch-filter-halter").style.display = "none"; return; }
@@ -1816,14 +1890,14 @@ function buchFilterZeichnen(){
     .concat(offen.map(k=>[k.id, (k.zeichen ? k.zeichen + " " : "") + k.name]))
     .forEach(([wert, wort])=>{
       const kn = document.createElement("button");
-      kn.className = "kachel" + (buchFilter === wert ? " an" : "");
+      kn.className = "kachel" + (jetzt === wert ? " an" : "");
       kn.textContent = wort;
-      kn.addEventListener("click", ()=>{ buchFilter = wert; zeichnen(); });
+      kn.addEventListener("click", ()=> buchFilterSetzen(wert));
       box.appendChild(kn);
     });
   ziel.appendChild(box);
 
-  const k = offen.find(x=>x.id === buchFilter);
+  const k = offen.find(x=>x.id === jetzt);
   if(k){
     const kopf = document.createElement("p");
     kopf.className = "hinweis";
@@ -1847,14 +1921,18 @@ function buchZeichnen(){
   const ziel = document.getElementById("liste-buch");
   ziel.innerHTML = "";
   let drin = D.quests.filter(q=>q.ort==="buch" && !q.fertig);
-  if(buchFilter === "alles") drin = drin.filter(wach);
-  else if(buchFilter === "alltag") drin = drin.filter(q=>!q.kampagne);
-  else drin = drin.filter(q=>q.kampagne === buchFilter);
-  drin.sort((a,b)=>rang(a)-rang(b));
+  const f = buchFilterJetzt();
+  if(f === "alles") drin = drin.filter(wach);
+  else if(f === "alltag") drin = drin.filter(q=>!q.kampagne);
+  else drin = drin.filter(q=>q.kampagne === f);
+  /* Erst die Zeile zeichnen, dann sortieren: bei höchstens einem Eintrag ist
+     Sortieren sinnlos und die vier Kacheln wären nur Lärm. */
+  buchSorteZeichnen(drin.length > 1);
+  drin = sortieren(drin, D.buchSorte);
   if(!drin.length){
     const p=document.createElement("p"); p.className="leer";
-    p.textContent = buchFilter === "alles" ? "Das Auftragsbuch ist leer."
-      : (buchFilter === "alltag" ? "Im Alltag wartet gerade nichts." : "In dieser Kampagne wartet nichts.");
+    p.textContent = f === "alles" ? "Das Auftragsbuch ist leer."
+      : (f === "alltag" ? "Im Alltag wartet gerade nichts." : "In dieser Kampagne wartet nichts.");
     ziel.appendChild(p); return;
   }
   drin.forEach(q=> ziel.appendChild(karteBauen(q)));
@@ -1936,7 +2014,7 @@ function kampagneBlatt(kid){
         D.quests.forEach(q=>{ if(q.kampagne===kid) q.kampagne = null; });
         D.quests = D.quests.filter(q=>!(q.marke||"").startsWith("kp-"+kid));
         D.kampagnen = D.kampagnen.filter(x=>x.id!==kid);
-        if(buchFilter === kid) buchFilter = "alles";
+        if(D.buchFilter === kid) D.buchFilter = "alltag";
         sichern(); blattSchliessen(); zeichnen();
       }));
     }
@@ -2589,7 +2667,7 @@ function questNeuBlatt(tag, teil){
       const t = feld.value.trim();
       if(!t){ feld.focus(); return; }
       const q = {id:id(), titel:t, etikett:etikett, grosse:grosse, ort:"buch",
-                 fach:"boten", fertig:false, verschoben:0, wennDann:"", faellig:null,
+                 fach:"boten", fertig:false, verschoben:0, wennDann:"", neu:D.tag, faellig:null,
                  plan:{tag:tag, teil:teil, zeit:null, pos:abschnittStuecke(tag,teil).length}};
       D.quests.push(q);
       neuEtikett = etikett; neuGrosse = grosse;   /* Auswahl merken, wie im Auftragsbuch */
@@ -3845,10 +3923,10 @@ function eintragen(){
   if(!t) return;
   D.quests.push({id:id(), titel:t, etikett:neuEtikett, grosse:neuGrosse,
     ort:"buch", fach: neuGrosse===3 ? "haupt" : (neuGrosse===1 ? "boten" : "neben"),
-    fertig:false, verschoben:0, wennDann:"", wofuer: wf.value.trim(),
+    fertig:false, verschoben:0, wennDann:"", neu:D.tag, wofuer: wf.value.trim(),
     /* Steht gerade eine Kampagne im Filter, landet Neues gleich dort —
        sonst tippt man es ein und muss es hinterher einsortieren. */
-    kampagne: (D.kampagnen||[]).some(k=>k.id===buchFilter && !k.archiv) ? buchFilter : null});
+    kampagne: (D.kampagnen||[]).some(k=>k.id===buchFilterJetzt() && !k.archiv) ? buchFilterJetzt() : null});
   feld.value = ""; wf.value = "";
   sichern(); zeichnen();
 }
@@ -4026,7 +4104,7 @@ document.getElementById("heute-neu").addEventListener("click", ()=>{
       const t = feld.value.trim();
       if(!t) return;
       D.quests.push({id:id(), titel:t, etikett:"neutral", grosse:1, ort:"buch", fach:"boten",
-        fertig:false, verschoben:0, wennDann:""});
+        fertig:false, verschoben:0, wennDann:"", neu:D.tag});
       sichern(); zeichnen();
       blattZeigen('<h3>Notiert</h3><p class="sub"></p>', x=>{
         x.querySelector(".sub").textContent = t + " wartet jetzt im Auftragsbuch.";
