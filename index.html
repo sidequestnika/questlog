@@ -2457,7 +2457,14 @@ let geschwaetzJetzt = null;
 let kraeuterJetzt = null;
 let zitatJetzt = null;
 
-function wirtHeute(){ return WIRT[streu("wirt" + (D.tag||"")) % WIRT.length]; }
+/* Einer pro Tag, den ganzen Tag derselbe — wie beim Magier. Ihre Frage vom
+   22.08. („immer das gleiche, oder nur einmal am Tag?“) hat einen Mangel
+   aufgedeckt: Vorher wurde gestreut, und ein Streuwert kann denselben Wirt
+   zufällig zweimal hintereinander ziehen. Jetzt läuft er der Reihe nach durch
+   und wiederholt sich frühestens nach WIRT.length Tagen. */
+function wirtHeute(){
+  return WIRT[((tagesNummer() % WIRT.length) + WIRT.length) % WIRT.length];
+}
 
 function tavernenKarte(titel, unter){
   const k = document.createElement("div");
@@ -5870,8 +5877,10 @@ function zupfen(d, sr, start, freq, dauer, amp, hell, halten){
   for(let i=0;i<n;i++){
     const a = linie[idx];
     linie[idx] = daempfung * (a + linie[(idx+1)%L]) * 0.5;
-    /* Anschlag weich, Ende sauber ausgeblendet — sonst knackt es. */
-    d[start+i] += a * amp * Math.min(1, i/(sr*0.004)) * Math.min(1, (n-i)/(sr*0.05));
+    /* Anschlag weich, Ende sauber ausgeblendet — sonst knackt es. Die Blende
+       am Ende ist bewusst lang: Eine Saite, die noch bei einem Viertel ihrer
+       Lautstärke steht, hört man abbrechen, wenn man sie in 50 ms wegzieht. */
+    d[start+i] += a * amp * Math.min(1, i/(sr*0.004)) * Math.min(1, (n-i)/(sr*0.12));
     idx = (idx+1)%L;
   }
 }
@@ -5894,12 +5903,19 @@ function schimmer(d, sr, start, grund, amp){
   });
 }
 
-/* C — der Erfolgston. Aufsteigendes D-Dur, hell, unter einer Sekunde. */
+/* C — der Erfolgston. Aufsteigendes D-Dur, hell.
+
+   Nachgebessert am 22.08.2026 auf ihre Rückmeldung: „der Erfolgston ist gut,
+   darf nur etwas länger ausklingen.“ Nachgemessen war er gar nicht
+   ausgeklungen, sondern ABGESCHNITTEN — bei 0,6 s stand die Saite rechnerisch
+   noch bei gut der Hälfte ihrer Lautstärke, und die kurze Schlussblende hat
+   sie weggezogen. Der Anschlag bleibt deshalb Ton für Ton derselbe, nur die
+   Fenster sind lang genug, dass die Saiten von selbst zu Ende klingen. */
 function bauErfolg(d, sr){
   [["D4",0],["F#4",0.038],["A4",0.076]].forEach(([n,t])=>
-    zupfen(d, sr, Math.floor(sr*t), NOTE[n], 0.6, 0.29, 0.85, 0.25));
-  zupfen(d, sr, Math.floor(sr*0.12), NOTE.D5, 0.55, 0.26, 0.95, 0.3);
-  zupfen(d, sr, Math.floor(sr*0.16), NOTE["F#5"], 0.45, 0.14, 0.95, 0.3);
+    zupfen(d, sr, Math.floor(sr*t), NOTE[n], 1.5, 0.29, 0.85, 0.25));
+  zupfen(d, sr, Math.floor(sr*0.12), NOTE.D5, 1.45, 0.26, 0.95, 0.3);
+  zupfen(d, sr, Math.floor(sr*0.16), NOTE["F#5"], 1.35, 0.14, 0.95, 0.3);
   schimmer(d, sr, Math.floor(sr*0.13), NOTE.D5, 0.075);
 }
 
@@ -5937,7 +5953,7 @@ const tonPuffer = {};
 function tonHolen(art){
   if(tonPuffer[art]) return tonPuffer[art];
   const sr = tonRaum.sampleRate;
-  const puffer = tonRaum.createBuffer(1, Math.floor(sr * (art === "taverne" ? 21 : 0.7)), sr);
+  const puffer = tonRaum.createBuffer(1, Math.floor(sr * (art === "taverne" ? 21 : 1.7)), sr);
   const d = puffer.getChannelData(0);
   (art === "taverne" ? bauTaverne : bauErfolg)(d, sr);
   let spitze = 0;

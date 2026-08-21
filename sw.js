@@ -1,9 +1,9 @@
-/* Offline-Helfer für Questlog.
-   Erst das Netz fragen (dann sind Änderungen sofort da), bei fehlender
+﻿/* Offline-Helfer fÃ¼r Questlog.
+   Erst das Netz fragen (dann sind Ã„nderungen sofort da), bei fehlender
    Verbindung aus dem Zwischenspeicher liefern. Deine Quests liegen NICHT
-   hier drin, sondern im Speicher des Browsers — die fasst diese Datei nie an. */
+   hier drin, sondern im Speicher des Browsers â€” die fasst diese Datei nie an. */
 
-const SPEICHER = "questlog-2026-08-22a";
+const SPEICHER = "questlog-2026-08-22b";
 const DATEIEN = [
   "./",
   "./index.html",
@@ -32,14 +32,14 @@ self.addEventListener("activate", e=>{
 /* Erst das Netz, aber nicht endlos.
 
    Vorher galt: fragen, und nur wenn fetch SCHEITERT, den Zwischenspeicher
-   nehmen. Der schlimme Fall ist aber nicht "kein Netz" — da scheitert fetch
+   nehmen. Der schlimme Fall ist aber nicht "kein Netz" â€” da scheitert fetch
    sofort. Der schlimme Fall ist schwacher Empfang: dann haengt fetch auf dem
    iPhone gern zwanzig Sekunden, bevor es aufgibt, und solange steht die App
    weiss da. Genau dann ist ein Planer am wenigsten wert.
 
    Also ein Wettlauf: antwortet das Netz binnen NETZ_GEDULD nicht, gewinnt der
    Zwischenspeicher. Die frische Fassung wird trotzdem abgelegt, sobald sie
-   ankommt — der naechste Start hat sie dann. Bei gutem Netz aendert sich
+   ankommt â€” der naechste Start hat sie dann. Bei gutem Netz aendert sich
    nichts: eine Ruecksprache mit GitHub dauert ein paar hundert Millisekunden,
    Aenderungen sind also weiterhin sofort da. */
 const NETZ_GEDULD = 1500;
@@ -54,7 +54,7 @@ self.addEventListener("fetch", e=>{
     let raus = false;
     const gib = antwort => { if(!raus){ raus = true; fertig(antwort); } };
 
-    /* Wenn nichts im Speicher liegt (allererster Start), NICHT antworten —
+    /* Wenn nichts im Speicher liegt (allererster Start), NICHT antworten â€”
        dann muss der Wettlauf weiterlaufen, bis das Netz liefert. */
     const uhr = setTimeout(()=>{
       ausSpeicher(e.request).then(treffer => { if(treffer) gib(treffer); }).catch(()=>{});
