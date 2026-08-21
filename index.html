@@ -913,8 +913,14 @@ window.matchMedia("(prefers-color-scheme: dark)")
   .addEventListener("change", ()=>{ if(!D.thema) themaAnwenden(); });
 
 /* ═══════════ Datum ═══════════ */
-function heuteStr(d){ d = d || new Date();
-  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+/* Ein Datum als "JJJJ-MM-TT" — die einzige Schreibweise in der ganzen App.
+   Bewusst aus den Teilen der ORTSZEIT gebaut und nicht über toISOString():
+   das rechnet nach UTC um und macht aus einem späten Abend still den
+   nächsten Tag. */
+function datumStr(d){
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function heuteStr(d){ return datumStr(d || new Date()); }
 const WOCHENTAGE = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 const TAGE_IM_MONAT = [31,29,31,30,31,30,31,31,30,31,30,31];
@@ -954,9 +960,6 @@ function faelligWort(iso){
   if(d === 1) return "morgen fällig";
   if(d <= 14) return "in " + d + " Tagen";
   return "in " + Math.round(d/7) + " Wochen";
-}
-function datumStr(d){
-  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 function inTagen(n){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return datumStr(d); }
 function zeitWort(iso){
@@ -1197,6 +1200,24 @@ function akkuZeichnen(){
 function rastGetanGesamt(){
   return Object.keys(D.rastGetan||{}).reduce((a,k)=>a + (D.rastGetan[k]||0), 0);
 }
+/* Wie viel heute noch gutgeschrieben werden kann. Der Deckel gilt fürs
+   Gutschreiben, nicht fürs Tun — 0 heißt also „geht weiter, nur ohne Punkte". */
+function rastRest(){ return Math.max(0, RAST_DECKEL - (D.rastHeute||0)); }
+
+/* Eine Erholung verbuchen — die EINE Stelle dafür. Kurze Rast und Rückzug
+   führen beide hierher: gleiche Zählung, gleicher Deckel, gleiches Rückgängig.
+   Zwei Buchhaltungen nebeneinander wären ein Fehler, der erst auffällt, wenn
+   die Zahlen auseinanderlaufen. */
+function rastBuchen(wort, plus){
+  D.rastGetan = D.rastGetan || {};
+  D.rastGetan[wort] = (D.rastGetan[wort]||0) + 1;
+  D.rastLetzte = {wort:wort, plus:plus};
+  if(plus){
+    D.heuteAusdauer = ausdauerHeute() + plus;
+    D.rastHeute = (D.rastHeute||0) + plus;
+  }
+  sichern(); zeichnen();
+}
 function rastKnopfZeichnen(){
   const knopf = document.getElementById("rast-knopf");
   const text = document.getElementById("rast-knopf-text");
@@ -1231,7 +1252,7 @@ function rastAuswahlHolen(){
 function rastBlatt(alleZeigen){
   const alle = (D.erholung||[]).filter(Boolean);
   const zeigen = alleZeigen ? alle : rastAuswahlHolen();
-  const rest = Math.max(0, RAST_DECKEL - (D.rastHeute||0));
+  const rest = rastRest();
 
   blattZeigen('<h3>Kurze Rast</h3><p class="sub"></p>', b=>{
     b.querySelector(".sub").textContent = rest
@@ -1253,14 +1274,7 @@ function rastBlatt(alleZeigen){
         wie ? "stark" : "",
         ()=>{
           const hoehe = blattEl.scrollTop;
-          D.rastGetan = D.rastGetan || {};
-          D.rastGetan[w] = (D.rastGetan[w]||0) + 1;
-          D.rastLetzte = {wort:w, plus:plus};
-          if(plus){
-            D.heuteAusdauer = ausdauerHeute() + plus;
-            D.rastHeute = (D.rastHeute||0) + plus;
-          }
-          sichern(); zeichnen();
+          rastBuchen(w, plus);
           rastBlatt(alleZeigen);
           blattEl.scrollTop = hoehe;
         }
@@ -1323,8 +1337,7 @@ function sofortBlatt(wort){
      Klick-Ereignis „[object PointerEvent]" auf den Knopf. */
   const w = (typeof wort === "string" && wort) ? wort : sofortWaehlen(null);
   if(!w){ rastBlatt(false); return; }
-  const rest = Math.max(0, RAST_DECKEL - (D.rastHeute||0));
-  const plus = Math.min(RAST_PLUS, rest);
+  const plus = Math.min(RAST_PLUS, rastRest());
 
   blattZeigen('<h3>Rückzug</h3>' +
     '<p class="sub">Nichts erklären, nichts aussuchen. Nur das hier, jetzt.</p>', b=>{
@@ -1332,14 +1345,7 @@ function sofortBlatt(wort){
     gross.className = "knopf stark sofort-gross";
     gross.textContent = w;
     gross.addEventListener("click", ()=>{
-      D.rastGetan = D.rastGetan || {};
-      D.rastGetan[w] = (D.rastGetan[w]||0) + 1;
-      D.rastLetzte = {wort:w, plus:plus};
-      if(plus){
-        D.heuteAusdauer = ausdauerHeute() + plus;
-        D.rastHeute = (D.rastHeute||0) + plus;
-      }
-      sichern(); zeichnen();
+      rastBuchen(w, plus);
       blattZeigen('<h3>Gut.</h3><p class="sub">' +
         (plus ? "＋" + plus + " Ausdauer. " : "") +
         'Mehr muss jetzt nicht sein.</p>', x=>{
@@ -1477,7 +1483,14 @@ function kosten(q){
   const tafel = KOSTEN[q.etikett] || KOSTEN.neutral;
   return (istEtappe(q) ? tafel[1] : tafel[q.grosse||1]) || 1;
 }
-function ausdauerHeute(){ return D.heuteAusdauer || D.budget; }
+/* Ausdrücklich gegen null/undefined geprüft und nicht mit „||": eine echte 0
+   ist heute zwar nicht erreichbar (die kleinste Antwort ist der Ruhetag mit 2,
+   alles andere ist mit Math.max(1, …) abgefangen) — aber mit „||" würde eine
+   künftige 0 still auf die Vorgabe zurückfallen, und das wäre ein Fehler, den
+   niemand sieht. Gleiche Schreibweise wie formWertJetzt(). */
+function ausdauerHeute(){
+  return (D.heuteAusdauer === null || D.heuteAusdauer === undefined) ? D.budget : D.heuteAusdauer;
+}
 
 function karteBauen(q){
   const b = document.createElement("button");
@@ -1891,6 +1904,18 @@ const NACHWEHEN_WORT = {
   schwer: {kopf:"Gestern war schwer.", frage:"Wie viel ist heute da?"}
 };
 
+/* Der Weg zu den Nachwehen gehört an JEDE Stelle, an der nach der Tagesform
+   gefragt wird — sonst fragt die App plötzlich anders und sagt nicht, warum.
+   Deshalb eine Funktion und nicht zwei Abschriften: eine dritte Fragestelle
+   bekommt den Knopf dann von selbst mit. */
+function nachwehenKnopf(b){
+  if(!nachwehenGrund()) return;
+  const rest = nachwehenTageRest();
+  b.appendChild(machKnopf(
+    rest ? "Nachwehen — noch " + mehrzahl(rest, "Tag", "Tage") : "Das wirkt länger nach …",
+    "ruhig", nachwehenSetzenBlatt));
+}
+
 function nachwehenSetzenBlatt(){
   const grund = nachwehenGrund() || "hoch";
   blattZeigen('<h3>Wirkt das länger nach?</h3>' +
@@ -1965,9 +1990,7 @@ function tagesfrageZeigen(){
 }
 
 function tagesfrageBlatt(){
-  const grund = nachwehenGrund();
-  const w = NACHWEHEN_WORT[grund];
-  const rest = nachwehenTageRest();
+  const w = NACHWEHEN_WORT[nachwehenGrund()];
 
   blattZeigen(
     w ? '<h3>' + w.kopf + '</h3><p class="sub">' + w.frage +
@@ -1980,10 +2003,7 @@ function tagesfrageBlatt(){
          „was ist wichtig", sondern „wenn nur eins geht, welches?". */
       if(!ruhe && wert <= 3) stichfrageZeigen();
     });
-    if(w)
-      b.appendChild(machKnopf(
-        rest ? "Nachwehen — noch " + mehrzahl(rest, "Tag", "Tage") : "Das wirkt länger nach …",
-        "ruhig", nachwehenSetzenBlatt));
+    nachwehenKnopf(b);
     b.appendChild(machKnopf("Später", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
 }
@@ -2003,12 +2023,7 @@ function ausdauerBlatt(){
     l1.textContent = grund ? NACHWEHEN_WORT[grund].frage : "Wie ist der Tag heute?";
     b.appendChild(l1);
     tagesformKnoepfe(b, ()=>{ zeichnen(); ausdauerBlatt(); });
-    if(grund){
-      const rest = nachwehenTageRest();
-      b.appendChild(machKnopf(
-        rest ? "Nachwehen — noch " + mehrzahl(rest, "Tag", "Tage") : "Das wirkt länger nach …",
-        "ruhig", nachwehenSetzenBlatt));
-    }
+    nachwehenKnopf(b);
 
     const l2 = document.createElement("p");
     l2.className = "mini"; l2.style.margin = "20px 0 8px"; l2.textContent = "Erholung — lädt auf, kostet nichts";
@@ -3495,12 +3510,12 @@ function anlaufStarten(qid){
   /* Den Klangraum beim Antippen aufwecken — später erlaubt iOS es nicht mehr. */
   tonBereit();
   document.getElementById("anlauf-titel").textContent = anlaufQuest.titel;
-  document.getElementById("anlauf-happen").textContent = provianntVorschlag(anlaufQuest);
+  document.getElementById("anlauf-happen").textContent = anlaufVorschlag(anlaufQuest);
   anlaufEl.classList.add("on");
   ringZeichnen();
   anlaufTicken();
 }
-function provianntVorschlag(q){
+function anlaufVorschlag(q){
   /* Am Punkt der Ausführung zählt nicht, wie wichtig es ist, sondern was
      danach da ist. Deshalb steht das Wofür hier — und nur hier. */
   if(q.wofuer) return q.wofuer;
