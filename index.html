@@ -780,6 +780,9 @@ const START = {
      passieren: eine Zahl daraus machen, und sie mit dem Geschafften verrechnen.
      Ein stressiger Tag mit fünf erledigten Quests bleibt ein stressiger Tag. */
   tagsform:{},
+  /* Hat sich die Abendfrage heute schon einmal von selbst gemeldet? Gemerkt
+     wird NUR das Zeigen, nie die Antwort — siehe formGezeigt weiter oben. */
+  tagsformGezeigt:null,
   /* Drei verschiedene Dinge, die man nicht verwechseln darf:
      Erholung lädt auf und ist gratis. Begleitung läuft nebenher.
      Belohnung kostet Gold. Baden ist Erholung, kein Preis. */
@@ -980,6 +983,9 @@ function tagPruefen(){
   D.formGezeigt = null;
   D.formWert = null;
   D.ruhetag = null;
+  /* Die Antworten selbst (D.tagsform) bleiben stehen — der Morgen braucht
+     gestern. Nur das Gemeldet-Hab-Ich-Schon fängt neu an. */
+  D.tagsformGezeigt = null;
   /* Abgelaufene Nachwehen räumen sich still weg — nichts, was sie beenden muss. */
   if(D.nachwehen && D.nachwehen.bis && D.nachwehen.bis < D.tag) D.nachwehen = null;
   D.rastTag = null;
@@ -1087,6 +1093,7 @@ function zeichnen(){
   tagesfrageZeigen();
   kampagneNachfrageZeigen();
   sonntagsrufZeigen();
+  abendfrageZeigen();
 }
 
 /* ═══════════ Sonntagsruf ═══════════
@@ -2857,7 +2864,7 @@ const TAGSFORM = [
   ["vorbei", "🫠", "froh, dass er vorbei ist"]
 ];
 
-function tagsformTeil(b){
+function tagsformTeil(b, nachWahl){
   const l = document.createElement("p");
   l.className = "mini"; l.style.margin = "4px 0 7px";
   l.textContent = "Wie war dein Tag?";
@@ -2883,12 +2890,53 @@ function tagsformTeil(b){
       sichern();
       [...zeile.children].forEach(x=> x.classList.toggle("on", x === k && D.tagsform[D.tag] === schluessel));
       wort.textContent = D.tagsform[D.tag] ? text : "";
+      if(nachWahl) nachWahl(D.tagsform[D.tag] || null);
     });
     zeile.appendChild(k);
   });
   const dabei = TAGSFORM.find(t=>t[0] === gesetzt);
   wort.textContent = dabei ? dabei[2] : "";
   b.appendChild(zeile); b.appendChild(wort);
+}
+
+/* ═══════════ Der Abend fragt von selbst ═══════════
+   Die Skala hing bisher ausschließlich im Lager, und das Lager ist ein Knopf,
+   den sie drücken muss. Morgens meldet sich die Frage von selbst, abends nicht
+   — diese Schieflage hat sie am eigenen Gebrauch gefunden: sie hatte das
+   automatische Blatt erwartet, es kam nie, und deshalb hat der nächste Morgen
+   nichts von gestern gewusst.
+
+   Was hier NICHT von selbst aufgeht, ist das ganze Lager: vier Stationen, über
+   1000 px auf einem 700-px-Schirm. Der Berg bleibt etwas, das sie bewusst
+   betritt. Es kommt genau eine Frage — wie morgens auch. Der Rest bleibt hinter
+   dem Knopf und steht als Tür auf diesem Blatt. */
+const ABENDFRAGE_AB = 20;
+
+function abendfrageZeigen(){
+  if(new Date().getHours() < ABENDFRAGE_AB) return;
+  /* Schon beantwortet: dann hat sie das Lager von sich aus aufgeschlagen. */
+  if((D.tagsform||{})[D.tag]) return;
+  /* Hat sich heute schon gemeldet. Gemerkt wird nur das Zeigen, nie die
+     Antwort — ein Tipp daneben darf die Frage nicht für den ganzen Tag
+     verbrennen. Genau dieser Fehler steckte in der Morgenfrage. Über das Lager
+     bleibt sie den Abend über erreichbar. */
+  if(D.tagsformGezeigt === D.tag) return;
+  /* Steht schon ein Blatt offen, wartet dieses hier bis zum nächsten Öffnen.
+     Zwei Blätter hintereinander sind eine Wand, drei ein Grund aufzuhören. */
+  if(blattGrund.classList.contains("on")) return;
+  D.tagsformGezeigt = D.tag; sichern();
+
+  const zu = D.letzterAbschluss === D.tag;
+  blattZeigen('<h3>Der Tag geht zu Ende</h3>' +
+    '<p class="sub">Eine Frage, unabhängig davon, was du geschafft hast. Das Lager kannst du danach immer noch aufschlagen.</p>', b=>{
+    let spaeter = null;
+    /* Das Blatt schließt sich nach dem Tipp bewusst nicht: das Wort unter den
+       Gesichtern ist die Rückmeldung, dass es angekommen ist. */
+    tagsformTeil(b, gesetzt=>{ if(spaeter) spaeter.textContent = gesetzt ? "Passt" : "Später"; });
+    b.appendChild(machKnopf(zu ? "Nochmal ans Feuer" : "Lager aufschlagen", "", abendOeffnen));
+    spaeter = machKnopf("Später", "ruhig", ()=>{ blattSchliessen(); zeichnen(); });
+    b.appendChild(spaeter);
+  });
 }
 
 function abendBlatt(){
