@@ -113,6 +113,11 @@ input,textarea{font-family:var(--schrift-ui);font-size:inherit;color:inherit}
    Zeilen — der ganze Tag rutschte nach unten. Ab einer gewissen Länge also
    kleiner und ruhiger gesetzt: ein gesprochener Satz, keine Überschrift. */
 .gruss.lang{font-size:19px;font-weight:600;letter-spacing:0;line-height:1.35}
+/* Der Gruß ist ein Knopf, sieht aber keiner wie einer aus — er soll die Seite
+   nicht mit einem Rahmen anfangen lassen. Das Antippen bestätigt sich selbst. */
+.gruss.antippbar{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gruss.antippbar:active{opacity:.6}
+.namens-tipp{margin:6px 0 0;color:var(--ink-faint);font-size:12px}
 .datum{font-size:12px;color:var(--ink-faint);letter-spacing:.1em;text-transform:uppercase;margin:0 0 4px}
 
 /* ————— Ausdauer ————— */
@@ -420,11 +425,41 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .zahnrad svg{width:19px;height:19px}
 .gruss{padding-right:48px}
 
+/* ————— Taverne —————
+   Jeder Gast eine Karte. Bewusst dieselbe Sprache wie die Questkarten, damit
+   der Raum zur App gehört — aber ohne Haken, ohne Kosten, ohne Zähler. */
+.gast{background:var(--surface);border:1px solid var(--line);border-radius:18px;
+  padding:16px 17px;margin-bottom:12px}
+.gast-name{font-family:var(--schrift-runen);font-size:12px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink-faint);margin:0 0 7px}
+.gast-sagt{margin:0 0 12px;font-size:16px;line-height:1.55;font-family:var(--schrift-text)}
+.gast-du{margin:0 0 10px;font-size:14px;color:var(--ink-faint);font-style:italic}
+.gast-fuss{font-size:12px;color:var(--ink-faint);line-height:1.5;margin:9px 0 0}
+/* Sie will auf einen Blick sehen, was wirklich stimmt und was Spaß ist. */
+.beleg,.erfunden{font-size:12px;line-height:1.5;margin:2px 0 0;
+  font-family:var(--schrift-runen);letter-spacing:.04em}
+.beleg{color:var(--calm)}
+.erfunden{color:var(--ink-faint)}
+.gast .knopf{margin-top:2px}
+
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
 
 @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms !important;transition-duration:.01ms !important} }
 </style>
+
+<!-- ═══════════ TAVERNE ═══════════
+     Ihr Spaßelement, und die Gegenmaßnahme zur Drei-Wochen-Klippe. Vier
+     Gäste, keine Frage, keine Zahl, kein Punkt an der Leiste. Wer hier
+     hereinkommt, hat nichts zu erledigen. -->
+<section class="view wrap" id="v-taverne">
+  <div class="kopf">
+    <p class="datum">Hier wird nichts getan</p>
+    <h1 class="gruss">Taverne</h1>
+  </div>
+  <div id="taverne-raum"></div>
+  <p class="hinweis" style="margin-top:22px">Nichts hiervon wird gezählt oder gemerkt. Der Wirt hat morgen etwas anderes auf dem Herzen, der Magier eine andere Seite aufgeschlagen.</p>
+</section>
 
 <!-- ═══════════ HEUTE ═══════════ -->
 <section class="view on wrap" id="v-heute">
@@ -447,9 +482,14 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 
   <div id="warn-halter"></div>
 
+  <!-- Der Gruß ist antippbar: dort wird sie angesprochen, dort ändert sie es
+       auch. Der Hinweis darunter verschwindet, sobald sie das Feld einmal
+       benutzt hat. -->
   <div class="kopf">
     <p class="datum" id="datum"></p>
-    <h1 class="gruss" id="gruss">Guten Morgen</h1>
+    <h1 class="gruss antippbar" id="gruss" role="button" tabindex="0"
+        aria-label="Begrüßung — antippen, um deinen Namen zu ändern">Guten Morgen</h1>
+    <p class="mini namens-tipp" id="name-hinweis">Tipp auf den Gruß, wenn er dich beim Namen nennen soll.</p>
   </div>
 
   <button class="akku" id="akku-knopf">
@@ -588,6 +628,10 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 
   <div id="lager-woanders"></div>
 
+  <p class="label">Dein Name</p>
+  <p class="hinweis" style="margin:0 0 10px">Wie die Begrüßung dich anspricht. Darf leer bleiben, darf jeden Tag anders sein. Geht auch direkt: <strong>auf den Gruß tippen</strong>.</p>
+  <button class="knopf ruhig" id="name-lager">Namen ändern</button>
+
   <p class="label">Licht</p>
   <div class="wahl" id="thema-wahl">
     <button data-t="">Automatisch</button>
@@ -612,12 +656,19 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   </div>
   <button class="klein-knopf" id="ton-probe">Einmal hören</button>
 
+  <p class="label">Musik in der Taverne</p>
+  <p class="hinweis" style="margin:0 0 10px">Ein ruhiges Harfenstück beim Betreten, gut zwanzig Sekunden. <strong>Standardmäßig aus</strong> — es überfällt dich nie, aber es muss auch nicht jedes Mal sein.</p>
+  <div class="wahl" id="ton-taverne-wahl">
+    <button data-tt="1">Musik an</button>
+    <button data-tt="0">Still</button>
+  </div>
+
   <p class="label">Deine Leiste</p>
   <p class="hinweis" style="margin:0 0 10px">Was unten stehen soll. <strong>Heute bleibt immer dabei</strong>, alles Abgewählte findest du hier im Lager. Weniger Reiter heißt breitere Knöpfe.</p>
   <div id="leiste-wahl"></div>
 
   <p class="label">Der Wanderer</p>
-  <p class="hinweis" style="margin:0 0 10px">Kurze, belegte Sachen über ADHS — zum Nachlesen, wenn du dich fragst, warum gerade etwas nicht geht. Jede Karte sagt, woher sie kommt und ob es eine Studie ist oder ein Fachtext. <strong>Fragt nichts, zählt nichts.</strong></p>
+  <p class="hinweis" style="margin:0 0 10px">Kurze, belegte Sachen über ADHS — zum Nachlesen, wenn du dich fragst, warum gerade etwas nicht geht. Jede Karte sagt, woher sie kommt und ob es eine Studie ist oder ein Fachtext. <strong>Fragt nichts, zählt nichts.</strong> Du findest ihn auch in der Taverne und im Rückzug.</p>
   <button class="knopf" id="wanderer-lager">Einen Wanderer treffen</button>
 
   <p class="label">Speicher</p>
@@ -647,6 +698,14 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <button class="tab" data-v="haendler"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.8v14.4M8.8 19.2h6.4"/><path d="M4.6 8.2h14.8"/><path d="M4.6 8.4 2.3 13.1h4.6z"/><path d="M19.4 8.4 17.1 13.1h4.6z"/></svg>Händler</button>
   <button class="tab" data-v="notizen"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.8C10.2 5.4 7.8 4.8 4.5 4.8v12.4c3.3 0 5.7.6 7.5 2 1.8-1.4 4.2-2 7.5-2V4.8c-3.3 0-5.7.6-7.5 2z"/><path d="M12 6.8v12.4"/></svg>Notizen</button>
   <button class="tab" data-v="rast"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.6 8.4h6.8c2.6 1.8 4 4.2 4 6.8a4.6 4.6 0 0 1-4.6 4.6H9.2a4.6 4.6 0 0 1-4.6-4.6c0-2.6 1.4-5 4-6.8z"/><path d="M9.4 8.4 8.2 4.6l3.8 1.4 3.8-1.4-1.2 3.8"/></svg>Rastplatz</button>
+  <!-- Ein Wirtshausschild am Ausleger, kein Humpen.
+       Der erste Entwurf WAR ein Humpen — bis das gerenderte Bild zeigte, dass
+       „Gefährten“ daneben ein Kelch ist. Zwei Trinkgefäße in einer Leiste, die
+       man blind trifft, sind eine Falle. Das Schild teilt mit keinem anderen
+       Zeichen die Grundform: senkrechter Pfosten, waagerechter Arm, hängende
+       Tafel. Und es passt: Wirtshäuser trugen Bilder, weil kaum jemand lesen
+       konnte — der Name kam vom Schild, nicht umgekehrt. -->
+  <button class="tab" data-v="taverne"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 3.4v17.2"/><path d="M5.4 5.4h11.8"/><path d="M8.8 5.4v2.3M14.2 5.4v2.3"/><rect x="7.2" y="7.7" width="8.4" height="7.6" rx="1.5"/><path d="M9.9 11.5h3"/></svg>Taverne</button>
 </div></nav>
 
 <div class="blatt-grund" id="blatt-grund"><div class="blatt" id="blatt"></div></div>
@@ -791,7 +850,15 @@ function vereinen(vorschlaege, eigene){
 }
 
 const START = {
-  v:6, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  v:7, angelegt:null, gesichert:null, tag:null, gold:0, budget:6,
+  /* Wie sie heute genannt werden will. Leer heißt: gar nicht ansprechen —
+     das ist eine gültige Antwort und kein fehlender Eintrag. `namen` sammelt,
+     was sie schon benutzt hat, damit der Rollenwechsel ein Tipp ist und kein
+     Tippen. Beides steht NUR in ihrem Browser, nie im öffentlichen Repo. */
+  name:"", namen:[],
+  /* Die Tavernenmusik ist bewusst getrennt vom Erfolgston und standardmäßig
+     aus: sie ist länger, und niemand will sie bei jedem Besuch. */
+  tonTaverne:false,
   /* null heißt: folge dem Telefon. "light"/"dark" nageln es fest. */
   thema:null,
   /* null heißt: alle Reiter. Sonst die Namen der Ansichten, die unten stehen. */
@@ -926,6 +993,19 @@ function laden(){
     if(alt.v < 6){
       alt.begleitung = vereinen(BEGLEITUNG_POOL, alt.begleitung);
       alt.v = 6;
+    }
+    /* v7: Die Taverne kommt als achte Ansicht dazu. Sie hat ausdrücklich
+       gesagt, sie will sie unten in der Leiste haben — also kommt sie dort
+       hinein, auch bei einer schon bestehenden eigenen Auswahl. Acht Reiter
+       sind gemessen 46,9 px breit, „Gefährten“ braucht 42,3 px: es passt, ist
+       aber die Kante. Herausnehmen kann sie sie jederzeit im Lager. */
+    if(alt.v < 7){
+      const drin = (Array.isArray(alt.leiste) && alt.leiste.length)
+        ? alt.leiste.slice()
+        : ["heute","woche","buch","gefaehrten","haendler","notizen","rast"];
+      if(drin.indexOf("taverne") < 0) drin.push("taverne");
+      alt.leiste = drin;
+      alt.v = 7;
     }
     return Object.assign(frisch, alt);
   }
@@ -1129,13 +1209,19 @@ function ueberlaufRaeumen(){
       steht einen Vormittag lang still und wechselt zum Mittag.
    2. Kein Wort über Aufgaben. Der Gruß darf wissen, wie sie gestern selbst den
       Tag genannt hat — nie, was sie geschafft hat. Sonst ist es eine Bilanz im
-      Wandererumhang, und die Karten sagen: nie mit dem Geschafften verrechnen. */
+      Wandererumhang, und die Karten sagen: nie mit dem Geschafften verrechnen.
+
+   Das Zeichen % ist der Namensschlitz. Steht ein Name da, wird daraus
+   „, Juna“; steht keiner, verschwindet es rückstandslos — „Guten Abend%.“
+   liest sich in beiden Fällen richtig. Deshalb tragen nur die Sätze einen
+   Schlitz, in die eine Anrede auch grammatisch passt. */
 const GRUESSE = {
   nacht: [
     "Die Kerze ist fast runter.",
     "Um diese Zeit gehört die Straße dir allein.",
     "Der Wirt wischt schon die Tische. Bleib ruhig sitzen.",
-    "Spät. Das nimmt dir die Nacht nicht übel."
+    "Spät. Das nimmt dir die Nacht nicht übel.",
+    "Noch wach%?"
   ],
   frueh: [
     "Die Straße ist noch feucht vom Tau.",
@@ -1143,27 +1229,34 @@ const GRUESSE = {
     "Ein neuer Tag, und noch keine Fußspuren drin.",
     "Der Weg wartet. Aber er hat es nicht eilig.",
     "Du bist früh auf. Oder spät dran. Sagt hier keiner.",
-    "Frisch aufgesattelt?",
+    "Frisch aufgesattelt%?",
     "Erst der Kaffee, dann die Welt.",
-    "Draußen ist es hell geworden, ganz von allein."
+    "Draußen ist es hell geworden, ganz von allein.",
+    "Guten Morgen%.",
+    "Da bist du ja%.",
+    "Morgen%. Die Straße ist noch leer."
   ],
   tag: [
     "Hoch steht die Sonne, und der Weg ist noch lang.",
     "Halbzeit. Der Krug ist auch erst halb leer.",
     "Mitten drin — der unbequemste Teil jeder Reise.",
     "Der Nachmittag läuft dir nicht weg.",
-    "Schön, dich zu sehen. Rutsch rüber.",
+    "Schön, dich zu sehen%. Rutsch rüber.",
     "Der Tag hat sich warmgelaufen.",
-    "Von hier sieht man schon, wo es abends hingeht."
+    "Von hier sieht man schon, wo es abends hingeht.",
+    "Setz dich%, der Krug steht schon da.",
+    "Hallo%. Die Sonne steht hoch."
   ],
   abend: [
-    "Der Sternenhimmel ist heute großzügig, nicht wahr?",
+    "Der Sternenhimmel ist heute großzügig, nicht wahr%?",
     "Die Lichter im Tal gehen an.",
     "Feuer brennt, Stiefel aus.",
-    "Guten Abend. Rutsch näher ran, hier ist es warm.",
+    "Guten Abend%. Rutsch näher ran, hier ist es warm.",
     "Der Tag legt sich schlafen. Du darfst mit.",
     "Draußen wird es blau. Die schönste Stunde.",
-    "Was für ein Tag. Erzähl oder schweig — beides geht."
+    "Was für ein Tag. Erzähl oder schweig — beides geht.",
+    "Guten Abend%.",
+    "Setz dich ans Feuer%."
   ]
 };
 
@@ -1197,10 +1290,21 @@ const JAHRESZEIT_GRUSS = {
    Tag vor die Nase, wie gestern war. */
 const GRUESSE_LAGE = {
   ruhetag: "Heute geht niemand irgendwohin.",
-  hoch:    "Man hört noch die Musik von gestern, oder?",
-  schwer:  "Gestern war rau. Heute ist ein anderer Weg.",
+  hoch:    "Man hört noch die Musik von gestern, oder%?",
+  schwer:  "Gestern war rau%. Heute ist ein anderer Weg.",
   still:   "Gestern war still. Das hält manchmal an."
 };
+
+/* Die Anrede füllt den Schlitz. Kein Name = kein Rest, keine Lücke, kein
+   Komma. Ihre Idee dahinter ist der Rollenwechsel: „vielleicht will ich
+   morgen Sidequestnika sein“ — oder ihr Alter Ego, wenn nicht sie selbst
+   das machen soll, sondern jemand anders. Deshalb ist das Feld frei und
+   jederzeit änderbar, und leer ist eine gültige Antwort. */
+function anrede(){
+  const n = (D.name || "").trim();
+  return n ? ", " + n : "";
+}
+function grussFuellen(satz){ return satz.split("%").join(anrede()); }
 
 const ZEIT_REIHE = ["nacht","frueh","tag","abend"];
 
@@ -1220,18 +1324,18 @@ function tageszeit(st){
 function grussWort(jetzt){
   const zeit = tageszeit(jetzt.getHours());
   if(zeit === "frueh"){
-    if(istRuhetag()) return GRUESSE_LAGE.ruhetag;
+    if(istRuhetag()) return grussFuellen(GRUESSE_LAGE.ruhetag);
     /* nachwehenGrund() vereint schon „von Hand gesetzt“ und „gestern Abend so
        genannt“ — das hier ist derselbe Sachverhalt, also dieselbe Quelle. */
     const g = nachwehenGrund();
-    if(g && GRUESSE_LAGE[g]) return GRUESSE_LAGE[g];
-    if((D.tagsform||{})[gesternStr()] === "ruhig") return GRUESSE_LAGE.still;
+    if(g && GRUESSE_LAGE[g]) return grussFuellen(GRUESSE_LAGE[g]);
+    if((D.tagsform||{})[gesternStr()] === "ruhig") return grussFuellen(GRUESSE_LAGE.still);
   }
   const topf = GRUESSE[zeit].concat(
     (JAHRESZEIT_GRUSS[jahreszeit(jetzt.getMonth())] || [])
       .filter(x=> !x.zeit || x.zeit === zeit)
       .map(x=> x.t));
-  return topf[streu(datumStr(jetzt) + zeit) % topf.length];
+  return grussFuellen(topf[streu(datumStr(jetzt) + zeit) % topf.length]);
 }
 
 /* Warum gestreut und nicht durchgezählt: die erste Fassung nahm
@@ -1260,11 +1364,81 @@ function grussSetzen(el, wort){
   if(el.getBoundingClientRect().height > einzeilig + 2) el.classList.add("lang");
 }
 
+/* ═══════════ Wie sollen wir dich nennen ═══════════
+   Ihre Idee, und sie ist mehr als ein Namensfeld: „das könnte auch ein
+   witziges ADHS-Gimmick sein, wenn ich mal die Rolle wechsle und nicht ‚ich‘
+   das mache, sondern mein Alter Ego.“ Deshalb drei Eigenschaften:
+
+   - Leer ist eine gültige Antwort, kein fehlender Eintrag. Dann spricht die
+     App sie einfach nicht an, statt eine Lücke zu lassen.
+   - Jederzeit änderbar, und zwar DORT, wo sie angesprochen wird. Was in einer
+     Einstellungsansicht liegt, gibt es für sie nicht — das hat der dunkle
+     Modus einmal teuer bewiesen.
+   - Benutzte Namen sammeln sich als Kacheln. Zurückwechseln ist dann ein
+     Tipp und kein Tippen; genau das macht den Rollenwechsel leicht genug,
+     dass sie ihn auch an einem lahmen Tag benutzt. */
+const NAMEN_MAX = 8;
+
+function namenMerken(n){
+  const wort = (n||"").trim();
+  if(!wort) return;
+  D.namen = [wort].concat((D.namen||[]).filter(x=> x.toLowerCase() !== wort.toLowerCase()));
+  if(D.namen.length > NAMEN_MAX) D.namen = D.namen.slice(0, NAMEN_MAX);
+}
+
+function namensBlatt(){
+  blattZeigen('<h3>Wie sollen wir dich nennen?</h3>' +
+    '<p class="sub">Steht hier etwas, taucht es in der Begrüßung auf. Darf dein Name sein, ' +
+    'dein Künstlername oder wer du heute bist — und darf jeden Tag anders sein.</p>' +
+    '<input class="feld" id="nm-feld" placeholder="darf leer bleiben" enterkeyhint="done" autocomplete="off">' +
+    '<div class="kacheln" id="nm-vorrat"></div>', b=>{
+    const feld = b.querySelector("#nm-feld");
+    feld.value = D.name || "";
+
+    const vorrat = b.querySelector("#nm-vorrat");
+    (D.namen||[]).forEach(n=>{
+      const k = document.createElement("button");
+      k.className = "kachel" + (n === D.name ? " an" : "");
+      k.textContent = n;
+      k.addEventListener("click", ()=>{ feld.value = n; uebernehmen(); });
+      vorrat.appendChild(k);
+    });
+
+    function uebernehmen(){
+      D.name = feld.value.trim();
+      namenMerken(D.name);
+      sichern(); blattSchliessen(); zeichnen();
+    }
+
+    feld.addEventListener("keydown", e=>{ if(e.key === "Enter") uebernehmen(); });
+    b.appendChild(machKnopf("Merken", "stark", uebernehmen));
+    if(D.name)
+      b.appendChild(machKnopf("Heute lieber niemand", "ruhig", ()=>{
+        /* Der Name bleibt im Vorrat stehen — sie will ihn ja vielleicht
+           morgen wieder. Nur die Anrede pausiert. */
+        D.name = ""; sichern(); blattSchliessen(); zeichnen();
+      }));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
+    setTimeout(()=> feld.focus(), 60);
+  });
+}
+
+/* Der Hinweis steht nur, solange sie das Feld noch nie benutzt hat — sobald
+   ein Name im Vorrat liegt, kennt sie den Weg und der Platz gehört wieder dem
+   Gruß. Braucht kein eigenes Merkfeld. */
+function nameHinweisZeichnen(){
+  const h = document.getElementById("name-hinweis");
+  if(!h) return;
+  const frisch = !(D.name || "").trim() && !(D.namen||[]).length;
+  h.style.display = frisch ? "" : "none";
+}
+
 /* ═══════════ Zeichnen ═══════════ */
 function zeichnen(){
   tagPruefen();
   const jetzt = new Date();
   grussSetzen(document.getElementById("gruss"), grussWort(jetzt));
+  nameHinweisZeichnen();
   document.getElementById("datum").textContent =
     WOCHENTAGE[jetzt.getDay()] + ", " + jetzt.getDate() + ". " + MONATE[jetzt.getMonth()];
 
@@ -1638,30 +1812,437 @@ const WANDERER = [
    quelle:"Leitlinien · randomisierte Pilotstudie · Machbarkeitsstudie"}
 ];
 
+/* Der Wanderer erzählt jetzt zweierlei: seine ausführlichen Karten (mit Ruf,
+   Titel und Quelle) und die kurzen ADHS-Fakten aus der Bibliothek. Beide
+   Bauarten laufen durch dieselbe Darstellung — was fehlt, wird weggelassen,
+   statt eine zweite Funktion daneben zu stellen. */
 function wandererBlatt(letzter){
-  const topf = WANDERER.filter(w=> w.titel !== letzter);
-  const w = topf[Math.floor(Math.random()*topf.length)] || WANDERER[0];
+  const alle = wandererTopf();
+  const topf = alle.filter(w=> karteSchluessel(w) !== letzter);
+  const w = topf[Math.floor(Math.random()*topf.length)] || alle[0];
   blattZeigen('<h3>Ein Wanderer setzt sich zu dir</h3><p class="sub"></p>', b=>{
-    b.querySelector(".sub").textContent = "„" + w.ruf + "“";
+    const sub = b.querySelector(".sub");
+    if(w.ruf) sub.textContent = "„" + w.ruf + "“";
+    else sub.remove();
 
-    const t = document.createElement("p");
-    t.className = "mini"; t.style.margin = "20px 0 7px";
-    t.textContent = w.titel;
-    b.appendChild(t);
+    if(w.titel){
+      const t = document.createElement("p");
+      t.className = "mini"; t.style.margin = "20px 0 7px";
+      t.textContent = w.titel;
+      b.appendChild(t);
+    }
 
     const f = document.createElement("p");
-    f.style.margin = "0 0 12px"; f.style.fontSize = "16px"; f.style.lineHeight = "1.55";
-    f.textContent = w.fakt;
+    f.style.margin = (w.titel ? "0" : "6px") + " 0 12px";
+    f.style.fontSize = "16px"; f.style.lineHeight = "1.55";
+    f.textContent = w.fakt || w.t;
     b.appendChild(f);
 
     const qz = document.createElement("p");
     qz.className = "hinweis"; qz.style.margin = "0 0 20px";
-    qz.textContent = w.quelle;
+    /* Kurze Karten tragen ihre Quelle im Satz. Statt eine leere Zeile zu
+       zeigen, sagt die Marke, was diese Karte ist — sie hat ausdrücklich
+       darum gebeten, Belegtes als belegt erkennen zu können. */
+    qz.textContent = w.quelle || "✓ Belegt — nachgeprüftes Wissen über ADHS";
     b.appendChild(qz);
 
-    b.appendChild(machKnopf("Noch einer", "", ()=> wandererBlatt(w.titel)));
+    b.appendChild(machKnopf("Noch einer", "", ()=> wandererBlatt(karteSchluessel(w))));
     b.appendChild(machKnopf("Danke", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
+}
+
+/* ═══════════ Die Taverne ═══════════
+   Ihre Idee, als Spaßelement — und sie hat ein Argument hinter sich, das
+   nichts mit Spaß zu tun hat: die Drei-Wochen-Klippe. Solche Werkzeuge werden
+   überwiegend binnen zwei Wochen liegen gelassen, bei ADHS reißt es
+   verlässlich, sobald die Neuheit weg ist. Ein interessengesteuertes
+   Nervensystem braucht frische Reize, nicht mehr Disziplin.
+
+   Eigentlich verletzt die Taverne den Prüfstein „was trägt, nimmt etwas weg“.
+   Der Satz meint aber genau: ENTSCHEIDUNGEN sind die knappe Währung. Die
+   Taverne verlangt keine. Deshalb geht sie durch — solange sie die drei
+   Regeln des Wanderers erbt, und die sind hier nicht verhandelbar:
+
+     · SIE ruft die Taverne, nie umgekehrt.
+     · Nichts wird gezählt oder gespeichert.
+     · Nie eine Zahl, nie ein Punkt an der Leiste.
+
+   Sobald irgendwo „3 neue Sprüche!“ steht, ist es eine Aufgabe und stirbt.
+
+   Vier Gäste, und die Grenze zwischen ihnen muss scharf bleiben, sonst
+   verschwimmen sie zu einem Brei:
+     Wirt      — will nichts von ihr. Reden ohne Zweck.
+     Magier    — echtes Wissen über die WELT. Staunen, keine Lehre.
+     Geschwätz — erfunden. Null Botschaft, nur Welt.
+     Wanderer  — echtes Wissen über SIE (ADHS, mit Quelle). Wohnt weiter im
+                 Rückzug; hier steht nur eine dritte Tür. Der Weg im Rückzug
+                 ist der, der zählt, wenn es ihr schlecht geht. */
+
+/* ————— Der Wirt —————
+   Er spricht zuerst, sie darf antworten, danach hakt nichts nach. Er benutzt
+   nur, was ohnehin auf dem Tisch liegt, und fragt NIE nach Aufgaben. Ein Wirt,
+   der wissen will, ob die Steuer gemacht ist, ist kein Wirt, sondern ein Chef. */
+const WIRT = [
+  {sagt:"Setz dich. Der Platz am Feuer ist frei, und ich frag nicht, wo du herkommst.",
+   antworten:[
+     ["Langer Weg heute.", "Sieht man. Trink erst mal, reden kannst du später."],
+     ["Ich bleib nur kurz.", "Sagen sie alle. Der Stuhl steht trotzdem da."]]},
+
+  {sagt:"Draußen zieht es. Hier drin nicht. Das ist der ganze Trick an diesem Haus.",
+   antworten:[
+     ["Riecht gut hier.", "Suppe. Fragt keiner, was drin ist, und alle wollen nach."],
+     ["Ist es immer so leer?", "Um diese Zeit schon. Mir ist das lieber."]]},
+
+  {sagt:"Du siehst aus, als hättest du heute genug entschieden.",
+   antworten:[
+     ["Kann man so sagen.", "Dann entscheid hier nichts. Ich bring einfach was."],
+     ["Geht schon.", "Auch gut. Dann sitz einfach da."]]},
+
+  {sagt:"Der Krug steht schon. Nein, den hab ich nicht aufgeschrieben.",
+   antworten:[
+     ["Danke.", "Nicht dafür. Ist meine Taverne, ich schenk ein, wem ich will."],
+     ["Was schulde ich dir?", "Nichts. Sowas gibt es hier."]]},
+
+  {sagt:"Man muss nicht jeden Abend etwas erlebt haben. Manche Abende sind einfach Abende.",
+   antworten:[
+     ["Das tut gut zu hören.", "Ich sag es öfter. Es glaubt mir selten wer."],
+     ["Und deine?", "Meine sind alle gleich. Deshalb mag ich sie."]]},
+
+  {sagt:"Der Alte hinten hängt seit Stunden über seinen Büchern. Der redet gleich, wart nur ab.",
+   antworten:[
+     ["Was liest er?", "Weiß ich nicht. Er sagt, es ändert sich."],
+     ["Lass ihn lesen.", "Der lässt sich nicht stören. Nicht mal von sich selbst."]]},
+
+  {sagt:"Wenn du willst, hörst du einfach zu. Hier muss keiner was sagen.",
+   antworten:[
+     ["Gern.", "Dann ist ja gut."],
+     ["Erzähl was.", "Ach. Später vielleicht. Erst mal ankommen."]]},
+
+  {sagt:"Regen seit heute früh. Das Dach hält, das ist alles, was ich dazu sagen will.",
+   antworten:[
+     ["Klingt nach viel Arbeit.", "War es. Ist es nicht mehr. So mag ich Arbeit."],
+     ["Ich mag Regen.", "Dann setz dich ans Fenster. Der beste Platz ist frei."]]},
+
+  {sagt:"Die Kerze da hält noch eine Stunde. Danach gehen alle von allein.",
+   antworten:[
+     ["Praktisch.", "Billiger als rauswerfen."],
+     ["Und dann?", "Dann wisch ich. Und morgen kommt ihr wieder."]]},
+
+  {sagt:"Du warst länger nicht hier. Oder doch. Ich zähl das nicht mit.",
+   antworten:[
+     ["War viel los.", "Ist immer viel los. Deshalb gibt es Tavernen."],
+     ["Ich war gestern hier.", "Kann sein. Ich merk mir Gesichter, keine Tage."]]},
+
+  {sagt:"Erster Frost heute Nacht, sagt der Schmied. Der sagt das seit drei Wochen.",
+   antworten:[
+     ["Wird er mal recht haben.", "Genau darauf setzt er."],
+     ["Ich glaub ihm.", "Dann setz dich näher ans Feuer. Schadet ja nicht."]]},
+
+  {sagt:"Hier zählt keiner, wie oft du kommst. Das ist der Unterschied zu draußen.",
+   antworten:[
+     ["Das gefällt mir.", "Deshalb ist es so."],
+     ["Ich zähl selbst genug.", "Dann lass es hier drin bleiben."]]}
+];
+
+/* ————— Der alte Magier —————
+   Ihre Figur, ihre Beschreibung: „der alte Magier, der jeden Abend in der
+   Taverne seinen Whisky trinkt, während er über seinen Büchern hängt.“
+
+   Hier steht NUR Echtes. Sie hat ausdrücklich darum gebeten, es so zu
+   markieren, dass sie weiß, dass es wirklich stimmt — dieselbe Regel wie beim
+   Wanderer, wo jede Karte ihre Quelle samt Art nennt. Ein erfundener Fun Fact
+   in echter Aufmachung wäre genau der Vertrauensbruch, den man nicht heilt.
+   Deshalb sind Wissenslücken hier als Lücken formuliert („gilt als“, „die
+   Deutung ist umstritten“), und mehrere Karten räumen mit verbreiteten
+   Irrtümern auf, statt neue zu bauen.
+
+   Ein Fakt je Tag, gezogen aus der Tagesnummer — läuft der Reihe nach durch,
+   damit sich nichts wiederholt, solange die Bibliothek reicht. Das braucht
+   NICHTS gespeichert: das Datum ist der ganze Zustand. */
+const MAGIER = [
+  {g:"ADHS", t:"Die erste klare medizinische Beschreibung ist von 1798: Der schottische Arzt Alexander Crichton schrieb über eine „mental restlessness“, bei der die Aufmerksamkeit von jeder Kleinigkeit weggerissen wird — mehr als hundert Jahre vor der heutigen Diagnose."},
+  {g:"Mittelalter", t:"Wikinger trugen keine Hörnerhelme. Die Idee stammt aus dem Bühnenbild einer Wagner-Oper von 1876 — archäologisch gibt es für Hörner am Kampfhelm keinen Beleg."},
+  {g:"Wirtshaus", t:"„Whisky“ kommt vom gälischen uisge beatha: Wasser des Lebens. Über Jahrhunderte hat sich das zu „usquebaugh“ und schließlich zu „whisky“ abgeschliffen."},
+  {g:"Würfel & Spiel", t:"Dungeons & Dragons erschien 1974 in einer Auflage von 1000 Stück, von Hand zusammengelegt. Gygax und Arneson rechneten damit, dass die Kisten Jahre im Keller stehen würden."},
+  {g:"Sagen", t:"Was im Mittelalter als Einhorn gehandelt wurde, waren Narwalzähne — und sie wurden mit Gold aufgewogen. Königshäuser besaßen „Einhornhörner“ und wussten oft selbst nicht, was sie da hatten."},
+  {g:"ADHS", t:"Zucker macht Kinder nicht hyperaktiv. Das ist mehrfach kontrolliert untersucht worden; der Effekt verschwindet, sobald die Eltern nicht wissen, wer Zucker bekommen hat — er steckte in der Erwartung, nicht im Zucker."},
+  {g:"Mittelalter", t:"Die Menschen im Mittelalter wussten, dass die Erde eine Kugel ist. Die Behauptung, man habe sie für eine Scheibe gehalten, wurde erst im 19. Jahrhundert populär gemacht."},
+  {g:"Würfel & Spiel", t:"Den zwanzigseitigen Würfel gibt es seit der Antike. Im Metropolitan Museum liegt ein Ikosaeder aus ptolemäischer Zeit, mit griechischen Buchstaben auf den Flächen — rund zweitausend Jahre vor der ersten Würfelprobe."},
+  {g:"Wirtshaus", t:"Bierbrauen war lange Frauenarbeit. Im englischen Sprachraum hießen die Brauerinnen „brewsters“; erst als Brauen zum Gewerbe mit Kapital wurde, verdrängten Männer sie aus dem Beruf."},
+  {g:"ADHS", t:"Ritalin ist nach einer Frau benannt. Der Chemiker Leandro Panizzon probierte den Stoff 1944 an sich und seiner Frau Marguerite, genannt Rita — sie spielte danach besser Tennis. Er nannte die Substanz nach ihr."},
+  {g:"Mittelalter", t:"Ein mittelalterliches Langschwert wog zwischen 1,1 und 1,8 Kilogramm. Die Vorstellung vom zwanzig Kilo schweren Ungetüm stammt aus dem 19. Jahrhundert, nicht aus der Waffenkammer."},
+  {g:"Sagen", t:"Im Wort „Alptraum“ steckt kein Berg, sondern ein Wesen: der Alp, ein Nachtmahr, der sich auf die Brust des Schlafenden setzt. Im Englischen heißt er noch heute „nightmare“ — die „mare“ ist kein Pferd."},
+  {g:"Wirtshaus", t:"Der älteste schriftliche Beleg für Whiskybrennen in Schottland steht in einer Steuerrolle von 1494: Malz für Bruder John Cor, „to make aquavitae“. Eine Buchhaltungszeile ist die Geburtsurkunde."},
+  {g:"ADHS", t:"ADHS gehört zu den am stärksten erblichen psychischen Diagnosen. Zwillingsstudien kommen auf eine Erblichkeit um 70 bis 80 Prozent — vergleichbar mit der Körpergröße."},
+  {g:"Würfel & Spiel", t:"Die ersten D&D-Sets hatten keinen zehnseitigen Würfel. Man benutzte einen d20, der zweimal von 0 bis 9 durchnummeriert war, und musste vorher ansagen, welche Hälfte gilt."},
+  {g:"Mittelalter", t:"Die niedrige „Lebenserwartung“ im Mittelalter ist ein Rechenartefakt. Sehr viele Kinder starben früh und ziehen den Schnitt nach unten — wer das zwanzigste Lebensjahr erreichte, hatte gute Aussichten auf fünfzig oder sechzig."},
+  {g:"Sagen", t:"Der Basilisk sollte allein durch seinen Blick töten. Deshalb tauchte in den Geschichten irgendwann der Spiegel auf: Was tötet, indem es sieht, muss sich selbst gefährlich werden können."},
+  {g:"ADHS", t:"Der Name führt in die Irre. Es fehlt bei ADHS nicht die Aufmerksamkeit, sondern ihre Steuerung — deshalb ist stundenlanges Versinken in einer interessanten Sache kein Widerspruch zur Diagnose, sondern typisch."},
+  {g:"Wirtshaus", t:"Wirtshausschilder waren Bilder, weil die wenigsten lesen konnten. Ein gemalter Löwe fand sich auch ortsfremd wieder — der Name kam vom Schild, nicht umgekehrt."},
+  {g:"Mittelalter", t:"Ultramarinblau war teurer als Gold. Es wurde aus Lapislazuli gemahlen, der nur aus wenigen Minen in Afghanistan kam; Verträge legten manchmal fest, wie viel davon der Maler verwenden musste."},
+  {g:"Würfel & Spiel", t:"Es gibt genau fünf Körper, bei denen alle Flächen gleich sind — die platonischen Körper. Deshalb hat ein fairer Würfelsatz die Zahlen 4, 6, 8, 12 und 20 und nicht irgendwelche."},
+  {g:"ADHS", t:"Bewegung stört bei ADHS nicht immer, sie hilft oft. In Studien schnitten Kinder mit ADHS bei Gedächtnisaufgaben besser ab, wenn sie sich dabei mehr bewegten — bei Kindern ohne ADHS war es umgekehrt."},
+  {g:"Sagen", t:"Der Golem stammt aus jüdischer Überlieferung, doch die berühmte Prager Fassung mit Rabbi Löw wurde erst im 19. Jahrhundert aufgeschrieben und populär. Die Sage ist jünger als das Haus, in dem sie spielt."},
+  {g:"Mittelalter", t:"Mönche kritzelten an die Ränder ihrer Handschriften, was ihnen durch den Kopf ging: „Die Tinte ist dünn.“ — „Oh, meine Hand.“ — „Gleich gibt es Essen.“ Tausend Jahre alte Randbemerkungen von Leuten bei der Arbeit."},
+  {g:"Wirtshaus", t:"Dass man im Mittelalter Bier trank, weil Wasser gefährlich war, ist so nicht haltbar. Man trank auch Wasser. Bier war vor allem Nahrung — flüssiges Brot mit Kalorien, die man auf dem Feld brauchte."},
+  {g:"Würfel & Spiel", t:"Der Displacer Beast aus D&D geht auf eine Science-Fiction-Geschichte von 1939 zurück: das Coeurl aus A. E. van Vogts „Black Destroyer“, eine Raubkatze mit Tentakeln an den Schultern."},
+  {g:"ADHS", t:"Zeitgefühl ist bei ADHS messbar anders. In Versuchen, in denen Menschen Intervalle schätzen oder reproduzieren sollen, weichen Erwachsene mit ADHS im Schnitt deutlicher ab — es ist keine Ausrede, es ist ein Befund."},
+  {g:"Mittelalter", t:"Auf einer Handschrift aus Dubrovnik von 1445 sind Katzenpfoten in Tinte quer über die Seite gelaufen. Der Schreiber hat weitergeschrieben. Die Pfoten sind noch da."},
+  {g:"Sagen", t:"Europäische Drachen waren ursprünglich schlangenartig — das Wort kommt vom griechischen drakon, „große Schlange“. Vier Beine und Fledermausflügel sind eine späte, überwiegend westeuropäische Mode."},
+  {g:"Wirtshaus", t:"Ein „Toast“ heißt Toast, weil geröstetes Brot im Wein lag. Das Brot sollte den Geschmack verbessern; der Trinkspruch übernahm irgendwann das Wort und ließ das Brot weg."},
+  {g:"ADHS", t:"Der „Zappelphilipp“ war kein Fachtext. Der Frankfurter Arzt Heinrich Hoffmann schrieb den Struwwelpeter 1845 als Weihnachtsgeschenk für seinen dreijährigen Sohn, weil ihm die Bilderbücher im Laden zu belehrend waren."},
+  {g:"Würfel & Spiel", t:"„Nat 20“ ist in D&D 5e keine automatische Erfolgsregel für Fertigkeitsproben. Offiziell zählt die 20 nur beim Angriffswurf besonders — der Rest ist Hausregel, die fast alle spielen."},
+  {g:"Mittelalter", t:"Die Brille wurde um 1290 in Oberitalien erfunden. Ein Prediger erwähnte 1306 in Florenz, er habe den Mann gekannt, der sie gemacht habe — und ärgerte sich, dass der sein Verfahren nicht verriet."},
+  {g:"Sagen", t:"Werwolfprozesse waren real. 1589 wurde Peter Stumpp bei Bedburg hingerichtet, angeklagt, sich mit einem Gürtel in einen Wolf verwandelt zu haben. Die Flugschrift dazu ist erhalten."},
+  {g:"ADHS", t:"Frauen bekommen ihre Diagnose im Schnitt deutlich später. Der überwiegend unaufmerksame Typ stört niemanden im Klassenzimmer — und was nicht stört, wird nicht überwiesen."},
+  {g:"Wirtshaus", t:"Met gilt als eines der ältesten alkoholischen Getränke überhaupt. Vergorener Honig braucht keine Landwirtschaft, kein Getreide und keine Technik — nur Honig, Wasser und Geduld."},
+  {g:"Mittelalter", t:"Ritterrüstungen waren beweglich. Man konnte darin laufen, sich vom Boden aufrichten und aufs Pferd steigen. Der Kran, mit dem Ritter angeblich in den Sattel gehievt wurden, stammt aus einem Film von 1944."},
+  {g:"Würfel & Spiel", t:"Schach kam über Persien nach Europa. „Schachmatt“ geht auf šāh māt zurück — der König ist besiegt oder hilflos. Die beliebte Übersetzung „der König ist tot“ gilt sprachwissenschaftlich als falsch."},
+  {g:"ADHS", t:"Stimulanzien wirken bei ADHS nicht paradox. Lange hieß es, sie würden „umgekehrt“ wirken; tatsächlich verbessern sie Konzentration auch bei Menschen ohne ADHS. Der Unterschied ist der Ausgangspunkt, nicht die Substanz."},
+  {g:"Sagen", t:"„Kobold“ und „goblin“ sind vermutlich verwandt und meinten beide zunächst einen Hausgeist. Erst die Fantasy des 20. Jahrhunderts machte daraus eine Art mit Statistikblock."},
+  {g:"Mittelalter", t:"Safran war so wertvoll, dass es eigene Gesetze gab. In Nürnberg konnte Safranfälschung im 15. Jahrhundert mit dem Tod bestraft werden — für einen Beutel getrockneter Blütenfäden."},
+  {g:"Wirtshaus", t:"„Small beer“ war Dünnbier mit wenig Alkohol und wurde von allen getrunken, auch von Kindern. Das starke Bier war die Ausnahme, nicht die Regel."},
+  {g:"ADHS", t:"Bluma Zeigarnik beschrieb 1927, dass Unerledigtes besser im Gedächtnis bleibt als Erledigtes. Die Idee soll aus dem Kaffeehaus stammen: Kellner hatten offene Bestellungen im Kopf und vergaßen sie sofort nach dem Bezahlen."},
+  {g:"Würfel & Spiel", t:"Römische Würfel waren oft nachweislich unfair. Viele erhaltene Exemplare sind erkennbar unregelmäßig — ob aus Nachlässigkeit oder Absicht, lässt sich am Würfel nicht ablesen."},
+  {g:"Mittelalter", t:"Die Gabel galt lange als affektiert. Sie kam über Byzanz und Italien; ein venezianischer Chronist berichtete entrüstet von einer Prinzessin, die ihr Essen nicht mit den Fingern anfasste."},
+  {g:"Sagen", t:"Trolle, wie wir sie kennen, sind jung. In der altnordischen Überlieferung ist „troll“ ein weiter Begriff für unheimliche Wesen aller Art — die steinernen Riesen unter der Brücke sind eine spätere Zuspitzung."},
+  {g:"ADHS", t:"Ein Selbsttest ist keine Diagnose. Der ASRS der WHO ist ein Screening-Bogen: Er sagt, ob genauer hingeschaut werden sollte, und ausdrücklich nicht, ob jemand ADHS hat."},
+  {g:"Wirtshaus", t:"Hopfen setzte sich in Mitteleuropa erst im Spätmittelalter durch. Davor würzte und konservierte man Bier mit „Gruit“, einer Kräutermischung — und wer das Gruitrecht hatte, verdiente daran."},
+  {g:"Mittelalter", t:"Der Begriff „Mittelalter“ wurde von den Leuten danach erfunden. Humanisten der Renaissance nannten die Zeit zwischen der Antike und sich selbst die „mittlere“ — als Lücke, die man überspringen wollte."},
+  {g:"Würfel & Spiel", t:"Das „Königliche Spiel von Ur“ ist rund 4500 Jahre alt, und die Regeln sind bekannt: Eine Keilschrifttafel von 177 v. Chr. erklärt sie. Man kann es heute spielen."},
+  {g:"ADHS", t:"Etwa zweieinhalb Prozent der Erwachsenen weltweit erfüllen die Kriterien; bei Kindern sind es rund fünf. Der Unterschied heißt nicht, dass es weggeht — die Kriterien sind auf Kinder zugeschnitten."},
+  {g:"Sagen", t:"Das Einhorn kam durch eine Übersetzung in die Bibel. Das hebräische re'em, vermutlich ein Wildrind, wurde im Griechischen zu monokeros — ein Tier mit einem Horn. Aus einem Ochsen wurde ein Mythos."},
+  {g:"Mittelalter", t:"Keuschheitsgürtel sind fast durchweg Fälschungen. Die berühmten Museumsstücke stammen aus dem 18. und 19. Jahrhundert — hergestellt für Sammler, die eine schaurige Vorstellung vom Mittelalter kaufen wollten."},
+  {g:"Wirtshaus", t:"Der „Stammtisch“ ist jünger als er tut. Als feste Einrichtung mit eigenem Schild und eigenem Kreis ist er eine Erfindung des 19. Jahrhunderts, nicht des Mittelalters."},
+  {g:"ADHS", t:"Hyperfokus steht in keinem Diagnosekatalog, ist aber gut beschrieben. Er passt zur Theorie eines interessengesteuerten Systems: Nicht die Menge der Aufmerksamkeit ist das Problem, sondern wer über sie bestimmt."},
+  {g:"Würfel & Spiel", t:"D&D wuchs aus einem Tabletop-Regelwerk. „Chainmail“ war für Schlachten mit Figuren gedacht; erst als Spieler anfingen, einzelne Figuren zu behalten und ihnen Namen zu geben, entstand das Rollenspiel."},
+  {g:"Mittelalter", t:"Das Glas alter Kirchenfenster fließt nicht. Dass unten dicker ist als oben, liegt am Herstellungsverfahren — die Scheiben wurden so eingebaut. Glas ist bei Zimmertemperatur ein Feststoff."},
+  {g:"Sagen", t:"Die Sirenen bei Homer sangen, hatten aber ursprünglich Vogelkörper. Die Verschmelzung mit Meerjungfrauen ist eine spätere, vor allem romanische Entwicklung — im Französischen heißt die Meerjungfrau bis heute sirène."},
+  {g:"ADHS", t:"„Body doubling“ ist kein Fachbegriff, das Phänomen hat aber Verwandte in der Forschung: Die bloße Anwesenheit anderer verändert die Leistung messbar. Beschrieben wurde das erstmals 1898 an Radfahrern."},
+  {g:"Wirtshaus", t:"Das Reinheitsgebot von 1516 war auch Preispolitik. Indem nur Gerste erlaubt war, blieben Weizen und Roggen für das Brot — Bier sollte dem Bäcker nicht das Mehl wegnehmen."},
+  {g:"Mittelalter", t:"Ein Mönch namens Cadmug beklagte sich um 1420 in Deventer schriftlich über eine Katze, die nachts auf sein Buch gepinkelt hatte. Er ließ die Seite frei, malte eine Katze dazu und schrieb den Fluch daneben."},
+  {g:"Würfel & Spiel", t:"Frühe D&D-Würfel nutzten sich ab. Der Kunststoff war so weich, dass die Kanten nach einiger Zeit rund wurden — Spieler malten die Zahlen mit Wachsmalstiften nach, weil auch die Farbe verschwand."},
+  {g:"ADHS", t:"Wie oft ADHS diagnostiziert wird, schwankt zwischen Ländern erheblich. Wendet man dieselben Kriterien und Methoden an, schrumpfen die Unterschiede stark — es geht also überwiegend um Diagnosetradition, nicht um Biologie."},
+  {g:"Sagen", t:"Der Name „Vampir“ kam erst im 18. Jahrhundert nach Westeuropa, über Berichte aus dem habsburgischen Grenzgebiet. Blutsauger gab es in Sagen lange vorher, aber sie hießen anders."},
+  {g:"Mittelalter", t:"Universitäten sind älter als die meisten Staaten Europas. Bologna gilt als Gründung von 1088, in Oxford wurde spätestens ab 1096 gelehrt — ohne Gebäude, als Zunft von Lehrenden und Lernenden."},
+  {g:"Wirtshaus", t:"In England prüfte ein „ale-conner“ die Bierqualität im Auftrag der Stadt. Die berühmte Geschichte, er habe sich in Lederhosen aufs Bier gesetzt und geprüft, ob er kleben bleibt, ist allerdings eine Legende ohne Quelle."},
+  {g:"ADHS", t:"Die Diagnose hat mehrmals den Namen gewechselt: „hyperkinetische Reaktion des Kindesalters“, dann ADD mit und ohne Hyperaktivität, und erst seit 1987 ADHD. Die Menschen blieben dieselben."},
+  {g:"Würfel & Spiel", t:"Beholder, Mind Flayer und Displacer Beast tauchen in fremden Fantasy-Spielen praktisch nie auf. Sie sind rechtlich geschütztes Eigentum von D&D — anders als Orks, Drachen und Elfen, die niemandem gehören."},
+  {g:"Mittelalter", t:"„Blaues Blut“ kommt aus Spanien: sangre azul. Gemeint waren die durchscheinenden Adern hellhäutiger Adliger, die nicht auf dem Feld arbeiteten — eine Beschreibung von Hautfarbe, die zur Standesbehauptung wurde."},
+  {g:"Sagen", t:"Der Kraken kam aus Norwegen in die Naturkunde. Ein Bischof beschrieb ihn 1752 als riesenhaftes Tier, das Inseln vortäuscht — und lag insofern richtig, als es Riesenkalmare tatsächlich gibt."},
+  {g:"ADHS", t:"Etwa jeder zweite Erwachsene mit ADHS berichtet Schlafprobleme. Die innere Uhr läuft häufig verschoben: Müdigkeit kommt später, der Wecker aber nicht."},
+  {g:"Wirtshaus", t:"Klöster waren die Herbergen der Fernreisenden. Wer auf Pilgerwegen unterwegs war, fand dort Bett und Essen — Gastfreundschaft war Ordensregel, nicht Gefallen."},
+  {g:"Mittelalter", t:"Das älteste erhaltene englische Kochbuch, „The Forme of Cury“, entstand um 1390 am Hof Richards II. Es nennt Zutaten wie Olivenöl, Reis und Gewürznelken — die Küche war weniger grau als ihr Ruf."},
+  {g:"Würfel & Spiel", t:"Der römische Würfelturm von Vettweiß-Froitzheim ist erhalten. Man warf oben ein, die Würfel purzelten über Stufen und fielen unten heraus — eine Maschine gegen das Falschwerfen, aus dem 4. Jahrhundert."},
+  {g:"ADHS", t:"Sir George Still hielt 1902 Vorlesungen über Kinder mit einem „Defekt der moralischen Kontrolle“. Seine Beschreibungen werden bis heute als frühe Schilderung von ADHS gelesen — die Deutung war falsch, die Beobachtung genau."},
+  {g:"Sagen", t:"Der Nöck oder Neck ist ein Wassergeist, der mit Musik ins Wasser lockt. Im Englischen steckt er vermutlich noch in „Old Nick“ — einem Namen für den Teufel."},
+  {g:"Mittelalter", t:"Hexenverfolgung ist überwiegend keine mittelalterliche Erscheinung. Der Schwerpunkt liegt zwischen 1450 und 1750, also in der frühen Neuzeit — mitten in der Zeit, die sich selbst für aufgeklärter hielt."},
+  {g:"Wirtshaus", t:"Gläser anzustoßen, damit etwas überschwappt und Gift auffliegt, ist eine hübsche Erklärung ohne historischen Beleg. Sie taucht erst spät auf und ist vermutlich rückwärts erfunden."},
+  {g:"ADHS", t:"Der Anteil Erwachsener mit ADHS ist in Gefängnissen um ein Vielfaches höher als in der Allgemeinbevölkerung. Metaanalysen kommen auf rund ein Viertel der Insassen — ein Befund über Systeme, nicht über Charakter."},
+  {g:"Würfel & Spiel", t:"In den 1980ern galt D&D in den USA als gefährlich. Elterngruppen und Fernsehsendungen brachten es mit Okkultismus in Verbindung; untersucht wurde viel, gefunden wurde nichts."},
+  {g:"Mittelalter", t:"Die Notenschrift mit Linien geht auf Guido von Arezzo zurück, um 1025. Von ihm stammen auch die Silben ut, re, mi, fa, sol, la — die Anfangssilben der Zeilen eines Hymnus, deren Melodie stufenweise anstieg."},
+  {g:"Sagen", t:"Fee kommt von fatum, dem Schicksal. Über das altfranzösische faie wurde daraus ein Wesen — ursprünglich waren die Feen näher an den Schicksalsgöttinnen als an Blumenkindern mit Flügeln."},
+  {g:"ADHS", t:"Aufgabenwechsel kosten messbar Zeit und Fehler, bei allen Menschen. Bei ADHS fällt dieser Preis höher aus — „nur eben schnell etwas anderes“ ist deshalb selten schnell und nie eben."},
+  {g:"Wirtshaus", t:"Trinkhörner standen nicht auf dem Tisch. Sie haben keinen Fuß — man musste sie halten oder austrinken. Die Gastlichkeit war in die Form eingebaut."},
+  {g:"Mittelalter", t:"Mittelalterliche Zahnpflege gab es sehr wohl: Zahnstocher, Leinentücher und Pulver aus Kräutern, Salz oder Asche. Untersuchungen an Skeletten zeigen deutlich weniger Karies als in späteren, zuckerreichen Jahrhunderten."},
+  {g:"Würfel & Spiel", t:"Das Wort „Hasard“ für Glücksspiel gilt als arabischer Herkunft, von az-zahr, dem Würfel. Es kam über Kreuzfahrer und Spanien nach Europa — mitsamt dem Spiel."},
+  {g:"ADHS", t:"Die Wartezeit auf eine Erwachsenendiagnose beträgt in Deutschland vielerorts über ein Jahr. Bis 2003 gab es hierzulande überhaupt keine offizielle Erwachsenendiagnose — man galt schlicht als geheilt, sobald man erwachsen war."},
+  {g:"Sagen", t:"Die Mandragora sollte beim Ausreißen schreien und den Ausreißer töten. Deshalb rieten Kräuterbücher, einen Hund die Arbeit machen zu lassen — die Wurzel ist tatsächlich giftig, der Schrei nicht belegt."},
+  {g:"Mittelalter", t:"Die Pestärzte mit Schnabelmaske gehören nicht ins Mittelalter. Der Anzug wurde im 17. Jahrhundert beschrieben, rund dreihundert Jahre nach dem Schwarzen Tod."},
+  {g:"Würfel & Spiel", t:"Backgammon-Vorläufer sind über zweitausend Jahre alt. Die Römer spielten „tabula“ nach fast denselben Regeln; von Kaiser Claudius ist überliefert, dass er ein Buch darüber geschrieben haben soll."},
+  {g:"Wirtshaus", t:"Der Ausdruck „Zeche prellen“ hat nichts mit Bergbau zu tun. „Zeche“ meinte ursprünglich die gemeinsame Rechnung einer Trinkgesellschaft — der Bergbau übernahm das Wort später für die Gewerkschaft der Anteilseigner."},
+  {g:"ADHS", t:"Wenn-Dann-Pläne wirken bei ADHS besonders gut. In Versuchen erreichten Kinder mit ADHS, die sich vorher „wenn X, dann Y“ zurechtgelegt hatten, dieselbe Hemmungsleistung wie Kinder ohne Diagnose."},
+  {g:"Mittelalter", t:"Städte waren klein. Köln gehörte um 1300 zu den größten nördlich der Alpen und hatte vielleicht vierzigtausend Einwohner — heute wäre das eine Kleinstadt."},
+  {g:"Sagen", t:"„Hier sind Drachen“ steht auf so gut wie keiner alten Landkarte. Belegt ist die Formel im Wesentlichen auf einem einzigen Globus von etwa 1504 — und dort auf Latein: HC SVNT DRACONES."}
+];
+
+/* ————— Geschwätz —————
+   Erfunden, und das steht auch dran. Sie wollte ausdrücklich keine
+   Motivationsfloskeln („nicht diese Floskeln, die alle Menschen so meinen“),
+   sondern genau das hier: Gerüchte, Unsinn, Wetterklagen, null Botschaft.
+
+   Echte Nachrichten sind technisch ausgeschlossen — die App hat kein Netz und
+   soll offline vollständig funktionieren. Das ist keine Einschränkung, das ist
+   der bessere Entwurf: Neuigkeiten aus einer Welt, die es nicht gibt,
+   veralten nie und machen niemandem schlechte Laune. */
+const GESCHWAETZ = [
+  "Der Schmied sagt, im Nordwald sei ein Drache. Der Schmied sagt das jedes Jahr.",
+  "Die Müllerin hat gewonnen. Beim Würfeln gegen den Zöllner. Dreimal hintereinander. Der Zöllner spielt nicht mehr.",
+  "Zwei Reisende streiten seit einer Stunde, ob der Weg über den Pass kürzer ist. Beide waren nie oben.",
+  "Es heißt, der Bäcker legt seit Neuestem einen Stein in jeden dritten Laib. Gegen die Diebe. Oder gegen die Kunden.",
+  "Der Fährmann verlangt jetzt zwei Kupfer. Es hat sich nichts geändert am Fluss.",
+  "Am Brunnen erzählt jemand, im Süden gäbe es Katzen, so groß wie Hunde. Am Brunnen erzählt man viel.",
+  "Die Wirtin drei Dörfer weiter soll besseres Bier haben. Unser Wirt hört das nicht gern.",
+  "Jemand hat einen Schuh auf dem Dach der Kirche gefunden. Niemand weiß, wie er dahin kam. Der Schuh schweigt.",
+  "Der Hufschmied schwört, sein Hund könne das Wetter vorhersagen. Bisher hat der Hund geschlafen.",
+  "Angeblich zieht im Herbst ein Zirkus durch. Angeblich zieht jedes Jahr ein Zirkus durch.",
+  "Die Zwillinge vom Hof haben die Namen getauscht. Seit drei Wochen merkt es niemand.",
+  "Ein Händler bietet Karten an, auf denen der Norden unten ist. Er sagt, das sei richtiger. Keiner kauft.",
+  "Im Keller hat es geklopft. Der Wirt sagt, das sei das Fass. Das Fass ist leer.",
+  "Es gibt Streit um einen Apfelbaum, der genau auf der Grenze steht. Der Baum trägt dieses Jahr nichts. Der Streit läuft weiter.",
+  "Jemand behauptet, er habe die Sterne gezählt. Er sagt, es waren mehr als letztes Mal.",
+  "Der Ziegenbock ist ausgebrochen und stand morgens auf dem Marktplatz. Er sah zufrieden aus.",
+  "Der Alte am Fenster hat heute drei Stunden auf dieselbe Seite geschaut. Er sagt, sie sei kompliziert.",
+  "Es soll einen kürzeren Weg zur Mühle geben. Er führt durch das Moor. Der Weg ist wirklich kürzer.",
+  "Eine Elster hat dem Vogt den Siegelring gestohlen. Der Vogt siegelt jetzt mit dem Daumen.",
+  "Der Regen hat aufgehört. Zwei Leute haben Wetten laufen, dass er wiederkommt. Beide auf ja.",
+  "Im Nachbardorf hat jemand eine Glocke gegossen, die zu tief klingt. Sie hängt trotzdem.",
+  "Ein Junge behauptet, er habe ein Pferd gesehen, das gelacht hat. Seine Mutter behauptet das Gegenteil.",
+  "Der Kaufmann aus dem Osten ist wieder da. Er hat dieselben Waren wie letztes Jahr und andere Geschichten dazu.",
+  "Über dem See lag heute früh Nebel in Streifen. Der Fährmann sagt, das bedeute etwas. Was, sagt er nicht.",
+  "Die Bienen vom Imker sind umgezogen. In den Schornstein des Schulmeisters. Der Schulmeister unterrichtet jetzt draußen.",
+  "Jemand hat die Wegsteine umgedreht. Seither kommen mehr Fremde in die Taverne. Der Wirt sucht nicht nach dem Täter.",
+  "Es heißt, der Müller mahlt sonntags. Es heißt auch, das sei nicht wahr. Beides wird weitererzählt.",
+  "Eine Krähe sitzt seit vier Tagen auf demselben Pfosten. Sie wartet auf etwas. Wir wissen nicht auf was.",
+  "Der Küfer hat ein Fass gebaut, das nicht dicht ist. Er nennt es jetzt Blumentopf und verkauft es teurer.",
+  "Am Waldrand steht ein Stuhl. Einfach ein Stuhl. Seit Wochen. Niemand hat ihn hingestellt, sagen alle.",
+  "Die Katze der Wirtin hat Junge bekommen. Vier. Der Wirt behauptet, es seien fünf, und zählt jeden Abend nach.",
+  "Ein Wanderer hat nach dem Weg gefragt und ist dann in die andere Richtung gegangen. Das machen mehr, als man denkt.",
+  "Im Bach liegt ein Schwert. Es liegt da seit dem Frühjahr. Es holt sich keiner, für alle Fälle.",
+  "Der Uhrmacher aus der Stadt sagt, er könne die Zeit genauer messen als die Sonne. Die Sonne nimmt es gelassen.",
+  "Zwei Hunde haben sich vor dem Tor angefreundet, die sich zwei Jahre lang angebellt haben. Grund unbekannt.",
+  "Es soll eine Abkürzung über den Friedhof geben. Es benutzt sie niemand. Sie ist trotzdem kürzer.",
+  "Der Dachdecker hat auf dem Turm einen Namen eingeritzt gefunden. Es ist sein eigener. Er war nie oben.",
+  "Angeblich hat der Vogt einen zweiten Hut. Gesehen hat ihn keiner. Der erste Hut reicht auch.",
+  "Der Wein aus dem letzten Jahr ist besser geworden. Der Wirt sagt, das liege am Keller. Der Keller sagt nichts.",
+  "Jemand hat eine Karte des Dorfes gezeichnet und die Taverne zu groß gemalt. Der Wirt hat sie gekauft."
+];
+
+/* ————— Wer welche Karte erzählt —————
+   Ihr Zuruf mitten im Bau, und er war richtig: „können wir den Wanderer in die
+   Taverne einbauen? So geht er gerade unter … wir könnten ja Wanderer zu ADHS
+   Facts packen, Magier gibt allgemeine Fun Facts.“
+
+   Genau so. Die Trennung ist damit nicht mehr Ort, sondern Thema:
+     Wanderer — was mit IHR zu tun hat (ADHS).
+     Magier   — was mit der WELT zu tun hat.
+
+   Deshalb bleibt es EINE Bibliothek mit einer Gebietsmarke, und die beiden
+   Gäste greifen unterschiedlich hinein. Zwei getrennte Listen wären zwei
+   Buchhaltungen für dieselbe Sache — genau der Fehler, den `rastBuchen`
+   schon einmal gekostet hat.
+
+   Seine Tür im Rückzug bleibt trotzdem, wo sie ist: das ist der Weg, der
+   zählt, wenn es ihr schlecht geht. Die Taverne ist eine zweite Tür, kein
+   Umzug. */
+function magierTopf(){ return MAGIER.filter(x=> x.g !== "ADHS"); }
+function wandererTopf(){ return WANDERER.concat(MAGIER.filter(x=> x.g === "ADHS")); }
+/* Karten der beiden Bauarten brauchen einen gemeinsamen Schlüssel, damit
+   „noch einer“ nicht dieselbe zweimal zieht. */
+function karteSchluessel(k){ return k.titel || k.t; }
+
+/* Der Tag ist der ganze Zustand: aus der Tagesnummer wird der Index, also
+   läuft die Bibliothek der Reihe nach durch und wiederholt nichts, solange
+   sie reicht. Nichts gespeichert, nichts gezählt. */
+function tagesNummer(){
+  const d = Date.parse((D.tag || heuteStr()) + "T12:00:00");
+  return isNaN(d) ? 0 : Math.floor(d / 86400000);
+}
+function magierHeute(){
+  const topf = magierTopf();
+  return topf[((tagesNummer() % topf.length) + topf.length) % topf.length];
+}
+
+/* ————— Der Raum —————
+   Was gerade offen liegt, steht in Modul-Variablen und NICHT in D: es soll den
+   Neuaufbau der Seite überleben (sonst verschwindet die Antwort des Wirts,
+   sobald irgendwo gezeichnet wird), aber nichts davon gehört gespeichert.
+   „Nichts wird gezählt“ heißt auch: nichts wird mitgeschrieben. */
+let wirtAntwort = null;
+let magierOffen = false;
+let geschwaetzJetzt = null;
+
+function wirtHeute(){ return WIRT[streu("wirt" + (D.tag||"")) % WIRT.length]; }
+
+function tavernenKarte(titel, unter){
+  const k = document.createElement("div");
+  k.className = "gast";
+  const h = document.createElement("p");
+  h.className = "gast-name"; h.textContent = titel;
+  const u = document.createElement("p");
+  u.className = "gast-sagt"; u.textContent = unter;
+  k.appendChild(h); k.appendChild(u);
+  return k;
+}
+
+function taverneZeichnen(){
+  const ziel = document.getElementById("taverne-raum");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+
+  /* ── Der Wirt ── */
+  const wirt = wirtHeute();
+  const kw = tavernenKarte("Der Wirt", wirtAntwort ? wirtAntwort.er : wirt.sagt);
+  if(wirtAntwort){
+    const du = document.createElement("p");
+    du.className = "gast-du"; du.textContent = "Du: " + wirtAntwort.du;
+    kw.insertBefore(du, kw.lastChild);
+  }else{
+    const reihe = document.createElement("div");
+    reihe.className = "kacheln";
+    wirt.antworten.forEach(([du, er])=>{
+      const k = document.createElement("button");
+      k.className = "kachel";
+      k.textContent = du;
+      k.addEventListener("click", ()=>{ wirtAntwort = {du:du, er:er}; taverneZeichnen(); });
+      reihe.appendChild(k);
+    });
+    const still = document.createElement("button");
+    still.className = "kachel";
+    still.textContent = "Nur zuhören";
+    /* Nichts zu sagen ist eine vollständige Antwort — danach hakt nichts nach. */
+    still.addEventListener("click", ()=>{
+      wirtAntwort = {du:"…", er:"Auch recht. Sitz einfach da."};
+      taverneZeichnen();
+    });
+    reihe.appendChild(still);
+    kw.appendChild(reihe);
+  }
+  ziel.appendChild(kw);
+
+  /* ── Der alte Magier ── */
+  const m = magierHeute();
+  const km = tavernenKarte("Der alte Magier",
+    magierOffen ? m.t : "Hängt über seinen Büchern, das Glas seit einer Stunde halb voll.");
+  if(magierOffen){
+    const q = document.createElement("p");
+    q.className = "beleg";
+    q.textContent = "✓ Belegt · " + m.g;
+    km.appendChild(q);
+    const nz = document.createElement("p");
+    nz.className = "gast-fuss";
+    nz.textContent = "Morgen hat er eine andere Seite aufgeschlagen.";
+    km.appendChild(nz);
+  }else{
+    km.appendChild(machKnopf("Was liest du da?", "", ()=>{ magierOffen = true; taverneZeichnen(); }));
+  }
+  ziel.appendChild(km);
+
+  /* ── Der Wanderer ── */
+  const kwd = tavernenKarte("Ein Wanderer",
+    "Sitzt am Rand, Stiefel voller Staub. Er kennt die Gegend, aus der du kommst.");
+  kwd.appendChild(machKnopf("Setz dich zu ihm", "", ()=> wandererBlatt()));
+  const wh = document.createElement("p");
+  wh.className = "gast-fuss";
+  wh.textContent = "Belegtes über ADHS, jede Karte mit Quelle. Fragt nichts, zählt nichts.";
+  kwd.appendChild(wh);
+  ziel.appendChild(kwd);
+
+  /* ── Am Nebentisch ── */
+  const kg = tavernenKarte("Am Nebentisch",
+    geschwaetzJetzt || "Es wird geredet. Man versteht nur Halbes.");
+  if(geschwaetzJetzt){
+    const e = document.createElement("p");
+    e.className = "erfunden";
+    e.textContent = "✎ Erfunden · Geschwätz aus einer Welt, die es nicht gibt";
+    kg.appendChild(e);
+  }
+  kg.appendChild(machKnopf(geschwaetzJetzt ? "Noch was aufschnappen" : "Hinhören", "", ()=>{
+    const topf = GESCHWAETZ.filter(x=> x !== geschwaetzJetzt);
+    geschwaetzJetzt = topf[Math.floor(Math.random()*topf.length)];
+    taverneZeichnen();
+  }));
+  ziel.appendChild(kg);
 }
 
 /* ═══════════ Einkaufszettel ═══════════
@@ -3930,6 +4511,11 @@ const GOLD = {spass:1, neutral:3, zaeh:5};
 function erledigen(qid){
   const q = D.quests.find(x=>x.id===qid); if(!q || q.fertig) return;
   q.fertig = true; q.fertigAm = D.tag; q.laeuft = null;
+  /* Der Erfolgston. Neu an dieser Stelle — bisher klang nur das Ende der
+     Strecke. Er bricht die Regel „keine Geräusche“ nicht: verboten sind
+     Überfälle von außen, und das hier ist Rückmeldung von innen, ausgelöst
+     durch ihren eigenen Tipp. Hängt am selben Schalter im Lager. */
+  tonSpielen("erfolg");
   /* Der volle Betrag kommt erst beim Ankommen — die Etappen davor waren
      Zwischenstopps zu je 1 Gold. Der Sechser-Jackpot gilt nur hier: bei
      1 Gold zu verdoppeln wäre ein trauriger Jackpot. */
@@ -4774,7 +5360,7 @@ document.getElementById("sicher-zeigen").addEventListener("click", ()=>{
    bestimmen, was unten steht — der Rest wohnt im Lager. */
 const ANSICHTEN = [
   ["heute","Heute"],["woche","Woche"],["buch","Aufträge"],["gefaehrten","Gefährten"],
-  ["haendler","Händler"],["notizen","Notizen"],["rast","Rastplatz"]
+  ["haendler","Händler"],["notizen","Notizen"],["rast","Rastplatz"],["taverne","Taverne"]
 ];
 
 function ansichtZeigen(name){
@@ -4782,6 +5368,18 @@ function ansichtZeigen(name){
   document.querySelectorAll(".view").forEach(v=> v.classList.remove("on"));
   const ziel = document.getElementById("v-" + name);
   if(ziel) ziel.classList.add("on");
+  /* Die Musik gehört zum Raum, nicht zur App: beim Betreten an, beim Verlassen
+     aus. Sie überfällt niemanden — man geht ja selbst hinein — und ist von
+     Haus aus abgeschaltet. */
+  if(name === "taverne"){
+    /* Beim Betreten liegt nichts mehr offen von vorhin: der Wirt fängt neu an,
+       das Buch des Magiers ist wieder zu. */
+    wirtAntwort = null; magierOffen = false; geschwaetzJetzt = null;
+    taverneZeichnen();
+    tonSpielen("taverne");
+  }else{
+    tonStoppen();
+  }
   document.getElementById("wuerfel-halter").style.display =
     (name === "heute" && !istRuhetag()) ? "flex" : "none";
   window.scrollTo(0,0);
@@ -4873,30 +5471,150 @@ function tonBereit(){
     if(tonRaum.state === "suspended") tonRaum.resume();
   }catch(e){ tonRaum = null; }
 }
-function tonSpielen(){
-  if(D.ton === false) return;
+/* ═══════════ Harfe ═══════════
+   Sie hatte einen fertigen KI-Klang gefunden, den sie mochte, konnte ihn aber
+   nicht ohne Bezahlung herunterladen. Muss sie auch nicht: eine gezupfte
+   Saite lässt sich ausrechnen.
+
+   Karplus-Strong — ein kurzer Rauschstoß läuft im Kreis durch eine
+   Verzögerungsleitung und wird bei jeder Runde ein bisschen dunkler und
+   leiser. Genau das tut eine echte Saite, deshalb klingt es nach Zupfen und
+   nicht nach Synthesizer. Kein Sample, keine fremde Bibliothek, keine
+   Lizenzfrage, funktioniert offline.
+
+   Sie hat aus fünf Vorschlägen C (kurz und knackig) und E (Taverne) gewählt. */
+const NOTE = {D3:146.83, A3:220.00, D4:293.66, "F#4":369.99, G4:392.00, A4:440.00,
+              B4:493.88, "C#5":554.37, D5:587.33, E5:659.25, "F#5":739.99,
+              G5:783.99, A5:880.00};
+
+/* hell 0..1 = wie glasig der Anriss, halten 0..1 = wie lang der Ausklang */
+function zupfen(d, sr, start, freq, dauer, amp, hell, halten){
+  const L = Math.max(2, Math.round(sr/freq));
+  const linie = new Float32Array(L);
+  let vor = 0;
+  for(let i=0;i<L;i++){
+    vor += ((Math.random()*2-1) - vor) * (0.25 + hell*0.75);
+    linie[i] = vor;
+  }
+  const n = Math.min(Math.floor(sr*dauer), d.length - start);
+  const daempfung = 0.9955 + halten*0.0042;
+  let idx = 0;
+  for(let i=0;i<n;i++){
+    const a = linie[idx];
+    linie[idx] = daempfung * (a + linie[(idx+1)%L]) * 0.5;
+    /* Anschlag weich, Ende sauber ausgeblendet — sonst knackt es. */
+    d[start+i] += a * amp * Math.min(1, i/(sr*0.004)) * Math.min(1, (n-i)/(sr*0.05));
+    idx = (idx+1)%L;
+  }
+}
+/* Der Korpus: tiefer, schnell verklingender Sinus unter dem Anschlag. */
+function holz(d, sr, start, freq, amp){
+  const n = Math.min(Math.floor(sr*0.28), d.length - start);
+  for(let i=0;i<n;i++){
+    const t = i/sr;
+    d[start+i] += Math.sin(2*Math.PI*freq*t) * amp * Math.exp(-t*16);
+  }
+}
+/* Der Schimmer: hohe, leicht verstimmte Sinustöne, die schnell verglühen. */
+function schimmer(d, sr, start, grund, amp){
+  const n = Math.min(Math.floor(sr*0.6), d.length - start);
+  [2.0, 3.01, 4.73, 6.11].forEach((f,k)=>{
+    for(let i=0;i<n;i++){
+      const t = i/sr;
+      d[start+i] += Math.sin(2*Math.PI*grund*f*t) * amp/(k+2) * Math.exp(-t*(9+k*4));
+    }
+  });
+}
+
+/* C — der Erfolgston. Aufsteigendes D-Dur, hell, unter einer Sekunde. */
+function bauErfolg(d, sr){
+  [["D4",0],["F#4",0.038],["A4",0.076]].forEach(([n,t])=>
+    zupfen(d, sr, Math.floor(sr*t), NOTE[n], 0.6, 0.29, 0.85, 0.25));
+  zupfen(d, sr, Math.floor(sr*0.12), NOTE.D5, 0.55, 0.26, 0.95, 0.3);
+  zupfen(d, sr, Math.floor(sr*0.16), NOTE["F#5"], 0.45, 0.14, 0.95, 0.3);
+  schimmer(d, sr, Math.floor(sr*0.13), NOTE.D5, 0.075);
+}
+
+/* E — die Taverne. Vier Akkorde zu je fünf Sekunden über einem Bordun auf D.
+   Das offene Quintintervall macht das Mittelalterliche, nicht die Melodie. */
+function bauTaverne(d, sr){
+  [["D4","F#4","A4","D5","A4","F#4"],
+   ["B4","D5","F#5","B4","F#4","D5"],
+   ["G4","B4","D5","G5","D5","B4"],
+   ["A4","C#5","E5","A5","E5","C#5"]].forEach((toene, i)=>{
+    const t0 = i*5;
+    zupfen(d, sr, Math.floor(sr*t0), NOTE.D3, 5.4, 0.11, 0.22, 1.0);
+    zupfen(d, sr, Math.floor(sr*(t0+0.02)), NOTE.A3, 5.4, 0.07, 0.22, 1.0);
+    toene.forEach((n,k)=>{
+      const t = Math.floor(sr*(t0 + 0.35 + k*0.62));
+      zupfen(d, sr, t, NOTE[n], 3.2, 0.17 - (k%3)*0.03, 0.5, 0.95);
+      if(k===0) holz(d, sr, t, NOTE[n]/2, 0.05);
+    });
+  });
+  zupfen(d, sr, Math.floor(sr*20.0), NOTE.D4, 1.0, 0.13, 0.4, 1.0);
+}
+
+/* Einmal gerechnet, dann gemerkt: das Tavernenstück sind gut zwanzig Sekunden
+   Rechnerei, die nicht bei jedem Betreten neu anfallen muss. */
+/* Auf einen festen Pegel gebracht, nicht nur gedeckelt. Zwei Gründe:
+   Der alte Ton am Streckenende hatte 0,16 Verstärkung — die frisch gerechnete
+   Harfe kam ungebremst auf 0,5 und wäre über dreimal so laut aus dem Telefon
+   gekommen. Genau so ein Sprung ist der Überfall, den ihre Regel verbietet.
+   Und die Tavernenmusik landete umgekehrt bei 0,18 und wäre neben dem
+   Erfolgston kaum zu hören gewesen. Also beide auf ihren Platz: der Erfolg
+   etwas präsenter, die Musik deutlich darunter, weil sie im Hintergrund läuft. */
+const TON_PEGEL = {erfolg:0.40, taverne:0.30};
+const tonPuffer = {};
+
+function tonHolen(art){
+  if(tonPuffer[art]) return tonPuffer[art];
+  const sr = tonRaum.sampleRate;
+  const puffer = tonRaum.createBuffer(1, Math.floor(sr * (art === "taverne" ? 21 : 0.7)), sr);
+  const d = puffer.getChannelData(0);
+  (art === "taverne" ? bauTaverne : bauErfolg)(d, sr);
+  let spitze = 0;
+  for(let i=0;i<d.length;i++) spitze = Math.max(spitze, Math.abs(d[i]));
+  if(spitze > 0){
+    const f = (TON_PEGEL[art] || 0.4) / spitze;
+    for(let i=0;i<d.length;i++) d[i] *= f;
+  }
+  tonPuffer[art] = puffer;
+  return puffer;
+}
+
+let tonLaeuft = null;
+function tonSpielen(art){
+  art = art || "erfolg";
+  if(art === "taverne" ? !D.tonTaverne : D.ton === false) return;
   tonBereit();
   if(!tonRaum) return;
-  /* Eine kleine aufsteigende Figur, weich ein- und ausgeblendet — nichts, was
-     einen zusammenzucken lässt. */
-  const noten = [392.00, 493.88, 587.33, 783.99];
-  noten.forEach((hz, i)=>{
-    const start = tonRaum.currentTime + i * 0.16;
-    const o = tonRaum.createOscillator();
-    const g = tonRaum.createGain();
-    o.type = "triangle";
-    o.frequency.value = hz;
-    g.gain.setValueAtTime(0.0001, start);
-    g.gain.exponentialRampToValueAtTime(0.16, start + 0.05);
-    g.gain.exponentialRampToValueAtTime(0.0001, start + 0.7);
-    o.connect(g); g.connect(tonRaum.destination);
-    o.start(start); o.stop(start + 0.75);
-  });
+  try{
+    tonStoppen();
+    const q = tonRaum.createBufferSource();
+    q.buffer = tonHolen(art);
+    q.connect(tonRaum.destination);
+    q.start();
+    if(art === "taverne") tonLaeuft = q;
+  }catch(e){}
+}
+function tonStoppen(){
+  if(tonLaeuft){ try{ tonLaeuft.stop(); }catch(e){} tonLaeuft = null; }
 }
 function tonZeichnen(){
   document.querySelectorAll("#ton-wahl button")
     .forEach(b=> b.classList.toggle("on", (b.dataset.ton === "1") === (D.ton !== false)));
+  document.querySelectorAll("#ton-taverne-wahl button")
+    .forEach(b=> b.classList.toggle("on", (b.dataset.tt === "1") === !!D.tonTaverne));
 }
+document.getElementById("ton-taverne-wahl").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  D.tonTaverne = b.dataset.tt === "1";
+  sichern(); tonZeichnen();
+  /* Anhören, was man gerade eingeschaltet hat — sonst muss sie in die Taverne
+     gehen, um zu merken, dass es ihr nicht gefällt. */
+  if(D.tonTaverne){ tonBereit(); tonSpielen("taverne"); }
+  else tonStoppen();
+});
 document.getElementById("ton-wahl").addEventListener("click", e=>{
   const b = e.target.closest("button"); if(!b) return;
   D.ton = b.dataset.ton === "1";
@@ -4907,6 +5625,15 @@ document.getElementById("ton-probe").addEventListener("click", ()=>{ tonBereit()
 /* Nicht wandererBlatt direkt hängen: der Listener reicht sonst das
    Klick-Ereignis als „letzter Titel" durch. */
 document.getElementById("wanderer-lager").addEventListener("click", ()=> wandererBlatt());
+
+/* Antippen UND Tastatur: der Gruß ist ein Knopf, also muss er sich auch wie
+   einer bedienen lassen. */
+document.getElementById("gruss").addEventListener("click", namensBlatt);
+document.getElementById("gruss").addEventListener("keydown", e=>{
+  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); namensBlatt(); }
+});
+document.getElementById("name-hinweis").addEventListener("click", namensBlatt);
+document.getElementById("name-lager").addEventListener("click", namensBlatt);
 
 /* ═══════════ Los ═══════════ */
 zahnradBauen();
