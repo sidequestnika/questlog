@@ -605,6 +605,10 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   <p class="hinweis" style="margin:0 0 10px">Was unten stehen soll. <strong>Heute bleibt immer dabei</strong>, alles Abgewählte findest du hier im Lager. Weniger Reiter heißt breitere Knöpfe.</p>
   <div id="leiste-wahl"></div>
 
+  <p class="label">Der Wanderer</p>
+  <p class="hinweis" style="margin:0 0 10px">Kurze, belegte Sachen über ADHS — zum Nachlesen, wenn du dich fragst, warum gerade etwas nicht geht. Jede Karte sagt, woher sie kommt und ob es eine Studie ist oder ein Fachtext. <strong>Fragt nichts, zählt nichts.</strong></p>
+  <button class="knopf" id="wanderer-lager">Einen Wanderer treffen</button>
+
   <p class="label">Speicher</p>
   <div class="zustand" id="zustand"></div>
   <p class="hinweis">Steht bei „Angelegt am" nach jedem Neustart ein <em>neues</em> Datum, dann merkt sich dieses Fenster nichts — dann sag mir Bescheid, das ist ein Fehler, keine Bedienung.</p>
@@ -1358,6 +1362,11 @@ function sofortBlatt(wort){
         (plus ? "＋" + plus + " Ausdauer. " : "") +
         'Mehr muss jetzt nicht sein.</p>', x=>{
         x.appendChild(machKnopf("Noch eins", "", ()=> sofortBlatt(sofortWaehlen(w))));
+        /* Der Moment zum Luftholen ist auch der Moment, in dem die Frage
+           „warum ist das gerade so?" auftaucht. Deshalb steht der Wanderer
+           hier — und nicht auf dem Rückzug-Blatt selbst, das eine Sache zeigt
+           und sonst nichts. */
+        x.appendChild(machKnopf("Ein Wanderer sagt dir …", "", ()=> wandererBlatt()));
         x.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
       });
     });
@@ -1370,6 +1379,105 @@ function sofortBlatt(wort){
 /* Nicht sofortBlatt direkt hängen: der Listener reicht das Klick-Ereignis als
    erstes Argument durch, und das landete als „Vorschlag" auf dem großen Knopf. */
 document.getElementById("sofort-knopf").addEventListener("click", ()=> sofortBlatt());
+
+/* ═══════════ Der Wanderer ═══════════
+   Ihr Name, und er löst ein Problem, das ich sonst nicht gelöst bekommen
+   hätte: Wissen über die eigene Diagnose kann leicht klingen wie „hier steht,
+   was mit dir nicht stimmt". Kommt es von jemandem, der die Gegend kennt und
+   sich ans Feuer setzt, ist es dasselbe Wissen in einer anderen Haltung.
+
+   Das ist keine Bastelei: Psychoedukation — Wissen über die eigene Störung —
+   gilt in den Leitlinien als GRUNDLAGE der Standardversorgung bei ADHS im
+   Erwachsenenalter. In einer randomisierten Pilotstudie verbesserte eine
+   Psychoedukationsgruppe Aufmerksamkeit, Impulsivität UND Selbstwert ähnlich
+   gut wie eine Verhaltenstherapiegruppe; eine Machbarkeitsstudie fand höhere
+   Selbstakzeptanz, die nach drei Monaten noch hielt.
+
+   Regeln, die nicht gekippt werden dürfen:
+   - Sie ruft ihn. Er kommt nie von selbst. Kein Tagesspruch, keine Quote.
+   - EINE Karte, nie eine Liste.
+   - Nichts wird gezählt und nichts gespeichert — kein „du warst diese Woche
+     dreimal hier". Das wäre wieder eine Buchhaltung über ihren Zustand.
+   - Jede Karte nennt ihre Quelle UND deren Art. Sie hat ausdrücklich darum
+     gebeten, Studie und Fachtext auseinanderzuhalten; ein Fachtext als Studie
+     verkleidet wäre genau der Vertrauensbruch, den man nicht heilt. */
+const WANDERER = [
+  {ruf:"Ich hab viele gesehen, die von einer langen Rast zurückkamen und sich fragten, wo die Zeit hin ist.",
+   titel:"Freie Zeit ist nicht weniger Arbeit",
+   fakt:"Im Alltag sagt dir die Welt, was dran ist. In freier Zeit musst du das in jedem Moment selbst entscheiden — was jetzt, wann, und wie du von einer Sache zur nächsten kommst. Genau diese Stellen sind bei ADHS schwach. Vier freie Wochen können anstrengender sein als vier volle.",
+   quelle:"Fachtext · ADD Resource Center"},
+
+  {ruf:"Du zählst deine Löcher im Mantel und nicht die Meilen, die du gelaufen bist.",
+   titel:"Du siehst deine Lücken schärfer als dein Geschafftes",
+   fakt:"Negatives wird bevorzugt und häufiger erinnert als Positives. Bei ADHS verstärken Arbeitsgedächtnis und Emotionsregulation das noch. Dass sich ein Tag leer anfühlt, ist deshalb keine Bilanz — es ist eine Verzerrung.",
+   quelle:"Studie (Erwachsene mit ADHS-Symptomen) · Fachtexte"},
+
+  {ruf:"Rasten heißt nicht liegen. Rasten heißt, den Sack für eine Weile wirklich abzustellen.",
+   titel:"Urlaub ist nicht gleich Erholung",
+   fakt:"Erholt wird man nicht von der freien Zeit, sondern vom Abschalten. Wer die ganze Zeit einen unerledigten Plan mit sich trägt, schaltet nie ab — dann vergehen vier Wochen Zeit, ohne dass daraus Erholung wird. Und selbst bei denen, die abschalten, ist der Effekt nach etwa einem Monat wieder weg.",
+   quelle:"Meta-Analyse und Übersichtsarbeit (Sonnentag u. a.)"},
+
+  {ruf:"Den Weg zu kennen und ihn zu gehen sind zwei verschiedene Künste.",
+   titel:"Aufschieben ist kein Wissensproblem",
+   fakt:"ADHS ist eine Störung der Umsetzung, nicht des Wissens. Du weißt, dass die Rechnung wichtiger ist als die Küche. Es noch einmal aufzuschreiben sagt dir nur, was du schon weißt, und legt Schuld obendrauf. Was hilft, ist Unterstützung im Moment des Anfangens.",
+   quelle:"Fachtheorie (Barkley), breit rezipiert"},
+
+  {ruf:"Manche Brunnen geben erst Wasser, wenn man schon davorsteht. Vom Weg aus sieht man nichts.",
+   titel:"Der Gedanke an die Sache trägt kein Dopamin",
+   fakt:"Normalerweise wandert das Belohnungssignal von der Belohnung auf den Hinweis, der sie ankündigt. Bei ADHS passiert das nur teilweise. Deshalb klingt Zeichnen nach Arbeit, obwohl Zeichnen dir guttut — und deshalb ist das kein Willensproblem.",
+   quelle:"Studie (Tripp und Wickens, Dopamin-Transfer-Defizit)"},
+
+  {ruf:"Ein großes Fest wirft einen langen Schatten. Der ist kein schlechtes Wetter, der geht vorbei.",
+   titel:"Ein großer Tag wirkt tagelang nach",
+   fakt:"Eine verschobene Nacht holt die innere Uhr etwa in einem Tag je verschobener Stunde wieder ein. Sieben Stunden sind also fünf bis sieben Tage — bei ADHS eher mehr, weil der Rhythmus ohnehin verschoben startet. Eine Woche flau nach einer langen Nacht ist normal, nicht schwach.",
+   quelle:"Übertragen aus der Jetlag-Forschung · Studien zu Schlafphasen bei ADHS"},
+
+  {ruf:"Stillstehen ist für manche das Anstrengendste, was es gibt.",
+   titel:"Langeweile ist nicht nur unangenehm",
+   fakt:"Bei ADHS ist Langeweile aversiv — der Kopf weicht ihr aktiv aus, ähnlich wie man Schmerz ausweicht. Zusammen mit der Schwierigkeit, auf etwas zu warten, erklärt das einen großen Teil der Unaufmerksamkeit. Dass du in freier Zeit zum Zocken greifst, ist Selbstregulation, nicht Schwäche.",
+   quelle:"Studie (Kinder, Querschnitt) — Größenordnung, kein Beweis für Erwachsene"},
+
+  {ruf:"Wer allein durch den Wald geht, singt. Das ist kein Unernst, das ist Handwerk.",
+   titel:"Was nebenher läuft, ist keine Ablenkung",
+   fakt:"Bei ADHS liegt die Erregung oft unter dem Niveau, das gutes Arbeiten braucht. Zusatzreize — Musik, ein Podcast, Hintergrundgeräusch — heben sie an und verbessern die Leistung messbar. Begleitung ist deshalb eher Behandlung als Nachlässigkeit.",
+   quelle:"Fachtheorie (Zentall, Optimal Stimulation), empirisch gestützt"},
+
+  {ruf:"Der Sack stand an der Tür. Du bist dran vorbei. Da war keine Entscheidung, da war nur eine Tür.",
+   titel:"Es gab nie eine Entscheidung",
+   fakt:"Sich an eine Absicht zu erinnern, wenn der Moment kommt, ist eine eigene Leistung — und bei ADHS eine schwache Stelle. Dazu kosten Aufgabenwechsel messbar mehr. Wer etwas nicht mitgenommen hat, hat sich meist nicht dagegen entschieden; die Absicht war schlicht nicht da.",
+   quelle:"Studien zu prospektivem Gedächtnis und Wechselkosten"},
+
+  {ruf:"Wer weiß, wie sein Pferd läuft, schimpft nicht mehr mit ihm.",
+   titel:"Verstehen ist Teil der Behandlung",
+   fakt:"Wissen über die eigene Diagnose ist kein Beiwerk — Leitlinien führen es als Grundlage der Standardversorgung. In Studien verbesserten sich dadurch nicht nur Symptome, sondern auch Selbstwert und Selbstakzeptanz, und das hielt nach drei Monaten noch an.",
+   quelle:"Leitlinien · randomisierte Pilotstudie · Machbarkeitsstudie"}
+];
+
+function wandererBlatt(letzter){
+  const topf = WANDERER.filter(w=> w.titel !== letzter);
+  const w = topf[Math.floor(Math.random()*topf.length)] || WANDERER[0];
+  blattZeigen('<h3>Ein Wanderer setzt sich zu dir</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent = "„" + w.ruf + "“";
+
+    const t = document.createElement("p");
+    t.className = "mini"; t.style.margin = "20px 0 7px";
+    t.textContent = w.titel;
+    b.appendChild(t);
+
+    const f = document.createElement("p");
+    f.style.margin = "0 0 12px"; f.style.fontSize = "16px"; f.style.lineHeight = "1.55";
+    f.textContent = w.fakt;
+    b.appendChild(f);
+
+    const qz = document.createElement("p");
+    qz.className = "hinweis"; qz.style.margin = "0 0 20px";
+    qz.textContent = w.quelle;
+    b.appendChild(qz);
+
+    b.appendChild(machKnopf("Noch einer", "", ()=> wandererBlatt(w.titel)));
+    b.appendChild(machKnopf("Danke", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
 
 /* ═══════════ Einkaufszettel ═══════════
    Ihr Wochenbild: Sonntag beim Planen fällt Mehl ein, Montag geht sie
@@ -1510,6 +1618,9 @@ function karteBauen(q){
        der Berg; wie viele es werden, weiß ohnehin niemand vorher. */
     if(istEtappe(q)) unten.push(((q.etappe||0) + 1) + ". Etappe");
     if(q.wieder) unten.push(WIEDER_WORT[q.wieder] || "wiederkehrend");
+    /* Wer helfen könnte, steht auf der Karte — sonst ist der Gedanke wieder
+       weg, wenn der Moment da ist, in dem man fragen könnte. */
+    if(q.hilfe) unten.push("↝ " + q.hilfe);
     /* Läuft gerade? Eine ruhige Feststellung, kein Zähler, der einen anschreit.
        Ist eine Strecke gewählt, steht sie hier — auch dann noch, wenn die App
        zwischendurch zu war: gerechnet wird aus dem Zeitstempel. */
@@ -2609,6 +2720,11 @@ document.getElementById("woche-vor").addEventListener("click", ()=>{ wochenVersa
 document.getElementById("woche-heute").addEventListener("click", ()=>{ wochenVersatz = 0; wochenZeichnen(); });
 
 /* ═══════════ Aufräum-Frage ═══════════ */
+/* Ab einer Woche kommt eine vierte Tür dazu: abgeben. Bewusst NICHT früher —
+   sonst wäre „frag wen anders" die erste Antwort statt der letzten, und das
+   wäre eine ganz andere App. */
+const HILFE_AB = 7;
+
 function frageZeichnen(){
   const halter = document.getElementById("frage-halter");
   halter.innerHTML = "";
@@ -2620,9 +2736,45 @@ function frageZeichnen(){
   box.querySelector(".was").textContent = q.titel;
   const k = box.querySelector(".frage-knoepfe");
   k.appendChild(machKnopf("Womit fange ich an?", "stark", ()=> naechsterBlatt(q.id, {erster:true})));
+  if((q.verschoben||0) >= HILFE_AB)
+    k.appendChild(machKnopf(q.hilfe ? q.hilfe + " fragen?" : "Wer könnte das für mich tun?", "", ()=> hilfeBlatt(q.id)));
   k.appendChild(machKnopf("Nicht jetzt — Zähler zurück", "", ()=>{ q.verschoben = 0; sichern(); zeichnen(); }));
   k.appendChild(machKnopf("Weg damit", "ruhig", ()=>{ D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); zeichnen(); }));
   halter.appendChild(box);
+}
+
+/* ═══════════ Hilfe holen ═══════════
+   Ihr Beispiel, und es trägt den ganzen Entwurf: „Müll rausbringen ist für
+   meinen Partner überhaupt kein Problem." Genau diese Schieflage ist der
+   Punkt — was bei ihr seit einer Woche liegt, ist für jemand anderen ein
+   Handgriff im Vorbeigehen. Das ist keine Schwäche, das ist Arbeitsteilung.
+
+   Deshalb: kein Zählen, wie oft sie abgibt, keine Rückfrage, ob sie es nicht
+   doch selbst könnte. Abgeben ist ein gleichwertiger Weg zum Ziel, und das
+   Fragen selbst ist die Arbeit — die zählt voll. */
+function hilfeBlatt(qid){
+  const q = D.quests.find(x=>x.id===qid); if(!q) return;
+  blattZeigen('<h3>Wer könnte das für dich tun?</h3>' +
+    '<p class="sub">Was für dich ein Berg ist, ist für jemand anderen flaches Land. Das ist kein Versagen, das ist Arbeitsteilung.</p>' +
+    '<input class="feld" id="hilfe-feld" placeholder="z. B. Partner, Mama, Nachbarin">', b=>{
+    const f = b.querySelector("#hilfe-feld");
+    f.value = q.hilfe || "";
+    f.setAttribute("enterkeyhint", "done");
+    /* Wer sich jemanden notiert hat, ist weiter als vorher — der Zähler darf
+       aufhören zu drängeln. */
+    const merken = ()=>{ q.hilfe = f.value.trim(); q.verschoben = 0; sichern(); blattSchliessen(); zeichnen(); };
+    f.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); merken(); } });
+    b.appendChild(machKnopf("Merken", "stark", merken));
+    /* Volles Gold, ohne Sternchen: gefragt zu haben war die Arbeit. */
+    b.appendChild(machKnopf("Abgegeben — ist erledigt", "", ()=>{
+      q.hilfe = f.value.trim(); sichern(); blattSchliessen(); erledigen(qid);
+    }));
+    if(q.hilfe) b.appendChild(machKnopf("Doch selbst machen", "ruhig", ()=>{
+      q.hilfe = ""; sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+    setTimeout(()=>f.focus(), 60);
+  });
 }
 
 /* Heute-Seite und Wochenplan sind zwei Blicke auf denselben Tag. Wer etwas von
@@ -3098,6 +3250,9 @@ function blattFuerQuest(qid){
         "z. B. Mahnung, 5 € mehr")));
     b.appendChild(machKnopf("Umbenennen", "ruhig", ()=> umbenennenBlatt(q.id)));
     b.appendChild(machKnopf("Wenn-Dann festlegen", "ruhig", ()=> wennDannBlatt(q.id)));
+    /* Von Hand eintragbar, lange bevor etwas liegenbleibt — bei manchen Sachen
+       weiß sie von Anfang an, wer das leichter kann als sie. */
+    b.appendChild(machKnopf(q.hilfe ? "↝ Hilfe: " + q.hilfe : "Wer kann helfen?", "ruhig", ()=> hilfeBlatt(q.id)));
     b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
       D.quests = D.quests.filter(x=>x.id!==q.id); sichern(); blattSchliessen(); zeichnen();
     }));
@@ -4325,6 +4480,9 @@ document.getElementById("ton-wahl").addEventListener("click", e=>{
   sichern(); tonZeichnen();
 });
 document.getElementById("ton-probe").addEventListener("click", ()=>{ tonBereit(); tonSpielen(); });
+/* Nicht wandererBlatt direkt hängen: der Listener reicht sonst das
+   Klick-Ereignis als „letzter Titel" durch. */
+document.getElementById("wanderer-lager").addEventListener("click", ()=> wandererBlatt());
 
 /* ═══════════ Los ═══════════ */
 zahnradBauen();
