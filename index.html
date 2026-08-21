@@ -441,6 +441,12 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .beleg{color:var(--calm)}
 .erfunden{color:var(--ink-faint)}
 .gast .knopf{margin-top:2px}
+/* Verse brauchen ihre Zeilenumbrüche — die stehen als \n im Text, also muss
+   pre-line sie stehen lassen. Das Original etwas größer und gesetzter als die
+   Übersetzung: erst hört man den Vers, dann versteht man ihn. */
+.vers{margin:0 0 10px;font-family:var(--schrift-text);font-size:17px;line-height:1.5;
+  white-space:pre-line;font-style:italic}
+.vers-neu{margin:0 0 10px;font-size:14px;line-height:1.55;color:var(--ink-soft)}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -662,14 +668,21 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
     <button data-tt="1">Musik an</button>
     <button data-tt="0">Still</button>
   </div>
+  <button class="klein-knopf" id="ton-taverne-probe">Einmal hören</button>
+
+  <!-- Sie hat gemeldet, dass sie gar nichts hört. Der mit Abstand häufigste
+       Grund steht hier, weil ihn sonst niemand findet: iPhones schalten den
+       Ton von Webseiten stumm, sobald der seitliche Schalter auf lautlos
+       steht — auch wenn die Lautstärke oben ist. -->
+  <p class="hinweis" style="margin:12px 0 0"><strong>Hörst du gar nichts?</strong> Dann steht am iPhone wahrscheinlich der kleine Schalter an der linken Seite auf lautlos. Der schaltet auch Töne aus Webseiten ab, unabhängig von der Lautstärke. Einmal umlegen, dann oben „Einmal hören“ drücken.</p>
 
   <p class="label">Deine Leiste</p>
   <p class="hinweis" style="margin:0 0 10px">Was unten stehen soll. <strong>Heute bleibt immer dabei</strong>, alles Abgewählte findest du hier im Lager. Weniger Reiter heißt breitere Knöpfe.</p>
   <div id="leiste-wahl"></div>
 
-  <p class="label">Der Wanderer</p>
-  <p class="hinweis" style="margin:0 0 10px">Kurze, belegte Sachen über ADHS — zum Nachlesen, wenn du dich fragst, warum gerade etwas nicht geht. Jede Karte sagt, woher sie kommt und ob es eine Studie ist oder ein Fachtext. <strong>Fragt nichts, zählt nichts.</strong> Du findest ihn auch in der Taverne und im Rückzug.</p>
-  <button class="knopf" id="wanderer-lager">Einen Wanderer treffen</button>
+  <p class="label">Belegtes über ADHS</p>
+  <p class="hinweis" style="margin:0 0 10px">Zum Nachlesen, wenn du dich fragst, warum gerade etwas nicht geht. Jede Karte sagt, woher sie kommt und ob es eine Studie ist oder ein Fachtext. <strong>Fragt nichts, zählt nichts.</strong> In der Taverne schlägt der Magier davon eine Seite pro Tag auf; hier und im Rückzug kannst du blättern.</p>
+  <button class="knopf" id="wanderer-lager">Eine Seite aufschlagen</button>
 
   <p class="label">Speicher</p>
   <div class="zustand" id="zustand"></div>
@@ -1725,7 +1738,7 @@ function sofortBlatt(wort){
            „warum ist das gerade so?" auftaucht. Deshalb steht der Wanderer
            hier — und nicht auf dem Rückzug-Blatt selbst, das eine Sache zeigt
            und sonst nichts. */
-        x.appendChild(machKnopf("Ein Wanderer sagt dir …", "", ()=> wandererBlatt()));
+        x.appendChild(machKnopf("Der Magier schlägt was nach …", "", ()=> adhsBlatt()));
         x.appendChild(machKnopf("Fertig", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
       });
     });
@@ -1812,15 +1825,19 @@ const WANDERER = [
    quelle:"Leitlinien · randomisierte Pilotstudie · Machbarkeitsstudie"}
 ];
 
-/* Der Wanderer erzählt jetzt zweierlei: seine ausführlichen Karten (mit Ruf,
-   Titel und Quelle) und die kurzen ADHS-Fakten aus der Bibliothek. Beide
-   Bauarten laufen durch dieselbe Darstellung — was fehlt, wird weggelassen,
-   statt eine zweite Funktion daneben zu stellen. */
-function wandererBlatt(letzter){
-  const alle = wandererTopf();
+/* EINE Darstellung für beide Bauarten von Karte — die ausführlichen (mit Ruf,
+   Titel und Quelle) und die kurzen aus der Bibliothek. Was fehlt, wird
+   weggelassen, statt eine zweite Funktion daneben zu stellen. Der Aufrufer
+   sagt nur, aus welchem Topf gezogen wird und wie der Gast heißt.
+
+   Zwei Gäste benutzen sie:
+     wandererBlatt — die Welt da draußen, unbegrenzt („Noch eine Info“)
+     adhsBlatt     — Belegtes über ADHS, im Rückzug und im Lager */
+function karteBlatt(topfFn, kopf, weiter, letzter, zurueckFn){
+  const alle = topfFn();
   const topf = alle.filter(w=> karteSchluessel(w) !== letzter);
   const w = topf[Math.floor(Math.random()*topf.length)] || alle[0];
-  blattZeigen('<h3>Ein Wanderer setzt sich zu dir</h3><p class="sub"></p>', b=>{
+  blattZeigen('<h3>' + kopf + '</h3><p class="sub"></p>', b=>{
     const sub = b.querySelector(".sub");
     if(w.ruf) sub.textContent = "„" + w.ruf + "“";
     else sub.remove();
@@ -1843,12 +1860,22 @@ function wandererBlatt(letzter){
     /* Kurze Karten tragen ihre Quelle im Satz. Statt eine leere Zeile zu
        zeigen, sagt die Marke, was diese Karte ist — sie hat ausdrücklich
        darum gebeten, Belegtes als belegt erkennen zu können. */
-    qz.textContent = w.quelle || "✓ Belegt — nachgeprüftes Wissen über ADHS";
+    qz.textContent = w.quelle || ("✓ Belegt · " + (w.g || ""));
     b.appendChild(qz);
 
-    b.appendChild(machKnopf("Noch einer", "", ()=> wandererBlatt(karteSchluessel(w))));
+    b.appendChild(machKnopf(weiter, "", ()=> zurueckFn(karteSchluessel(w))));
     b.appendChild(machKnopf("Danke", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
+}
+
+function wandererBlatt(letzter){
+  karteBlatt(wandererTopf, "Der Wanderer erzählt", "Noch eine Info", letzter, wandererBlatt);
+}
+/* Der Rückzug braucht das ADHS-Wissen sofort und nicht erst morgen — die eine
+   Seite pro Tag ist der Rhythmus der TAVERNE, nicht der des Rückzugs. Wenn es
+   ihr schlecht geht, darf sie blättern. */
+function adhsBlatt(letzter){
+  karteBlatt(magierTopf, "Der Magier schlägt für dich nach", "Noch eine Seite", letzter, adhsBlatt);
 }
 
 /* ═══════════ Die Taverne ═══════════
@@ -2053,7 +2080,150 @@ const MAGIER = [
   {g:"Wirtshaus", t:"Der Ausdruck „Zeche prellen“ hat nichts mit Bergbau zu tun. „Zeche“ meinte ursprünglich die gemeinsame Rechnung einer Trinkgesellschaft — der Bergbau übernahm das Wort später für die Gewerkschaft der Anteilseigner."},
   {g:"ADHS", t:"Wenn-Dann-Pläne wirken bei ADHS besonders gut. In Versuchen erreichten Kinder mit ADHS, die sich vorher „wenn X, dann Y“ zurechtgelegt hatten, dieselbe Hemmungsleistung wie Kinder ohne Diagnose."},
   {g:"Mittelalter", t:"Städte waren klein. Köln gehörte um 1300 zu den größten nördlich der Alpen und hatte vielleicht vierzigtausend Einwohner — heute wäre das eine Kleinstadt."},
-  {g:"Sagen", t:"„Hier sind Drachen“ steht auf so gut wie keiner alten Landkarte. Belegt ist die Formel im Wesentlichen auf einem einzigen Globus von etwa 1504 — und dort auf Latein: HC SVNT DRACONES."}
+  {g:"Sagen", t:"„Hier sind Drachen“ steht auf so gut wie keiner alten Landkarte. Belegt ist die Formel im Wesentlichen auf einem einzigen Globus von etwa 1504 — und dort auf Latein: HC SVNT DRACONES."},
+
+  /* ── Nachgelegt auf ihren Wunsch: Märchen, ihre Lieblingsländer, Essen,
+        Adel und die Kräuter für die Hexe. Ihre Worte: „das sind meine
+        lieblings länder und meine heimat“. ── */
+
+  {g:"Märchen", t:"Die Brüder Grimm haben die Märchen weder erfunden noch bei Bauern gesammelt. Viele Beiträgerinnen waren gebildete junge Frauen aus ihrem Kasseler Bekanntenkreis, mehrere aus hugenottischen Familien — französische Erzähltradition steckt also mitten in den „deutschen“ Märchen."},
+  {g:"Märchen", t:"Dorothea Viehmann galt lange als schlichte Bäuerin. Sie war Gastwirtstochter, sprach Französisch und kannte romanische Stoffe — die Grimms haben ihre Herkunft im Vorwort etwas volkstümlicher gezeichnet, als sie war."},
+  {g:"Märchen", t:"Die erste Auflage von 1812 war ein wissenschaftliches Buch mit Anmerkungsapparat, kein Kinderbuch. Der Welterfolg kam erst mit der bearbeiteten „Kleinen Ausgabe“ ab 1825."},
+  {g:"Märchen", t:"Wilhelm Grimm schrieb die Texte über sieben Auflagen hinweg kräftig um. Aus Müttern wurden Stiefmütter, Gewalt gegen Kinder wurde entschärft, fromme Formeln kamen dazu. Die „ursprünglichen“ Märchen sind ein bearbeiteter Text."},
+  {g:"Märchen", t:"In der ersten Rapunzel-Fassung verrät sich das Mädchen, weil ihre Kleider zu eng werden. Die Schwangerschaft flog in späteren Auflagen heraus."},
+  {g:"Märchen", t:"Der Froschkönig wird nicht geküsst. Die Prinzessin wirft ihn vor Wut gegen die Wand — erst dann wird er ein Prinz."},
+  {g:"Märchen", t:"Bei Grimms hacken sich Aschenputtels Stiefschwestern Ferse und Zehe ab, um in den Schuh zu passen. Zwei Tauben verraten das Blut, und am Ende picken sie den Schwestern die Augen aus."},
+  {g:"Märchen", t:"Aschenputtel gibt es in hunderten Varianten weltweit. Die älteste bekannte schriftliche Fassung stammt aus China, aus dem 9. Jahrhundert: das Mädchen Ye Xian."},
+  {g:"Märchen", t:"Rumpelstilzchen wird am Ende nicht bestraft — es zerreißt sich vor Wut selbst in zwei Teile."},
+  {g:"Märchen", t:"Die Bremer Stadtmusikanten kommen nie in Bremen an. Sie finden unterwegs ein Räuberhaus, das ihnen besser gefällt, und bleiben dort."},
+  {g:"Märchen", t:"Die Brüder Grimm waren vor allem Sprachwissenschaftler. Sie begannen 1838 das Deutsche Wörterbuch — fertig wurde es 1961, hundertdreiundzwanzig Jahre später."},
+  {g:"Märchen", t:"Jacob Grimm formulierte die Erste Lautverschiebung, bis heute „Grimmsches Gesetz“ genannt. Sie erklärt, warum aus lateinisch pater ein englisches father wird."},
+  {g:"Märchen", t:"Beide Grimms gehörten zu den „Göttinger Sieben“, die 1837 gegen den Verfassungsbruch ihres Königs protestierten. Sie verloren dafür ihre Professuren, Jacob wurde des Landes verwiesen."},
+  {g:"Märchen", t:"Die Kinder- und Hausmärchen stehen seit 2005 im UNESCO-Weltdokumentenerbe — als eines der meistübersetzten Bücher der Welt."},
+  {g:"Märchen", t:"Der dritte Bruder, Ludwig Emil Grimm, war Maler und Radierer. Die Illustrationen der frühen Ausgaben stammen von ihm."},
+  {g:"Märchen", t:"Die Grimms sammelten auch Sagen. Aus ihren „Deutschen Sagen“ von 1816 stammt die bekannteste Textfassung des Rattenfängers von Hameln."},
+  {g:"Märchen", t:"Dornröschen ist in Giambattista Basiles älterer neapolitanischer Fassung eine deutlich finsterere Geschichte: Dort wird die Schlafende vergewaltigt und gebiert im Schlaf Zwillinge."},
+  {g:"Märchen", t:"Rotkäppchen und die sieben Geißlein enden gleich: Der Wolf wird aufgeschnitten, mit Steinen gefüllt und zugenäht. Beide Male ist das Motiv älter als die Grimms."},
+  {g:"Märchen", t:"„Es war einmal“ hat Geschwister in vielen Sprachen — englisch once upon a time, irisch fadó fadó, arabisch kān yā mā kān. Die Formel markiert überall dasselbe: Was jetzt kommt, ist wahr, aber nicht wirklich."},
+  {g:"Märchen", t:"Die Deutung, Hänsel und Gretel spiegele mittelalterliche Hungersnöte, ist verbreitet — belegen lässt sie sich nicht. Das Märchen ist erst im 19. Jahrhundert schriftlich fassbar."},
+
+  {g:"Irland", t:"Irland hat keine Schlangen — aber nicht, weil Patrick sie vertrieben hätte. Nach der letzten Eiszeit ist die Insel schlicht nie von ihnen wiederbesiedelt worden, das Meer kam dazwischen."},
+  {g:"Irland", t:"Der heilige Patrick war kein Ire. Er war ein Brite, wurde als Jugendlicher nach Irland verschleppt und kehrte Jahre später freiwillig dorthin zurück."},
+  {g:"Irland", t:"Newgrange ist älter als Stonehenge und älter als die Pyramiden von Gizeh — rund 3200 v. Chr. Zur Wintersonnenwende fällt das Licht durch eine Öffnung über dem Eingang bis in die hintere Kammer."},
+  {g:"Irland", t:"Das Book of Kells entstand um 800 und liegt heute im Trinity College Dublin. Auf manchen Seiten stecken über tausend winzige Einzelverzierungen."},
+  {g:"Irland", t:"Ogham ist die älteste bekannte irische Schrift: Kerben an der Kante eines aufrecht stehenden Steins, die man von unten nach oben liest."},
+  {g:"Irland", t:"Halloween ist irischen Ursprungs. Samhain markierte das Ende der hellen Jahreshälfte — die Auswanderer nahmen den Brauch mit nach Amerika, von wo er als Halloween zurückkam."},
+  {g:"Irland", t:"Whiskey mit e ist irisch, Whisky ohne e ist schottisch. Die Schreibweise wurde im 19. Jahrhundert zum Qualitätsargument, als irische Brennereien sich abgrenzen wollten."},
+  {g:"Irland", t:"Irland war nie Teil des Römischen Reiches. Die Römer nannten die Insel Hibernia und ließen sie in Ruhe."},
+  {g:"Irland", t:"Das alte irische Recht kannte für viele Vergehen kein Blutgericht, sondern Wiedergutmachung in Vieh — auch der Wert eines Menschen war beziffert und hing vom Stand ab."},
+  {g:"Irland", t:"Die Große Hungersnot ab 1845 hatte ihren Auslöser in der Kartoffelfäule, aber Irland exportierte in diesen Jahren weiter Getreide und Vieh. Die Insel hat bis heute nicht wieder die Einwohnerzahl von 1841."},
+  {g:"Irland", t:"Der Claddagh-Ring kommt aus einem Fischerdorf bei Galway: zwei Hände halten ein Herz mit Krone — Freundschaft, Liebe, Treue. Wie herum man ihn trägt, sagt, ob man vergeben ist."},
+  {g:"Irland", t:"Die Banshee heißt auf Irisch bean sídhe: „Frau aus dem Feenhügel“. Sie kündigt einen Tod an, sie verursacht ihn nicht."},
+  {g:"Irland", t:"Leprechauns sind in den älteren Erzählungen Schuhmacher. Daher stammt ihr Gold: Sie haben es verdient. Man hört sie angeblich am Hämmern, bevor man sie sieht."},
+  {g:"Irland", t:"Arthur Guinness pachtete 1759 seine Dubliner Brauerei für neuntausend Jahre, zu 45 Pfund im Jahr. Der Vertrag lief noch, als längst weltweit ausgeliefert wurde."},
+  {g:"Irland", t:"Der Giant's Causeway besteht aus rund 40.000 Basaltsäulen, die meisten sechseckig. Sie entstanden vor etwa sechzig Millionen Jahren, als eine Lavadecke beim Abkühlen gleichmäßig riss."},
+  {g:"Irland", t:"Irisch ist erste Amtssprache der Republik, wird aber nur in wenigen Gebieten — den Gaeltachtaí — als Alltagssprache gesprochen. Auf Ortsschildern steht es trotzdem überall zuerst."},
+  {g:"Irland", t:"Die Cliffs of Moher fallen an ihrer höchsten Stelle 214 Meter ab. Das Gestein ist Schiefer und Sandstein aus dem Karbon — Flussablagerungen, die einmal ein Delta waren."},
+  {g:"Irland", t:"Dass Patrick das Kleeblatt benutzt habe, um die Dreifaltigkeit zu erklären, taucht erst im 17. Jahrhundert auf. In seinen eigenen erhaltenen Schriften steht davon nichts."},
+
+  {g:"Schottland", t:"Das Nationaltier Schottlands ist das Einhorn. Es steht seit dem 15. Jahrhundert im königlichen Wappen — angekettet, weil ein Einhorn als unbezähmbar galt."},
+  {g:"Schottland", t:"Der Kilt ist jünger als sein Ruf. Der heutige „kleine Kilt“ stammt aus dem 18. Jahrhundert, und die festen Clan-Tartans wurden großenteils im 19. Jahrhundert systematisiert — teils von Stoffhändlern."},
+  {g:"Schottland", t:"Nach dem Jakobitenaufstand war Highland-Tracht von 1746 bis 1782 gesetzlich verboten. Als das Verbot fiel, war die Alltagstracht praktisch verschwunden — was zurückkam, war schon Erinnerung."},
+  {g:"Schottland", t:"Golf wurde 1457 in Schottland per Parlamentsbeschluss verboten. Es lenkte die Männer vom Bogenschießen ab, und das brauchte man für die Landesverteidigung."},
+  {g:"Schottland", t:"Loch Ness enthält mehr Süßwasser als alle Seen Englands und Wales' zusammen. Der Torfgehalt macht das Wasser so dunkel, dass man kaum einen Meter tief sehen kann."},
+  {g:"Schottland", t:"Die älteste Erwähnung eines Ungeheuers im Ness steht in einer Lebensbeschreibung des heiligen Columban aus dem 7. Jahrhundert. Die moderne Welle begann erst 1933, nach dem Bau einer neuen Uferstraße."},
+  {g:"Schottland", t:"Der Dudelsack ist nicht schottisch erfunden. Sackpfeifen gibt es quer durch Europa, Nordafrika und Vorderasien — Schottland hat nur die berühmteste Bauform."},
+  {g:"Schottland", t:"Scotch Whisky muss mindestens drei Jahre in Eichenfässern in Schottland reifen, sonst darf er nicht so heißen. Die Altersangabe auf der Flasche nennt immer das jüngste enthaltene Fass."},
+  {g:"Schottland", t:"Die Universität St Andrews wurde 1413 gegründet und ist die älteste Schottlands — älter als jede Universität im heutigen Deutschland außer Heidelberg, Köln und Erfurt."},
+  {g:"Schottland", t:"Der Stein von Scone, auf dem schottische Könige gekrönt wurden, stand von 1296 bis 1996 in London unter dem englischen Krönungsstuhl. Erst dann kam er zurück nach Edinburgh."},
+  {g:"Schottland", t:"Mary, Queen of Scots, wurde mit sechs Tagen Königin. Ihr Vater starb kurz nach ihrer Geburt — sie hat ihn nie gekannt."},
+  {g:"Schottland", t:"„Auld Lang Syne“ hat Robert Burns nicht erfunden. Er schrieb 1788 ein älteres Lied auf und arbeitete es um — und schickte es ausdrücklich als überliefertes Stück ein."},
+  {g:"Schottland", t:"Die Highland Clearances vertrieben im 18. und 19. Jahrhundert Pächterfamilien aus den Tälern, weil Schafhaltung mehr einbrachte. Viele der leeren Landschaften, die heute als urtümlich gelten, sind das Ergebnis."},
+  {g:"Schottland", t:"Schottland hat etwa 790 vorgelagerte Inseln. Bewohnt sind rund neunzig."},
+  {g:"Schottland", t:"Das schottische Andreaskreuz gilt als eine der ältesten noch verwendeten Nationalflaggen Europas — die Legende datiert es ins 9. Jahrhundert, sicher belegt ist es ab dem späten Mittelalter."},
+  {g:"Schottland", t:"Schottisches Gälisch und Irisch sind eng verwandt. Wer eines spricht, versteht Teile des anderen — die Trennung ist erst im Spätmittelalter deutlich geworden."},
+  {g:"Schottland", t:"Aberdeen heißt Granite City, weil ganze Straßenzüge aus örtlichem Granit gebaut sind. Bei Sonne glitzert die Stadt, weil der Stein Glimmer enthält."},
+  {g:"Schottland", t:"Edinburgh bekam 1824 eine der ersten organisierten städtischen Feuerwehren der Welt. Ihr Gründer James Braidwood war damals vierundzwanzig."},
+
+  {g:"Deutschland", t:"Das Heilige Römische Reich war ein Wahlreich. Der König wurde von Kurfürsten gewählt, nicht geboren — deshalb war jede Nachfolge Verhandlungssache und teuer."},
+  {g:"Deutschland", t:"Die Goldene Bulle von 1356 legte fest, wer den König wählt: sieben Kurfürsten, drei geistliche und vier weltliche. Sie blieb über vierhundert Jahre lang Reichsgrundgesetz."},
+  {g:"Deutschland", t:"„Stadtluft macht frei“ meinte einen Rechtssatz: Wer Jahr und Tag unangefochten in der Stadt lebte, galt als frei. Der Satz selbst ist allerdings eine spätere Zuspitzung."},
+  {g:"Deutschland", t:"Die Hanse war kein Staat und hatte keine Verfassung. Sie war ein Bund von Kaufleuten und später Städten, der über Jahrhunderte funktionierte, ohne je förmlich gegründet worden zu sein."},
+  {g:"Deutschland", t:"Der Kölner Dom wurde 1248 begonnen und 1880 fertiggestellt. Dazwischen stand über dreihundert Jahre lang ein Baukran auf dem unvollendeten Südturm — er wurde zum Wahrzeichen der Stadt."},
+  {g:"Deutschland", t:"Wen der Bamberger Reiter darstellt, weiß niemand. Die Figur entstand um 1235, und seither wurde sie schon als halbes Dutzend verschiedener Könige gedeutet."},
+  {g:"Deutschland", t:"Hildegard von Bingen war Äbtissin, Naturkundlerin, Komponistin und Beraterin von Fürsten. Von ihr sind mehr Kompositionen erhalten als von jedem anderen Menschen des 12. Jahrhunderts."},
+  {g:"Deutschland", t:"Der Sachsenspiegel, um 1225 aufgeschrieben, ist das älteste deutsche Rechtsbuch in Prosa. Er wurde nicht erlassen, sondern aufgezeichnet: geltendes Gewohnheitsrecht, von einem Einzelnen gesammelt."},
+  {g:"Deutschland", t:"Gutenbergs Leistung war nicht der bewegliche Letterndruck — den gab es in Ostasien früher. Neu war die Kombination: Handgießinstrument für Metalllettern, Presse und öliger Druckfarbe."},
+  {g:"Deutschland", t:"Die Universität Heidelberg wurde 1386 gegründet und ist die älteste im heutigen Deutschland. Unterrichtssprache war Latein, und das blieb sie über vierhundert Jahre."},
+  {g:"Deutschland", t:"Eine Inschrift in Hameln datiert das Verschwinden der Kinder auf 1284. Was tatsächlich geschah, weiß niemand — die Ratten kamen erst Jahrhunderte später in die Geschichte."},
+  {g:"Deutschland", t:"Fehde war legal. Adlige durften Privatkriege führen, solange sie sie förmlich ankündigten — erst der Ewige Landfriede von 1495 verbot das endgültig."},
+  {g:"Deutschland", t:"Die Fugger finanzierten 1519 die Kaiserwahl Karls V. Jakob Fugger erinnerte ihn später schriftlich daran, dass er ohne dieses Geld die Krone nicht hätte."},
+  {g:"Deutschland", t:"Die Fuggerei in Augsburg, 1521 gestiftet, ist die älteste noch bewohnte Sozialsiedlung der Welt. Die Jahresmiete beträgt bis heute symbolisch weniger als einen Euro — dazu drei Gebete täglich."},
+  {g:"Deutschland", t:"Die Reichskleinodien reisten jahrhundertelang mit dem Hof umher, bevor sie ab 1424 dauerhaft in Nürnberg verwahrt wurden. Ein Reich ohne feste Hauptstadt hatte auch keinen festen Ort für seine Krone."},
+  {g:"Deutschland", t:"Kaiser Friedrich Barbarossa ertrank 1190 auf dem Kreuzzug in einem Fluss in Kleinasien. Die Sage, er schlafe im Kyffhäuser, entstand erst Jahrhunderte später — und galt ursprünglich seinem Enkel."},
+  {g:"Deutschland", t:"In vielen Dörfern gab es nur einen einzigen Backofen für alle. Wer backen wollte, musste sich in die Reihe stellen — Feuer im eigenen Haus war zu gefährlich und zu teuer."},
+  {g:"Deutschland", t:"Marktrecht, Münzrecht, Zollrecht und Stadtrecht waren einzeln verliehene Privilegien. Eine Stadt konnte Markt halten dürfen und trotzdem keine eigene Münze schlagen."},
+
+  {g:"Essen", t:"Gewürze wurden nicht benutzt, um verdorbenes Fleisch zu übertünchen. Wer sich Pfeffer leisten konnte, konnte sich frisches Fleisch erst recht leisten — die Erklärung ist eine Erfindung des 19. Jahrhunderts."},
+  {g:"Essen", t:"Kartoffeln, Tomaten, Mais, Paprika, Bohnen und Schokolade gab es in Europa vor 1492 nicht. Die halbe Küche, die heute als bodenständig gilt, ist jünger als der Kölner Dom-Baubeginn."},
+  {g:"Essen", t:"Zucker galt lange als Gewürz und Arznei, nicht als Süßungsmittel. Apotheken verkauften ihn, und Rezepte setzten ihn wie Pfeffer ein — auch in Fleischgerichte."},
+  {g:"Essen", t:"Auf dem Tisch lagen Scheiben altbackenen Brots als Teller. Nach dem Essen konnte man sie aufessen, an Arme verschenken oder den Hunden geben."},
+  {g:"Essen", t:"Fastenregeln bestimmten an bis zu einem Drittel aller Tage, was auf den Tisch kam. Das prägte die Küche stärker als jede Mode: Mandelmilch, Fischgerichte und Öl statt Butter sind Fastenerfindungen."},
+  {g:"Essen", t:"Biber und Otter galten mancherorts als Fisch, weil sie im Wasser leben — damit durfte man sie in der Fastenzeit essen. Der Biberschwanz war die begehrteste Stelle."},
+  {g:"Essen", t:"Die Hauptmahlzeit war mittags, oft schon gegen zehn oder elf. Abends aß man leicht, weil man ohne Licht schlecht bei Tisch sitzt."},
+  {g:"Essen", t:"Wo wir heute Zitrone nehmen, nahm man Verjus: den sauren Saft unreifer Trauben. Er war ein eigener Grundgeschmack, kein Ersatz."},
+  {g:"Essen", t:"Die Oberschichtküche war stark gewürzt und oft süßsauer. Zimt, Ingwer, Galgant und Safran in einem Gericht waren nicht Angeberei, sondern Geschmack."},
+  {g:"Essen", t:"Das Alltagsessen der Mehrheit war Brei aus Getreide. Nicht Braten, nicht Brot mit Käse — Brei, jeden Tag, mit dem, was gerade dazu ging."},
+  {g:"Essen", t:"Weißbrot war Statussache. Je dunkler und gröber das Mehl, desto ärmer der Haushalt — heute ist es genau umgekehrt."},
+  {g:"Essen", t:"Mutterkorn im Roggen löste Massenvergiftungen aus, das „Antoniusfeuer“. Die Betroffenen litten unter Krämpfen, Halluzinationen und absterbenden Gliedmaßen — niemand wusste, woran es lag."},
+  {g:"Essen", t:"Salz war das Konservierungsmittel Nummer eins und damit hochpolitisch. Salzstraßen, Salzzölle und Salzmonopole haben Städte reich und Fürsten mächtig gemacht."},
+  {g:"Essen", t:"Große Pasteten waren oft nur Behälter. Der Teigmantel hielt den Inhalt beim Garen zusammen und wurde nicht immer mitgegessen — er war Geschirr aus Mehl."},
+  {g:"Essen", t:"Zwischen den Gängen kamen bei Hofe „Schaugerichte“: essbare Burgen, vergoldete Vögel, ganze Szenen aus Marzipan. Sie waren zum Anschauen gedacht, nicht zum Sattwerden."},
+  {g:"Essen", t:"Man aß mit den Fingern, aber nach strengen Regeln: nur mit dreien, nie in die gemeinsame Schüssel greifen, Hände zwischen den Gängen waschen. Tischzuchten füllen ganze Bücher."},
+  {g:"Essen", t:"In England wurde im Mittelalter Wein angebaut, weiter nördlich als heute üblich. Die Klimaverhältnisse waren zeitweise mild genug — das Domesday Book von 1086 verzeichnet Weinberge."},
+  {g:"Essen", t:"Hamburg hieß das „Brauhaus der Hanse“. Im 15. Jahrhundert brauten dort mehrere hundert Betriebe, und Bier war das wichtigste Exportgut der Stadt."},
+
+  {g:"Adel", t:"Ritter zu sein war ein Beruf mit Anschaffungskosten. Ein Schlachtross allein konnte so viel kosten wie ein kleiner Hof — dazu Rüstung, Knappe und Futter."},
+  {g:"Adel", t:"Nachgeborene Söhne erbten nichts. Aus ihnen wurden Kleriker, Söldner oder Kreuzfahrer — ein guter Teil der mittelalterlichen Unruhe hatte damit zu tun, dass jemand versorgt werden musste."},
+  {g:"Adel", t:"Ein „von“ im Namen bedeutete zunächst nur Herkunft. Erst in der Neuzeit wurde daraus zuverlässig ein Adelszeichen — und 1919 in Deutschland wieder nur ein Teil des Nachnamens."},
+  {g:"Adel", t:"In der Wappenkunde gilt: Farbe kommt nicht auf Farbe, Metall nicht auf Metall. Die Regel ist keine Ästhetik, sondern Lesbarkeit auf hundert Schritt Entfernung."},
+  {g:"Adel", t:"Turniere waren lebensgefährlich. Heinrich II. von Frankreich starb 1559 an einer Lanzensplitterwunde im Auge — bei einem Fest zur Feier eines Friedensschlusses."},
+  {g:"Adel", t:"Die höfische Minne war ein literarisches Ideal, kein Beziehungsmodell. Besungen wurde meist eine verheiratete, unerreichbare Dame — der Reiz lag ausdrücklich darin, dass nichts daraus wurde."},
+  {g:"Adel", t:"Verarmter Landadel war die Regel, nicht die Ausnahme. Ein Titel garantierte Rang, aber kein Einkommen — viele lebten schlechter als wohlhabende Stadtbürger, durften das aber nicht zeigen."},
+  {g:"Adel", t:"Ministerialen waren unfreie Dienstleute. Trotzdem konnten sie zu Burgherren und schließlich zu Adligen aufsteigen — ein Weg nach oben, der auf dem Papier gar nicht existierte."},
+  {g:"Adel", t:"Erbtöchter waren begehrt und gefährdet zugleich. Wer Land erben konnte, wurde umworben, entführt oder verheiratet, bevor sie selbst mitreden konnte."},
+  {g:"Adel", t:"Eleonore von Aquitanien war nacheinander Königin von Frankreich und Königin von England, ging auf Kreuzzug und wurde über achtzig. Zwei ihrer Söhne wurden Könige."},
+  {g:"Adel", t:"Über die Habsburger hieß es: Mögen andere Kriege führen — du, glückliches Österreich, heirate. Der Spruch beschreibt eine Politik, die tatsächlich funktionierte."},
+  {g:"Adel", t:"Die meisten Burgen waren klein. Ein Wohnturm, ein Hof, eine Mauer — die riesigen Anlagen, die man heute besichtigt, sind die seltenen Ausnahmen und meist mehrfach umgebaut."},
+  {g:"Adel", t:"Burgen waren Verwaltungssitze, nicht nur Festungen. Von dort wurden Abgaben eingezogen, Recht gesprochen und Wege kontrolliert — Verteidigung war der seltenere Fall."},
+  {g:"Adel", t:"Der Lehnseid war ein Rechtsakt mit festgelegten Gesten: knien, die Hände in die des Herrn legen, dann der Eid. Wer die Gesten kannte, konnte den Rang ablesen."},
+  {g:"Adel", t:"Die Jagd war Adelsprivileg, und Wilderei wurde hart bestraft. Wildschaden auf den Feldern der Bauern dagegen musste hingenommen werden — er gehörte dem Herrn."},
+  {g:"Adel", t:"Die ältere deutsche Form der Ritterwerdung hieß Schwertleite. Der Schlag auf die Schulter kam später und ist in seiner heutigen Form großenteils eine neuzeitliche Zeremonie."},
+
+  {g:"Kräuter", t:"Weidenrinde enthält Salicin. Schon in der Antike wurde sie gegen Schmerz und Fieber genutzt, und im 19. Jahrhundert entstand daraus die Acetylsalicylsäure — der Weg vom Baum zur Tablette ist wörtlich gemeint."},
+  {g:"Kräuter", t:"Der Fingerhut kam über ein Volksrezept in die Medizin: William Withering ging 1785 einer Kräutermischung nach und fand darin die Wirkung auf das Herz. Die Pflanze ist hochgiftig, und der Abstand zwischen Wirkung und Vergiftung ist winzig."},
+  {g:"Kräuter", t:"Die Tollkirsche heißt botanisch Atropa belladonna — „schöne Frau“. Ihr Saft weitet die Pupillen, und das galt als schön. Wenige Beeren können ein Kind töten."},
+  {g:"Kräuter", t:"Bevor Hopfen sich durchsetzte, landeten allerlei Kräuter im Bier, darunter Bilsenkraut. Es ist stark giftig und wirkt berauschend — die Bierordnungen der Frühen Neuzeit haben solche Zusätze mit beendet."},
+  {g:"Kräuter", t:"Der altenglische Neunkräutersegen nennt neun heilige Pflanzen gegen Gift und Krankheit — darunter Beifuß, Wegerich und Kamille. Das Gedicht ist über tausend Jahre alt."},
+  {g:"Kräuter", t:"Johanniskraut wurde traditionell zur Sommersonnenwende gesammelt. Zerreibt man die Blüten, färben sie die Finger rot — das ist Hypericin, und daher der alte Name „Johannisblut“."},
+  {g:"Kräuter", t:"Die Schafgarbe heißt botanisch Achillea. Der Sage nach behandelte Achilles damit die Wunden seiner Männer — die blutstillende Wirkung war jedenfalls schon in der Antike bekannt."},
+  {g:"Kräuter", t:"Salvia, der Salbei, kommt von salvare: retten, heilen. Eine mittelalterliche Merkzeile fragte spöttisch, wie ein Mensch sterben könne, in dessen Garten Salbei wächst."},
+  {g:"Kräuter", t:"Die Alraunenwurzel sieht menschenähnlich aus, und Kräuterbücher warnten, sie schreie beim Ausreißen tödlich. Der Rat lautete, einen Hund die Arbeit machen zu lassen. Die Pflanze ist tatsächlich giftig — der Schrei nicht belegt."},
+  {g:"Kräuter", t:"Der Schierlingsbecher, mit dem Sokrates hingerichtet wurde, enthielt Gefleckten Schierling. Das Gift lähmt von den Füßen aufwärts, bei klarem Bewusstsein — Platon hat genau das beschrieben."},
+  {g:"Kräuter", t:"Der Blaue Eisenhut gilt als giftigste Pflanze Europas. Schon längerer Hautkontakt mit dem Saft kann Beschwerden auslösen; in der Sage ist er das Kraut der Werwölfe."},
+  {g:"Kräuter", t:"Mutterkorn ist kein Kraut, sondern ein Pilz auf dem Getreide. Aus seinen Alkaloiden entstand 1938 im Labor auch das LSD — dieselbe Substanzfamilie, die jahrhundertelang Dörfer vergiftet hat."},
+  {g:"Kräuter", t:"Die überlieferten Rezepte für „Hexensalben“ nennen überwiegend Nachtschattengewächse: Bilsenkraut, Tollkirsche, Stechapfel. Dass die berichteten Flugerlebnisse davon kamen, ist die gängige Deutung — beweisen lässt sie sich nicht. Alle drei sind stark giftig, und zwar auch über die Haut."},
+  {g:"Kräuter", t:"Der St. Galler Klosterplan von etwa 820 zeigt einen eigenen Heilkräutergarten mit sechzehn beschrifteten Beeten. Es ist der älteste erhaltene Gartenplan Europas — gebaut wurde er nie."},
+  {g:"Kräuter", t:"Hildegard von Bingen schrieb mit der „Physica“ eine ganze Naturkunde: Pflanzen, Tiere, Steine, Metalle. Vieles darin ist historisch faszinierend und medizinisch nicht belegt — beides gleichzeitig."},
+  {g:"Kräuter", t:"Wermut gab dem Absinth den Namen: Artemisia absinthium. Der Ruf des Getränks als Nervengift beruhte lange auf dem Wermutbestandteil Thujon — heute gilt vor allem der hohe Alkoholgehalt als Ursache."},
+  {g:"Kräuter", t:"Baldrian riecht für Menschen streng und für Katzen verlockend. Der Name geht vermutlich auf lateinisch valere zurück: gesund sein, stark sein."},
+  {g:"Kräuter", t:"Die Kamille heißt aus dem Griechischen „Erdapfel“, weil die Blüten zerrieben nach Apfel riechen. Der Zusatz „echte“ unterscheidet sie von mehreren ähnlich aussehenden Verwandten ohne diesen Duft."},
+  {g:"Kräuter", t:"Pfefferminze ist eine Kreuzung aus Wasserminze und Grüner Minze und wurde erst im 17. Jahrhundert in England beschrieben. Die Pflanze, die uns uralt vorkommt, ist jünger als der Dreißigjährige Krieg."},
+  {g:"Kräuter", t:"Mönchspfeffer trägt seinen Namen, weil er in Klöstern den Trieb dämpfen sollte. Ob er das tat, ist offen — die Erwartung hat den Namen jedenfalls überdauert."},
+  {g:"Kräuter", t:"Die Ringelblume heißt Calendula, weil sie über viele Monate hinweg immer wieder blüht — nach den calendae, den Monatsersten des römischen Kalenders."},
+  {g:"Kräuter", t:"Knoblauch gegen Vampire ist ein junges Motiv, populär geworden mit dem Roman Dracula. Als Heilmittel dagegen ist Knoblauch seit der Antike geschätzt und in ägyptischen Papyri erwähnt."},
+  {g:"Kräuter", t:"Rainfarn, Wermut und Raute galten über Jahrhunderte als Kräuter, mit denen Frauen Schwangerschaften beendeten. Das ist ein Grund, warum Kräuterwissen und Hexerei in der Frühen Neuzeit so oft zusammen genannt wurden."},
+  {g:"Kräuter", t:"Der „Vier-Räuber-Essig“ soll Grabräuber in der Pestzeit geschützt haben — Rezepte mit Wermut, Raute, Salbei und Rosmarin kursieren bis heute. Die Geschichte dazu taucht allerdings erst lange nach der Pest auf."}
 ];
 
 /* ————— Geschwätz —————
@@ -2113,20 +2283,28 @@ const GESCHWAETZ = [
    Taverne einbauen? So geht er gerade unter … wir könnten ja Wanderer zu ADHS
    Facts packen, Magier gibt allgemeine Fun Facts.“
 
-   Genau so. Die Trennung ist damit nicht mehr Ort, sondern Thema:
-     Wanderer — was mit IHR zu tun hat (ADHS).
-     Magier   — was mit der WELT zu tun hat.
+   Genau so. Die Trennung ist damit nicht mehr Ort, sondern Thema. Deshalb
+   bleibt es EINE Bibliothek mit einer Gebietsmarke, und die Gäste greifen
+   unterschiedlich hinein. Zwei getrennte Listen wären zwei Buchhaltungen für
+   dieselbe Sache — genau der Fehler, den `rastBuchen` schon einmal gekostet
+   hat.
 
-   Deshalb bleibt es EINE Bibliothek mit einer Gebietsmarke, und die beiden
-   Gäste greifen unterschiedlich hinein. Zwei getrennte Listen wären zwei
-   Buchhaltungen für dieselbe Sache — genau der Fehler, den `rastBuchen`
-   schon einmal gekostet hat.
+   Die Tür im Rückzug bleibt, wo sie ist: das ist der Weg, der zählt, wenn es
+   ihr schlecht geht. Die Taverne ist eine zweite Tür, kein Umzug.
 
-   Seine Tür im Rückzug bleibt trotzdem, wo sie ist: das ist der Weg, der
-   zählt, wenn es ihr schlecht geht. Die Taverne ist eine zweite Tür, kein
-   Umzug. */
-function magierTopf(){ return MAGIER.filter(x=> x.g !== "ADHS"); }
-function wandererTopf(){ return WANDERER.concat(MAGIER.filter(x=> x.g === "ADHS")); }
+   NACHTRAG, ihr Einwand, und er war der bessere: erst hatte der Magier die
+   Weltfakten und der Wanderer die ADHS-Karten. Sie hat gedreht — *„die ADHS
+   Fakten sind begrenzt, dann lass uns diese zum Magier geben, der jeden Tag
+   nur eine Seite aufschlägt, und andere Fun Facts zum Wanderer, da kann man
+   ja sagen: noch eine Info.“*
+
+   Das ist genau richtig herum: Ein kleiner Vorrat hält, wenn man ihn auf eine
+   Seite pro Tag rationiert. Ein großer Vorrat will geblättert werden. Und es
+   passt zu den Figuren — der Gelehrte über seinen Büchern für das Wissen über
+   sie selbst, der Weitgereiste für die Welt da draußen. */
+function magierTopf(){ return WANDERER.concat(MAGIER.filter(x=> x.g === "ADHS")); }
+function wandererTopf(){ return MAGIER.filter(x=> x.g !== "ADHS" && x.g !== "Kräuter"); }
+function kraeuterTopf(){ return MAGIER.filter(x=> x.g === "Kräuter"); }
 /* Karten der beiden Bauarten brauchen einen gemeinsamen Schlüssel, damit
    „noch einer“ nicht dieselbe zweimal zieht. */
 function karteSchluessel(k){ return k.titel || k.t; }
@@ -2143,6 +2321,131 @@ function magierHeute(){
   return topf[((tagesNummer() % topf.length) + topf.length) % topf.length];
 }
 
+/* ————— Der Spielmann —————
+   Ihre Idee, mitten im Bau: „ich hab Germanistik studiert und liebe
+   Mittelhochdeutsch und Althochdeutsch. Vielleicht können wir auch beim
+   Geschwätz Zitate aus Büchern nehmen mit Übersetzung.“ Und gleich das
+   richtige Beispiel dazu: dû bist mîn, ich bin dîn.
+
+   Ein fahrender Sänger, der Verse vorträgt, ist der eine Gast, der in eine
+   Taverne gehört, ohne dass man ihn erklären muss. Das erfundene Geschwätz
+   zieht dafür zum Wirt — ihr Vorschlag, und er stimmt: Klatsch ist Wirtssache.
+
+   EHRLICH DAZUSAGEN: Die Schreibung folgt gängigen Ausgaben. Handschriften
+   weichen voneinander ab, und die Normalisierung ist eine Entscheidung der
+   Herausgeber, keine Eigenschaft des Textes. Steht so auch auf der Karte. */
+const ZITATE = [
+  {alt:"Dû bist mîn, ich bin dîn:\ndes solt dû gewis sîn.",
+   neu:"Du bist mein, ich bin dein — dessen sollst du gewiss sein.",
+   wer:"Anonym, um 1180 · Mittelhochdeutsch",
+   dazu:"Steht am Ende eines lateinischen Liebesbriefs in einer Tegernseer Handschrift. Die berühmtesten deutschen Liebesverse stammen aus einem Postskriptum."},
+
+  {alt:"Under der linden\nan der heide,\ndâ unser zweier bette was.",
+   neu:"Unter der Linde auf der Heide, wo das Bett für uns beide war.",
+   wer:"Walther von der Vogelweide, um 1200 · Mittelhochdeutsch",
+   dazu:"Erzählt wird aus der Sicht der Frau — und sie erzählt es vergnügt. Ungewöhnlich für die Zeit, in der die Minne sonst das Unerreichbare besingt."},
+
+  {alt:"Ich saz ûf eime steine\nund dahte bein mit beine.",
+   neu:"Ich saß auf einem Stein und schlug ein Bein über das andere.",
+   wer:"Walther von der Vogelweide, um 1198 · Mittelhochdeutsch",
+   dazu:"Die Denkerpose ist im Codex Manesse abgebildet — das Bild zeigt Walther genau so sitzend, wie sein eigener Vers es beschreibt."},
+
+  {alt:"Owê war sint verswunden\nalliu mîniu jâr!",
+   neu:"Ach, wohin sind sie verschwunden, all meine Jahre!",
+   wer:"Walther von der Vogelweide · Mittelhochdeutsch",
+   dazu:"Der Anfang der „Elegie“. Owê ist kein Wort für kleinen Ärger — es ist der Klageruf, und er trägt das ganze Gedicht."},
+
+  {alt:"Uns ist in alten mæren\nwunders vil geseit.",
+   neu:"Uns ist in alten Erzählungen viel Wunderbares berichtet.",
+   wer:"Nibelungenlied, um 1200 · Mittelhochdeutsch",
+   dazu:"Die erste Zeile beruft sich auf Älteres — das Lied gibt sich von Anfang an als Überlieferung aus, nicht als Erfindung."},
+
+  {alt:"Ich zôch mir einen valken\nmêre danne ein jâr.",
+   neu:"Ich zog mir einen Falken auf, länger als ein Jahr.",
+   wer:"Der von Kürenberg, um 1160 · Mittelhochdeutsch",
+   dazu:"Das Falkenlied gilt als eines der ältesten deutschen Minnelieder. Wer der Falke ist, wird nie gesagt — und genau darüber wird seit zweihundert Jahren gestritten."},
+
+  {alt:"Ein rîter sô gelêret was,\ndaz er an den buochen las\nswaz er dar an geschriben vant.",
+   neu:"Ein Ritter war so gelehrt, dass er in den Büchern las, was immer er darin geschrieben fand.",
+   wer:"Hartmann von Aue, Der arme Heinrich · Mittelhochdeutsch",
+   dazu:"Hartmann stellt sich hier selbst vor. Dass ein Ritter lesen konnte, war der Erwähnung wert — deshalb steht es gleich am Anfang."},
+
+  {alt:"Ist zwîvel herzen nâchgebûr,\ndaz muoz der sêle werden sûr.",
+   neu:"Ist Zweifel dem Herzen ein Nachbar, so muss das der Seele bitter werden.",
+   wer:"Wolfram von Eschenbach, Parzival · Mittelhochdeutsch",
+   dazu:"Der berühmte dunkle Anfang. Wolfram beginnt seinen Roman nicht mit einer Handlung, sondern mit einem Rätselsatz über den Zweifel."},
+
+  {alt:"ein man ein wîp, ein wîp ein man,\nTristan Isolt, Isolt Tristan.",
+   neu:"Ein Mann eine Frau, eine Frau ein Mann — Tristan Isolde, Isolde Tristan.",
+   wer:"Gottfried von Straßburg, Tristan · Mittelhochdeutsch",
+   dazu:"Vier Wörter, zweimal gespiegelt, und die Namen tauschen die Plätze. Die Form sagt dasselbe wie der Inhalt."},
+
+  {alt:"Slâfest du, friedel ziere?\nman wecket uns leider schiere.",
+   neu:"Schläfst du, schöner Geliebter? Man wird uns leider bald wecken.",
+   wer:"Dietmar von Aist, 12. Jh. · Mittelhochdeutsch",
+   dazu:"Eines der frühesten deutschen Tagelieder: Die Nacht ist vorbei, und der Morgen ist der Feind. Geweckt wird hier vom Wächter, nicht vom Wecker."},
+
+  {alt:"Owê, sol aber mir iemer mê\ngeliuhten dur die naht\nnoch wîzer danne ein snê\nir lîp vil wol geslaht?",
+   neu:"Ach, wird mir denn je wieder durch die Nacht ihr Leib leuchten, weißer als Schnee, so vollkommen gebaut?",
+   wer:"Heinrich von Morungen · Mittelhochdeutsch",
+   dazu:"Das „Tagelied vom Leuchten“. Morungen schreibt Licht in fast jedes seiner Lieder — bei ihm ist Liebe eine Frage der Optik."},
+
+  {alt:"Chume, chume, geselle mîn,\nih enbîte harte dîn.",
+   neu:"Komm, komm, mein Geselle, ich warte sehnlich auf dich.",
+   wer:"Carmina Burana, 13. Jh. · Mittelhochdeutsch",
+   dazu:"Steht mitten zwischen lateinischen Liedern in der Benediktbeurer Handschrift. Wer deutsch sang, sang oft das Verliebte."},
+
+  {alt:"Ez ist ein snê gevallen\nund ist ez leider niht zît.",
+   neu:"Es ist ein Schnee gefallen, und es ist leider nicht die Zeit dafür.",
+   wer:"Anonym, um 1300 · Mittelhochdeutsch",
+   dazu:"Der Schnee im Frühjahr steht für alles, was zur falschen Zeit kommt. Das Lied wird bis heute gesungen."},
+
+  {alt:"Ik gihôrta ðat seggen,\nðat sih urhettun ænon muotin,\nHiltibrant enti Haðubrant.",
+   neu:"Ich hörte das sagen, dass Herausforderer allein aufeinandertrafen: Hildebrand und Hadubrand.",
+   wer:"Hildebrandslied, um 830 · Althochdeutsch",
+   dazu:"Das einzige erhaltene deutsche Heldenlied dieser Zeit. Ein Mönch schrieb es auf den freien Seiten eines theologischen Buchs — und brach mitten im Kampf ab. Der Schluss fehlt bis heute."},
+
+  {alt:"welaga nu, waltant got,\nwêwurt skihit.",
+   neu:"Weh nun, waltender Gott — Unheil geschieht.",
+   wer:"Hildebrandslied · Althochdeutsch",
+   dazu:"Der Vater hat erkannt, dass er gegen seinen eigenen Sohn kämpfen muss. Drei Wörter für das, wofür andere Sprachen Sätze brauchen."},
+
+  {alt:"ben zi bena, bluot zi bluoda,\nlid zi geliden, sôse gelîmida sîn.",
+   neu:"Bein zu Bein, Blut zu Blut, Glied zu Gliedern — als wären sie zusammengeleimt.",
+   wer:"Zweiter Merseburger Zauberspruch, 9./10. Jh. · Althochdeutsch",
+   dazu:"Ein Heilspruch für ein verrenktes Pferdebein, aufgeschrieben von einem christlichen Schreiber, der die alten Götter darin stehen ließ. Er wurde 1841 in einer Merseburger Handschrift wiederentdeckt."},
+
+  {alt:"Dat gafregin ih mit firahim\nfiriwizzo meista.",
+   neu:"Das erfuhr ich unter den Menschen als das größte der Wunder.",
+   wer:"Wessobrunner Gebet, um 800 · Althochdeutsch",
+   dazu:"Es folgt die Schilderung, wie vor der Schöpfung nichts war — kein Berg, kein Baum, keine Sonne. Eines der ältesten Gedichte in deutscher Sprache."},
+
+  {alt:"Einan kuning wei; ih,\nHeizsit her Hluduîg.",
+   neu:"Einen König kenne ich, er heißt Ludwig.",
+   wer:"Ludwigslied, um 881 · Althochdeutsch",
+   dazu:"Ein Zeitungsbericht in Versen: geschrieben unmittelbar nach einer gewonnenen Schlacht, über einen König, der noch lebte."},
+
+  {alt:"Diu werlt ist ûzen schoene,\nwîz grüene unde rôt,\nund innân swarzer varwe.",
+   neu:"Die Welt ist außen schön — weiß, grün und rot — und innen von schwarzer Farbe.",
+   wer:"Walther von der Vogelweide · Mittelhochdeutsch",
+   dazu:"Aus der Alterselegie. Die Farben sind die der höfischen Pracht; das Schwarz darunter ist alles, was sie verdeckt."},
+
+  {alt:"Swer ist ze allen zîten frô,\nder ist niht wîse.",
+   neu:"Wer zu allen Zeiten fröhlich ist, der ist nicht klug.",
+   wer:"Freidank, Bescheidenheit, 13. Jh. · Mittelhochdeutsch",
+   dazu:"Freidanks Spruchsammlung war ein Bestseller des Mittelalters — hunderte Handschriften. Wer der Verfasser war, weiß niemand."},
+
+  {alt:"hie hât daz mære ein ende:\ndaz ist der Nibelunge nôt.",
+   neu:"Hier hat die Erzählung ein Ende: das ist der Nibelungen Untergang.",
+   wer:"Nibelungenlied, Schlusszeile · Mittelhochdeutsch",
+   dazu:"Nôt heißt hier nicht Not im heutigen Sinn, sondern Verderben. Nach diesem Vers ist niemand mehr übrig, über den sich erzählen ließe."},
+
+  {alt:"Ich hân mîn lêhen, al die werlt, ich hân mîn lêhen.",
+   neu:"Ich habe mein Lehen — alle Welt, ich habe mein Lehen!",
+   wer:"Walther von der Vogelweide · Mittelhochdeutsch",
+   dazu:"Nach Jahrzehnten als fahrender Sänger bekam Walther endlich ein eigenes Gut. Er schrieb darüber ein Gedicht, das klingt, als hätte er es über den Marktplatz gerufen."}
+];
+
 /* ————— Der Raum —————
    Was gerade offen liegt, steht in Modul-Variablen und NICHT in D: es soll den
    Neuaufbau der Seite überleben (sonst verschwindet die Antwort des Wirts,
@@ -2151,6 +2454,8 @@ function magierHeute(){
 let wirtAntwort = null;
 let magierOffen = false;
 let geschwaetzJetzt = null;
+let kraeuterJetzt = null;
+let zitatJetzt = null;
 
 function wirtHeute(){ return WIRT[streu("wirt" + (D.tag||"")) % WIRT.length]; }
 
@@ -2198,51 +2503,113 @@ function taverneZeichnen(){
     reihe.appendChild(still);
     kw.appendChild(reihe);
   }
+  /* Das Geschwätz ist zum Wirt gezogen — ihr Vorschlag, und er stimmt:
+     Klatsch ist Wirtssache. Am Nebentisch sitzt jetzt der Spielmann. */
+  if(geschwaetzJetzt){
+    const e = document.createElement("p");
+    e.className = "gast-sagt"; e.style.marginTop = "12px";
+    e.textContent = "„" + geschwaetzJetzt + "“";
+    kw.appendChild(e);
+    const m = document.createElement("p");
+    m.className = "erfunden";
+    m.textContent = "✎ Erfunden · Geschwätz aus einer Welt, die es nicht gibt";
+    kw.appendChild(m);
+  }
+  kw.appendChild(machKnopf(geschwaetzJetzt ? "Und sonst?" : "Was gibt's Neues?", "ruhig", ()=>{
+    const topf = GESCHWAETZ.filter(x=> x !== geschwaetzJetzt);
+    geschwaetzJetzt = topf[Math.floor(Math.random()*topf.length)];
+    taverneZeichnen();
+  }));
   ziel.appendChild(kw);
 
-  /* ── Der alte Magier ── */
+  /* ── Der alte Magier: eine Seite am Tag, über sie selbst ── */
   const m = magierHeute();
   const km = tavernenKarte("Der alte Magier",
-    magierOffen ? m.t : "Hängt über seinen Büchern, das Glas seit einer Stunde halb voll.");
+    magierOffen ? (m.fakt || m.t) : "Hängt über seinen Büchern, das Glas seit einer Stunde halb voll.");
   if(magierOffen){
+    if(m.titel){
+      const t = document.createElement("p");
+      t.className = "gast-du"; t.style.fontStyle = "normal";
+      t.textContent = m.titel;
+      km.insertBefore(t, km.querySelector(".gast-sagt"));
+    }
     const q = document.createElement("p");
     q.className = "beleg";
-    q.textContent = "✓ Belegt · " + m.g;
+    q.textContent = "✓ Belegt · " + (m.quelle || "ADHS");
     km.appendChild(q);
     const nz = document.createElement("p");
     nz.className = "gast-fuss";
-    nz.textContent = "Morgen hat er eine andere Seite aufgeschlagen.";
+    nz.textContent = "Morgen schlägt er eine andere Seite auf.";
     km.appendChild(nz);
   }else{
     km.appendChild(machKnopf("Was liest du da?", "", ()=>{ magierOffen = true; taverneZeichnen(); }));
   }
   ziel.appendChild(km);
 
-  /* ── Der Wanderer ── */
-  const kwd = tavernenKarte("Ein Wanderer",
-    "Sitzt am Rand, Stiefel voller Staub. Er kennt die Gegend, aus der du kommst.");
+  /* ── Der Spielmann ──
+     Steht bewusst VOR den beiden Blätter-Gästen: Die zwei Sachen, die sie am
+     stärksten herzieht, sind die eine Seite des Magiers und die Verse — und
+     was man suchen muss, nimmt man an einem lahmen Tag nicht. */
+  const ks = tavernenKarte("Der Spielmann",
+    zitatJetzt ? "" : "Stimmt sein Instrument und wartet, bis es leiser wird.");
+  if(zitatJetzt){
+    const alt = document.createElement("p");
+    alt.className = "vers"; alt.textContent = zitatJetzt.alt;
+    ks.replaceChild(alt, ks.querySelector(".gast-sagt"));
+    const neu = document.createElement("p");
+    neu.className = "vers-neu"; neu.textContent = zitatJetzt.neu;
+    ks.appendChild(neu);
+    const wer = document.createElement("p");
+    wer.className = "beleg"; wer.textContent = "✓ " + zitatJetzt.wer;
+    ks.appendChild(wer);
+    const dazu = document.createElement("p");
+    dazu.className = "gast-fuss"; dazu.textContent = zitatJetzt.dazu;
+    ks.appendChild(dazu);
+  }
+  ks.appendChild(machKnopf(zitatJetzt ? "Noch eins" : "Trag was vor", "", ()=>{
+    const topf = ZITATE.filter(x=> x !== zitatJetzt);
+    zitatJetzt = topf[Math.floor(Math.random()*topf.length)];
+    taverneZeichnen();
+  }));
+  const sh = document.createElement("p");
+  sh.className = "gast-fuss";
+  sh.textContent = zitatJetzt
+    ? "Schreibung nach gängigen Ausgaben — Handschriften weichen ab."
+    : ZITATE.length + " Stellen aus dem Mittel- und Althochdeutschen, mit Übersetzung.";
+  ks.appendChild(sh);
+  ziel.appendChild(ks);
+
+  /* ── Der Wanderer: die Welt da draußen, so viel sie will ── */
+  const kwd = tavernenKarte("Der Wanderer",
+    "Stiefel voller Staub. Er war schon überall und erzählt gern, was er unterwegs aufgeschnappt hat.");
   kwd.appendChild(machKnopf("Setz dich zu ihm", "", ()=> wandererBlatt()));
   const wh = document.createElement("p");
   wh.className = "gast-fuss";
-  wh.textContent = "Belegtes über ADHS, jede Karte mit Quelle. Fragt nichts, zählt nichts.";
+  wh.textContent = wandererTopf().length + " Sachen über Mittelalter, Märchen, Irland, Schottland, Essen und mehr.";
   kwd.appendChild(wh);
   ziel.appendChild(kwd);
 
-  /* ── Am Nebentisch ── */
-  const kg = tavernenKarte("Am Nebentisch",
-    geschwaetzJetzt || "Es wird geredet. Man versteht nur Halbes.");
-  if(geschwaetzJetzt){
-    const e = document.createElement("p");
-    e.className = "erfunden";
-    e.textContent = "✎ Erfunden · Geschwätz aus einer Welt, die es nicht gibt";
-    kg.appendChild(e);
+  /* ── Die Kräuterhexe ── */
+  const kh = tavernenKarte("Die Kräuterhexe",
+    kraeuterJetzt ? kraeuterJetzt.t : "Sitzt hinten, sortiert getrocknete Bündel und redet mit sich selbst.");
+  if(kraeuterJetzt){
+    const q = document.createElement("p");
+    q.className = "beleg";
+    q.textContent = "✓ Belegt · Pflanzenkunde und ihre Geschichte";
+    kh.appendChild(q);
   }
-  kg.appendChild(machKnopf(geschwaetzJetzt ? "Noch was aufschnappen" : "Hinhören", "", ()=>{
-    const topf = GESCHWAETZ.filter(x=> x !== geschwaetzJetzt);
-    geschwaetzJetzt = topf[Math.floor(Math.random()*topf.length)];
+  kh.appendChild(machKnopf(kraeuterJetzt ? "Erzähl noch eins" : "Was hast du da?", "", ()=>{
+    const topf = kraeuterTopf().filter(x=> x !== kraeuterJetzt);
+    kraeuterJetzt = topf[Math.floor(Math.random()*topf.length)];
     taverneZeichnen();
   }));
-  ziel.appendChild(kg);
+  if(!kraeuterJetzt){
+    const hh = document.createElement("p");
+    hh.className = "gast-fuss";
+    hh.textContent = "Pflanzenkunde und ihre Geschichte. Kein Rat, keine Anwendung — bei den giftigen sagt sie es dazu.";
+    kh.appendChild(hh);
+  }
+  ziel.appendChild(kh);
 }
 
 /* ═══════════ Einkaufszettel ═══════════
@@ -5375,6 +5742,7 @@ function ansichtZeigen(name){
     /* Beim Betreten liegt nichts mehr offen von vorhin: der Wirt fängt neu an,
        das Buch des Magiers ist wieder zu. */
     wirtAntwort = null; magierOffen = false; geschwaetzJetzt = null;
+    kraeuterJetzt = null; zitatJetzt = null;
     taverneZeichnen();
     tonSpielen("taverne");
   }else{
@@ -5583,9 +5951,8 @@ function tonHolen(art){
 }
 
 let tonLaeuft = null;
-function tonSpielen(art){
-  art = art || "erfolg";
-  if(art === "taverne" ? !D.tonTaverne : D.ton === false) return;
+/* Abspielen ohne Rückfrage — für die Proben im Lager. */
+function tonAbspielen(art){
   tonBereit();
   if(!tonRaum) return;
   try{
@@ -5596,6 +5963,12 @@ function tonSpielen(art){
     q.start();
     if(art === "taverne") tonLaeuft = q;
   }catch(e){}
+}
+/* Abspielen, wenn sie es eingeschaltet hat — für alles, was von selbst klingt. */
+function tonSpielen(art){
+  art = art || "erfolg";
+  if(art === "taverne" ? !D.tonTaverne : D.ton === false) return;
+  tonAbspielen(art);
 }
 function tonStoppen(){
   if(tonLaeuft){ try{ tonLaeuft.stop(); }catch(e){} tonLaeuft = null; }
@@ -5621,10 +5994,18 @@ document.getElementById("ton-wahl").addEventListener("click", e=>{
   if(D.ton) tonBereit();
   sichern(); tonZeichnen();
 });
-document.getElementById("ton-probe").addEventListener("click", ()=>{ tonBereit(); tonSpielen(); });
-/* Nicht wandererBlatt direkt hängen: der Listener reicht sonst das
+/* Die Proben umgehen den Schalter absichtlich: Wer auf „Einmal hören“ tippt,
+   will hören — und muss auch hören können, wenn gerade „Still“ eingestellt
+   ist. Sonst prüft sie ihr Telefon, obwohl die App die Ursache ist. */
+document.getElementById("ton-probe").addEventListener("click", ()=>{
+  tonBereit(); tonAbspielen("erfolg");
+});
+document.getElementById("ton-taverne-probe").addEventListener("click", ()=>{
+  tonBereit(); tonAbspielen("taverne");
+});
+/* Nicht adhsBlatt direkt hängen: der Listener reicht sonst das
    Klick-Ereignis als „letzter Titel" durch. */
-document.getElementById("wanderer-lager").addEventListener("click", ()=> wandererBlatt());
+document.getElementById("wanderer-lager").addEventListener("click", ()=> adhsBlatt());
 
 /* Antippen UND Tastatur: der Gruß ist ein Knopf, also muss er sich auch wie
    einer bedienen lassen. */
