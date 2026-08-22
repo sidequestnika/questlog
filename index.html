@@ -491,6 +491,12 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .brauch .mini{margin:0 0 5px}
 .brauch .knopf{margin-top:10px;margin-bottom:0}
 .brauch-satz{margin:0;font-family:var(--schrift-text);font-size:15.5px;line-height:1.5}
+/* Ein fertiges Ritual ist antippbar, sieht aber nicht nach Knopf aus: Es ist
+   in erster Linie etwas zum Ansehen, und erst in zweiter etwas zum Ändern. */
+.ritual-zeile{display:block;width:100%;text-align:left;background:none;border:0;
+  padding:3px 0;margin:0;font:inherit;font-size:13px;line-height:1.5;
+  color:var(--moss);cursor:pointer}
+.ritual-zeile:active{opacity:.6}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -914,9 +920,15 @@ const BEGLEITUNG_POOL = [
    Verdienstgelegenheit („nachher mache ich nur noch Selfcare"), und aus
    Fürsorge wird eine Aufgabe. */
 const GOLD_SELFCARE = 2;
-/* Der einzige Streak in Questlog — und er zählt Fürsorge, nicht Leistung.
+/* Die Fürsorge-Reihe — sie zählt, was sie sich gibt, nicht was sie leistet.
    An einem miesen Tag reicht eine Tasse Tee, man kann also fast immer
-   gewinnen. Zwei geschenkte Tage pro Woche fangen den Rest ab. */
+   gewinnen. Zwei geschenkte Tage pro Woche fangen den Rest ab.
+
+   Seit dem 22.08.2026 ist sie nicht mehr die einzige Reihe: Der Brauch hat
+   eine eigene. Das ist Absicht und ihre Entscheidung — „finde wir sollten den
+   Streak auch separat halten von Selfcare". Die beiden zählen Verschiedenes
+   und dürfen sich nicht vermischen: hier Fürsorge, dort ein Vorsatz. Geteilt
+   wird nur die RECHNUNG (reiheZaehlen), nie der Topf. */
 const SELFCARE_STUFEN = [[7,10],[30,50],[100,100]];
 const EIS_PRO_WOCHE = 2;
 
@@ -956,8 +968,18 @@ const EIS_PRO_WOCHE = 2;
    weiß nur sie. Sagt sie „noch nicht", läuft der Brauch weiter und die App
    fragt erst in zwei Wochen wieder. */
 const RITUAL_AB = 66;
-const BRAUCH_MARKEN = [[7, 10], [30, 25]];
-const RITUAL_GOLD = 60;
+/* Die Beträge sind am Laden geeicht, nicht geraten. Dort kostet das Größte
+   50 Gold — eine einzelne Zahlung darf also nicht darüber liegen, sonst kauft
+   ein Ereignis die teuerste Belohnung mit Wechselgeld. Beim ersten Bau stand
+   das Ritual bei 60, und das war schlicht falsch herum.
+
+   Jetzt ergibt ein ganzer Durchlauf zusammen genau 50: die größte Belohnung
+   im Laden für die größte Sache, die man sich hier vornehmen kann.
+   (Zum Vergleich, absichtlich unangetastet: die Selfcare-Reihe zahlt
+   10/50/100 bei 7/30/100 Tagen. Sie ist älter, sie trägt, und sie zählt
+   Fürsorge statt Vorsatz — ihre eigene Rechnung.) */
+const BRAUCH_MARKEN = [[7, 5], [30, 15]];
+const RITUAL_GOLD = 30;
 const NACHFRAGE_ABSTAND = 14;
 
 function vereinen(vorschlaege, eigene){
@@ -3039,8 +3061,21 @@ function seiten(g){
   }
   return (seitenAblage[g.t] = raus);
 }
+/* Gemerkt statt jedes Mal neu gerechnet. Gemessen kostete ein Aufbau der
+   Taverne 2,2 ms, davon 1,9 ms allein diese Zahl — bei jedem Aufbau wurden
+   26.322 Wörter zerlegt, um „2,2 Stunden" auszurechnen, eine Zahl, die sich
+   nie ändert. Jetzt einmal beim ersten Hinsehen und danach nie wieder.
+   Absichtlich faul und nicht beim Start: Wer die Taverne nie betritt, soll
+   die Rechnung auch nicht bezahlen. */
 function lesezeit(g){
-  return Math.max(1, Math.round(g.a.join(" ").split(/\s+/).length / 200));
+  if(g.min == null) g.min = Math.max(1, Math.round(g.a.join(" ").split(/\s+/).length / 200));
+  return g.min;
+}
+let lesestundenWert = null;
+function lesestunden(){
+  if(lesestundenWert == null)
+    lesestundenWert = Math.round(GESCHICHTEN.reduce((n,g)=> n + lesezeit(g), 0) / 60 * 10) / 10;
+  return lesestundenWert;
 }
 
 /* Ein Absatz Poe. Kursives steht in der Quelle als _so_ und wird zu <em>.
@@ -3099,6 +3134,12 @@ function leseBlatt(g, nr){
       b.appendChild(machKnopf("Eine andere Geschichte", "", ()=> buechertischBlatt()));
       b.appendChild(machKnopf("Nochmal von vorn", "ruhig", ()=> leseBlatt(g, 0)));
     }
+    /* Ihr Fund vom 22.08.2026: „man kann weiter blättern aber nicht zurück,
+       erst wenn man am Ende ist." Stimmt — es gab nur einen Weg nach vorn.
+       Beim Lesen verliest man sich, tippt daneben oder will den Absatz davor
+       nochmal; einmal zu weit getippt hieß bisher: ganz durch bis zum Schluss
+       oder von vorn anfangen. */
+    if(nr > 0) b.appendChild(machKnopf("‹ Eine Seite zurück", "ruhig", ()=> leseBlatt(g, nr - 1)));
     /* Schließen heißt nie aufgeben — die Seite steht schon in D.dichter. */
     b.appendChild(machKnopf("Genug für jetzt", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
   });
@@ -3305,8 +3346,7 @@ function taverneZeichnen(){
      Geschichten dazukommen. Der Hinweis aufs Netz steht bewusst dabei: Genau
      dafür hat sie gefragt („falls ich unterwegs etwas mehr will“). */
   dh.textContent = GESCHICHTEN.length + " Geschichten von Edgar Allan Poe, im englischen Original — zusammen etwa "
-    + Math.round(GESCHICHTEN.reduce((n,x)=> n + lesezeit(x), 0) / 60 * 10) / 10
-    + " Stunden. Sie liegen im Telefon, du brauchst dafür kein Netz.";
+    + lesestunden() + " Stunden. Sie liegen im Telefon, du brauchst dafür kein Netz.";
   kd.appendChild(dh);
   ziel.appendChild(kd);
 
@@ -4912,9 +4952,9 @@ function abendZeichnen(){
 }
 
 /* ═══════════ Lange Rast ═══════════
-   Der eine Streak, den es hier gibt. Er zählt Fürsorge, nicht Leistung —
-   deshalb kann man ihn fast immer gewinnen, und deshalb darf er wehtun, wenn
-   er reißt. Zwei geschenkte Tage pro Woche (rollierend) fangen das ab, wie
+   Die Fürsorge-Reihe (die zweite ist die des Brauchs, bewusst getrennt).
+   Sie zählt Fürsorge, nicht Leistung — deshalb kann man sie fast immer
+   gewinnen, und deshalb darf sie wehtun, wenn sie reißt. Zwei geschenkte Tage pro Woche (rollierend) fangen das ab, wie
    bei Duolingo. Gefragt wird nach dem NAMEN, nicht nach ja/nein: mit „ja"
    schummelt man sich in zwei Sekunden durch, ein Wort muss man sich holen. */
 /* Eine Reihe zählen. Dieselbe Buchhaltung für die Selfcare und für den Brauch:
@@ -4956,6 +4996,12 @@ function selfcareStreak(){ return reiheZaehlen(D.selfcareLog); }
 /* ── Der Brauch ── */
 function brauchReihe(){ return reiheZaehlen((D.brauch||{}).log); }
 function brauchSatz(b){ return "Wenn ich " + b.wenn + ", dann " + b.was + "."; }
+
+function datumWort(iso){
+  if(!iso) return "";
+  const [j,m,t] = iso.split("-").map(Number);
+  return t + ". " + MONATE[m-1];
+}
 
 function brauchMarken(){
   const b = D.brauch; if(!b) return null;
@@ -5116,8 +5162,14 @@ function brauchLagerZeichnen(){
     const r = brauchReihe();
     const z = document.createElement("p");
     z.className = "hinweis"; z.style.margin = "0 0 10px";
+    /* Zwei verschiedene Zahlen, und der Unterschied ist der Punkt: Die Reihe
+       fängt nach einem Bruch wieder bei null an, `seit` nicht. Reißt die Reihe
+       am 60. Tag, steht hier trotzdem noch, seit wann sie dranbleibt — und ein
+       Bruch löscht dann nicht die ganze Geschichte. Vorher wurde `seit` nur
+       geschrieben und nie gelesen; das war ein totes Feld. */
     z.textContent = (r.tage === 1 ? "1. Tag" : r.tage + ". Tag in Folge")
-      + (r.eis ? " · " + r.eis + " geschenkte " + (r.eis === 1 ? "Lücke" : "Lücken") : "");
+      + (r.eis ? " · " + r.eis + " geschenkte " + (r.eis === 1 ? "Lücke" : "Lücken") : "")
+      + (b.seit && b.seit !== D.tag ? " · vorgenommen am " + datumWort(b.seit) : "");
     ziel.appendChild(z);
   }
   ziel.appendChild(machKnopf(b ? "Brauch ändern" : "Einen Brauch vornehmen", "", brauchBlatt));
@@ -5128,16 +5180,55 @@ function brauchLagerZeichnen(){
     rl.className = "mini"; rl.style.margin = "18px 0 6px";
     rl.textContent = fertig.length === 1 ? "Dein Ritual" : "Deine Rituale";
     ziel.appendChild(rl);
-    fertig.forEach(x=>{
-      const p = document.createElement("p");
-      p.className = "hinweis"; p.style.margin = "0 0 6px"; p.style.color = "var(--moss)";
+    /* Antippbar, seit ihrer Durchsicht am 22.08.2026: Vorher gab es keinen Weg
+       zurück — ein Ritual war für immer da, auch bei einem Vertipper oder wenn
+       es nach einem halben Jahr doch einschläft. Das verstieß gegen die eigene
+       Regel, dass jede Stelle einen kostenlosen Ausweg braucht. */
+    fertig.forEach((x, i)=>{
+      const p = document.createElement("button");
+      p.className = "ritual-zeile";
       p.textContent = "✓ Wenn ich " + x.wenn + ", dann " + x.was + ".";
+      p.addEventListener("click", ()=> ritualAendernBlatt(i));
       ziel.appendChild(p);
     });
   }
   const tr = document.createElement("div");
   tr.className = "trenner";
   ziel.appendChild(tr);
+}
+
+function ritualAendernBlatt(i){
+  const x = (D.rituale || [])[i];
+  if(!x) return;
+  blattZeigen('<h3>Dein Ritual</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent = x.tage + " Tage am Stück"
+      + (x.wurde ? ", seit dem " + datumWort(x.wurde) + " ein Ritual" : "");
+    const s = document.createElement("p");
+    s.className = "brauch-satz"; s.style.margin = "0 0 18px";
+    s.textContent = "Wenn ich " + x.wenn + ", dann " + x.was + ".";
+    b.appendChild(s);
+
+    /* Nur anbieten, wenn der eine Platz frei ist — sonst liefen zwei Bräuche
+       nebeneinander, und genau das soll die Grenze verhindern. */
+    if(!D.brauch){
+      b.appendChild(machKnopf("Wieder als Brauch aufnehmen", "", ()=>{
+        D.brauch = {wenn:x.wenn, was:x.was, seit:D.tag, log:{},
+                    bezahlt:[], markeSeit:null, gefragt:null};
+        D.rituale = D.rituale.filter((_,k)=> k !== i);
+        sichern(); blattSchliessen(); zeichnen();
+      }));
+    }else{
+      const h = document.createElement("p");
+      h.className = "hinweis"; h.style.margin = "0 0 14px";
+      h.textContent = "Wieder aufnehmen ginge, sobald der Platz frei ist — gerade läuft ein anderer Brauch.";
+      b.appendChild(h);
+    }
+    b.appendChild(machKnopf("Löschen", "ruhig", ()=>{
+      D.rituale = D.rituale.filter((_,k)=> k !== i);
+      sichern(); blattSchliessen(); zeichnen();
+    }));
+    b.appendChild(machKnopf("Zurück", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
 }
 
 function brauchBlatt(){
