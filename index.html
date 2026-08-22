@@ -4459,7 +4459,7 @@ function zugAblegen(){
         if(t){ t.tag = tag; t.teil = teil; t.pos = i; }
       }else{
         const q = D.quests.find(x=>x.id===kid);
-        if(q && q.plan){ q.plan.tag = tag; q.plan.teil = teil; q.plan.pos = i; }
+        if(q && q.plan){ q.plan.tag = tag; q.plan.teil = teil; q.plan.pos = i; planAufraeumen(q); }
       }
     });
     sichern();
@@ -4470,7 +4470,20 @@ function zugAblegen(){
   zeichnen();
 }
 
+/* Nimmt entweder ein Plan-Objekt oder Tag und Abschnitt einzeln.
+
+   Es gab diese Funktion ZWEIMAL im Programm, einmal mit zwei Argumenten und
+   einmal mit einem Plan-Objekt. Die zweite Deklaration überschreibt die erste
+   stillschweigend — und damit stürzte jeder Aufruf mit zwei Argumenten ab:
+   „Cannot read properties of undefined (reading 'split')". Betroffen war das
+   PLUS in der Wochenansicht, also der ganze Weg „etwas zu einem Tag
+   hinzufügen" samt „Neue Quest" und „Festen Termin eintragen". Gefunden beim
+   Durchspielen der Planwege am 22.08.2026; im Code steckte es schon länger.
+
+   Beide Fassungen waren bis auf die Aufrufform gleich, deshalb eine einzige,
+   die beides annimmt — statt zwei Namen, die wieder auseinanderlaufen. */
 function planWort(tag, teil){
+  if(tag && typeof tag === "object"){ teil = tag.teil; tag = tag.tag; }
   const [j,m,t] = tag.split("-").map(Number);
   const d = new Date(j, m-1, t);
   return KURZTAG[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()] + " · " + TEIL_WORT[teil];
@@ -4487,7 +4500,8 @@ function hinzufuegenBlatt(tag, teil){
       b.appendChild(l);
       frei.slice(0,20).forEach(q=>{
         b.appendChild(machKnopf(q.titel, "", ()=>{
-          q.plan = {tag:tag, teil:teil, zeit:null, pos:abschnittStuecke(tag,teil).length}; sichern(); blattSchliessen(); zeichnen();
+          q.plan = {tag:tag, teil:teil, zeit:null, pos:abschnittStuecke(tag,teil).length};
+          planAufraeumen(q); sichern(); blattSchliessen(); zeichnen();
         }));
       });
     }
@@ -4627,8 +4641,10 @@ function planBlatt(qid){
       }
       sichern(); zeichnen(); planBlatt(qid);
     }));
-    b.appendChild(machKnopf("‹ Einen Abschnitt zurück", "", ()=>{ q.plan = schieben(q.plan,-1); sichern(); zeichnen(); planBlatt(qid); }));
-    b.appendChild(machKnopf("Einen Abschnitt weiter ›", "", ()=>{ q.plan = schieben(q.plan, 1); sichern(); zeichnen(); planBlatt(qid); }));
+    /* Ein Abschnitt weiter kann über Mitternacht rutschen — dann gilt dieselbe
+       Regel wie beim Umlegen auf einen anderen Tag. */
+    b.appendChild(machKnopf("‹ Einen Abschnitt zurück", "", ()=>{ q.plan = schieben(q.plan,-1); planAufraeumen(q); sichern(); zeichnen(); planBlatt(qid); }));
+    b.appendChild(machKnopf("Einen Abschnitt weiter ›", "", ()=>{ q.plan = schieben(q.plan, 1); planAufraeumen(q); sichern(); zeichnen(); planBlatt(qid); }));
     b.appendChild(machKnopf("Auf einen anderen Tag …", "", ()=> tagWaehlenBlatt(q.plan, ()=>planBlatt(qid))));
     b.appendChild(machKnopf("Vom Plan nehmen", "ruhig", ()=>{
       q.plan = null; sichern(); blattSchliessen(); zeichnen();
@@ -4647,7 +4663,7 @@ function tagWaehlenBlatt(plan, zurueck){
     df.value = plan.tag || D.tag;
     df.addEventListener("change", ()=>{
       if(!df.value) return;
-      plan.tag = df.value; sichern(); zeichnen(); if(zurueck) zurueck();
+      plan.tag = df.value; planAufraeumenFuer(plan); sichern(); zeichnen(); if(zurueck) zurueck();
     });
     for(let i=0; i<14; i++){
       const d = new Date(start); d.setDate(d.getDate()+i);
@@ -4655,7 +4671,7 @@ function tagWaehlenBlatt(plan, zurueck){
       b.appendChild(machKnopf(
         KURZTAG[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()],
         plan.tag === iso ? "stark" : "",
-        ()=>{ plan.tag = iso; sichern(); zeichnen(); if(zurueck) zurueck(); }
+        ()=>{ plan.tag = iso; planAufraeumenFuer(plan); sichern(); zeichnen(); if(zurueck) zurueck(); }
       ));
     }
     b.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ if(zurueck) zurueck(); else blattSchliessen(); }));
@@ -4674,11 +4690,39 @@ function tagWaehlenBlatt(plan, zurueck){
 
    Der Unterschied zur Frist ist ihrer, und er stimmt: „Bis wann?“ ist ein
    Spielraum und gut zum Verschieben, ein Tag mit Abschnitt ist eine
-   Verabredung. Deshalb zwei getrennte Knöpfe und kein Umschalter. */
-function planWort(plan){
-  const [j,m,t] = plan.tag.split("-").map(Number);
-  const d = new Date(j, m-1, t);
-  return KURZTAG[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()] + " · " + TEIL_WORT[plan.teil];
+   Verabredung. Deshalb zwei getrennte Knöpfe und kein Umschalter.
+
+   (Die zweite Fassung von planWort stand hier und hat die erste überschrieben
+   — siehe die Begründung oben bei der zusammengelegten Funktion.) */
+
+/* ═══════════ Ein Plan auf morgen nimmt von heute ═══════════
+   Ihr Fund aus dem Gebrauch, 22.08.2026: Sie hakte in den Aufträgen ein Stück
+   ab, merkte sich den nächsten Schritt und ließ ihn „gleich weiter" auf Heute
+   legen. Dann fiel ihr ein, dass der Schritt erst morgen dran ist, und sie
+   legte ihn auf morgen Abend. Wörtlich: „Problem: bleibt trotzdem heute auf
+   meiner Startseite und musste ich manuell auf ‚nicht heute' stellen."
+
+   Sie hat recht: Ein Tag mit Abschnitt ist eine Verabredung, und eine
+   Verabredung für morgen heißt, dass heute nichts ansteht.
+
+   ZWEI GRENZEN, beide bewusst:
+   · Der Plan darf etwas WEGNEHMEN, aber nichts hinlegen. Nichts wandert von
+     selbst auf Heute — das ist ihre eigene Entscheidung vom 21.08. („Wochenplan
+     → Heute: nicht automatisch, Karte für Karte anzunehmen").
+   · Es greift nur im Moment des Planens, nicht als Dauerbereinigung bei jedem
+     Neuzeichnen. Sonst könnte sie es nicht überstimmen — wer etwas für Freitag
+     plant und trotzdem heute anfangen will, legt es danach einfach wieder auf
+     Heute, und dort bleibt es dann auch. */
+function planAufraeumen(q){
+  if(!q || q.fertig || q.ort !== "heute" || !q.plan) return false;
+  if(q.plan.tag === D.tag) return false;
+  q.ort = "buch";
+  return true;
+}
+/* Manche Wege reichen nur den Plan durch, nicht die Quest. Über die
+   Objektgleichheit ist der Besitzer trotzdem eindeutig zu finden. */
+function planAufraeumenFuer(plan){
+  return planAufraeumen(D.quests.find(q=> q.plan === plan));
 }
 
 function tagLegenBlatt(qid){
@@ -4687,10 +4731,20 @@ function tagLegenBlatt(qid){
   blattZeigen('<h3>Auf einen Tag legen</h3><p class="sub"></p>' +
     '<p class="mini">Datum</p><input class="feld" type="date" id="tl-datum">' +
     '<div class="kacheln" id="tl-schnell"></div>' +
-    '<p class="mini">Wann an dem Tag?</p><div class="kacheln" id="tl-teil"></div>', b=>{
+    '<p class="mini">Wann an dem Tag?</p><div class="kacheln" id="tl-teil"></div>' +
+    '<p class="hinweis" id="tl-folge" style="margin:10px 0 0"></p>', b=>{
     b.querySelector(".sub").textContent = kurz(q.titel);
     const df = b.querySelector("#tl-datum");
     df.value = (q.plan && q.plan.tag) || D.tag;
+
+    /* Vorher sagen, was passieren wird — nicht hinterher etwas verschwinden
+       lassen. Steht live unter dem Datum und ändert sich beim Umstellen. */
+    const folge = b.querySelector("#tl-folge");
+    const folgeZeigen = ()=>{
+      folge.textContent = (q.ort === "heute" && df.value && df.value !== D.tag)
+        ? "Liegt gerade auf Heute — beim Merken nehme ich es von der Startseite. Du kannst es danach jederzeit wieder drauflegen."
+        : "";
+    };
 
     /* Die nächsten drei Tage ohne Datumsrad — das ist der häufige Fall. Alles
        Weitere kommt aus dem Feld darüber. */
@@ -4699,9 +4753,14 @@ function tagLegenBlatt(qid){
       const k = document.createElement("button");
       k.className = "kachel";
       k.textContent = wort;
-      k.addEventListener("click", ()=>{ df.value = inTagen(n); });
+      /* Ein Wert, den das Programm setzt, löst kein input-Ereignis aus —
+         der Hinweis muss hier von Hand nachgezogen werden. */
+      k.addEventListener("click", ()=>{ df.value = inTagen(n); folgeZeigen(); });
       schnell.appendChild(k);
     });
+    df.addEventListener("input", folgeZeigen);
+    df.addEventListener("change", folgeZeigen);
+    folgeZeigen();
 
     const tw = b.querySelector("#tl-teil");
     TEILE.forEach(([wert,wort])=>{
@@ -4722,6 +4781,7 @@ function tagLegenBlatt(qid){
       if(!tag) return;
       q.plan = {tag:tag, teil:teil, zeit:(q.plan && q.plan.zeit) || null,
                 pos: abschnittStuecke(tag, teil).length};
+      planAufraeumen(q);
       neuOrdnen(tag, teil);
       sichern(); blattSchliessen(); zeichnen();
     }));
