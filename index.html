@@ -497,6 +497,18 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   padding:3px 0;margin:0;font:inherit;font-size:13px;line-height:1.5;
   color:var(--moss);cursor:pointer}
 .ritual-zeile:active{opacity:.6}
+/* Der Post-it an der Tür. Papierfarben statt dunkel — er soll aussehen wie
+   etwas, das jemand drangeklebt hat, und nicht wie eine weitere Karte der
+   App. Die Zeilen sind selbst der Knopf: antippen hakt ab, danebentippen tut
+   nichts. */
+.tuer{margin:0 0 14px;padding:12px 14px 13px;border-radius:4px 14px 4px 14px;
+  background:color-mix(in srgb,var(--accent) 13%,var(--surface-2));
+  border:1px solid color-mix(in srgb,var(--accent) 26%,transparent)}
+.tuer .mini{margin:0 0 7px}
+.tuer-zeile{display:block;width:100%;text-align:left;background:none;border:0;
+  padding:5px 0;margin:0;font:inherit;font-family:var(--schrift-text);
+  font-size:15.5px;line-height:1.4;color:var(--ink);cursor:pointer}
+.tuer-zeile:active{opacity:.55}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -576,6 +588,11 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
        sie ihn sein lässt. Bewusst über den Vorschlägen: Er ist keine Aufgabe
        und soll nicht zwischen welchen stehen. -->
   <div id="brauch-halter"></div>
+
+  <!-- Die Notiz an der Tür. Steht UNTER dem Brauch, ihre Entscheidung: „passiert
+       ja nicht täglich, dass man einen Post-it braucht, und man kann die Seite
+       gut nach unten scrollen". Taucht nur auf, wenn wirklich etwas draufsteht. -->
+  <div id="tuer-halter"></div>
 
   <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
@@ -1299,6 +1316,14 @@ function tagPruefen(){
   D.tagsformGezeigt = null;
   /* Abgelaufene Nachwehen räumen sich still weg — nichts, was sie beenden muss. */
   if(D.nachwehen && D.nachwehen.bis && D.nachwehen.bis < D.tag) D.nachwehen = null;
+  /* Abgelaufene Zettel fallen ab. Was gestern an der Tür klebte und nicht
+     abgehakt wurde, verfolgt sie nicht — sonst wäre der Zettel ein zweites
+     Auftragsbuch. Die letzten Tage bleiben stehen, damit ein Zettel, den sie
+     um kurz nach fünf noch nicht gesehen hat, nicht in derselben Sekunde
+     verschwindet; alles Ältere räumt sich still weg. */
+  if(D.tuer) Object.keys(D.tuer).forEach(t=>{
+    if(tageZwischen(D.tag, t) > 2) delete D.tuer[t];
+  });
   D.rastTag = null;
   D.rastAuswahl = [];
   D.rastGetan = {};
@@ -1619,6 +1644,7 @@ function zeichnen(){
   akkuZeichnen();
   zettelKnopfZeichnen();
   brauchZeichnen();
+  tuerZeichnen();
   brauchLagerZeichnen();
   sicherStandZeichnen();
   vorschlagZeichnen();
@@ -5277,6 +5303,132 @@ function ritualAendernBlatt(i){
   });
 }
 
+/* ═══════════ Die Notiz an der Tür ═══════════
+   Ihr Bild, und es trägt den ganzen Entwurf: „ach ja wie der Post-it, nimm die
+   Sportsachen mit." Ein Post-it klebt an der Tür, damit man es beim Rausgehen
+   sieht — es ist kein Auftrag, es ist Gedächtnis, das man mitnimmt.
+
+   WARUM ES KEINE QUEST IST: Es kostet keine Ausdauer, es steht in keiner
+   Liste, es wird nicht gezählt, und es wandert nicht mit. Was heute nicht
+   abgehakt wurde, ist morgen weg — ein Post-it fällt eben irgendwann ab. Das
+   ist Absicht und ihr gesagt: Ein Zettel, der einem eine Woche lang
+   hinterherläuft, ist wieder ein Auftragsbuch.
+
+   DIE BELEGE, die den Entwurf entschieden haben:
+   · Prospektives Gedächtnis ist bei ADHS verlässlich schwach — die App darf
+     nicht motivieren, sie muss zum richtigen Moment die Sache hinhalten.
+   · Gemessen gilt: tätigkeitsgebunden > ereignisgebunden > uhrzeitgebunden.
+     Ihr eigenes „morgens, wenn ich aufs Handy gucke" ist die stärkste Form —
+     deshalb hängt der Zettel am Öffnen der App und nicht an einem Wecker.
+   · Gewöhnung an Alarme: Je Wiederholungsalarm sinkt die Reaktion deutlich.
+     Ihre eigene Sorge („nicht 100 Reminder an einem Tag") gehört deshalb als
+     Obergrenze in den Bau und nicht in ihre Disziplin — daher TUER_MAX.
+
+   NAMEN: nicht „Zettel" — das ist der Einkaufszettel (D.zettel, zettelBlatt).
+   Beim Bauen fast in dieselbe Falle getappt wie schon bei .zeile und planWort.
+
+   Ab 5:30, eine halbe Stunde nach ihrem Tagesbeginn. Steht sie am Wochenende
+   später auf, taucht einfach beides nacheinander auf, wenn sie aufmacht. */
+const TUER_AB = 5.5;
+const TUER_MAX = 3;
+const TUER_WORT = {frueh:"heute früh", abend:"heute Abend"};
+
+function stundeJetzt(){
+  const d = new Date();
+  return d.getHours() + d.getMinutes()/60;
+}
+/* Was an einem Tag in einem Fach klebt. Nie undefined, damit der Aufrufer
+   nicht überall prüfen muss. */
+function tuerFach(tag, fach){
+  return ((D.tuer||{})[tag] || {})[fach] || [];
+}
+function tuerSetzen(tag, fach, liste){
+  D.tuer = D.tuer || {};
+  D.tuer[tag] = D.tuer[tag] || {};
+  if(liste.length) D.tuer[tag][fach] = liste;
+  else delete D.tuer[tag][fach];
+  if(!Object.keys(D.tuer[tag]).length) delete D.tuer[tag];
+}
+
+/* Welche Fächer heute gezeigt werden: früh ab 5:30, abends ab derselben
+   Stunde wie der Abend-Knopf. Nach Mitternacht gilt weiter der Abend — das
+   regelt abendZeit(), damit hier keine zweite Uhrzeit-Rechnung entsteht. */
+function tuerHeute(){
+  const raus = [];
+  if(tuerFach(D.tag,"frueh").length && stundeJetzt() >= TUER_AB) raus.push("frueh");
+  if(tuerFach(D.tag,"abend").length && abendZeit(ABEND_AB)) raus.push("abend");
+  return raus;
+}
+
+function tuerZeichnen(){
+  const halter = document.getElementById("tuer-halter");
+  if(!halter) return;
+  halter.innerHTML = "";
+  tuerHeute().forEach(fach=>{
+    const box = document.createElement("div");
+    box.className = "tuer";
+    const kopf = document.createElement("p");
+    kopf.className = "mini";
+    kopf.textContent = "An der Tür · " + TUER_WORT[fach];
+    box.appendChild(kopf);
+    tuerFach(D.tag, fach).forEach((t, i)=>{
+      /* Ein Tipp auf die Zeile hakt sie ab. Danebentippen tut nichts — an
+         genau dieser Falle ist die Morgenfrage schon einmal gestorben. */
+      const z = document.createElement("button");
+      z.className = "tuer-zeile";
+      z.textContent = "☐  " + t;
+      z.addEventListener("click", ()=>{
+        const rest = tuerFach(D.tag, fach).filter((_,k)=> k !== i);
+        tuerSetzen(D.tag, fach, rest);
+        sichern(); zeichnen();
+      });
+      box.appendChild(z);
+    });
+    halter.appendChild(box);
+  });
+}
+
+/* Der dritte Ausgang aus dem Eingefallen-Feld. Erst wenn der Text steht, wird
+   gefragt WANN — vorher wäre es eine Entscheidung über etwas, das es noch
+   nicht gibt. */
+function tuerZielBlatt(text){
+  const ziele = [
+    ["heute Abend", D.tag, "abend"],
+    ["morgen früh", inTagen(1), "frueh"],
+    ["morgen Abend", inTagen(1), "abend"]
+  ];
+  blattZeigen('<h3>Wann soll der Zettel kleben?</h3><p class="sub"></p>', b=>{
+    b.querySelector(".sub").textContent = "„" + text + "“";
+    ziele.forEach(([wort, tag, fach])=>{
+      const voll = tuerFach(tag, fach).length >= TUER_MAX;
+      b.appendChild(machKnopf(wort + (voll ? "  (voll)" : ""), "", ()=>{
+        if(voll){ tuerVollBlatt(text, tag, fach, wort); return; }
+        tuerSetzen(tag, fach, tuerFach(tag, fach).concat([text]));
+        sichern(); blattSchliessen(); zeichnen();
+      }));
+    });
+    b.appendChild(machKnopf("Doch nicht", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+/* Drei Zeilen, dann ist der Zettel voll — und die App fragt, was weicht,
+   statt stillschweigend eine vierte danebenzukleben. Dieselbe Bauform wie bei
+   den Fächern auf Heute. Ihre Sorge war ausdrücklich, nicht in hundert
+   Erinnerungen am Tag zu ertrinken. */
+function tuerVollBlatt(text, tag, fach, wort){
+  blattZeigen('<h3>Der Zettel ist voll</h3>'
+    + '<p class="sub">Drei Zeilen sind das Höchste — ein Zettel soll ein Blick bleiben, keine Liste. Was soll weichen?</p>', b=>{
+    tuerFach(tag, fach).forEach((alt, i)=>{
+      b.appendChild(machKnopf("„" + kurz(alt) + "“ weicht", "", ()=>{
+        const neu = tuerFach(tag, fach).filter((_,k)=> k !== i).concat([text]);
+        tuerSetzen(tag, fach, neu);
+        sichern(); blattSchliessen(); zeichnen();
+      }));
+    });
+    b.appendChild(machKnopf("Doch nicht", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
 function brauchBlatt(){
   const b = D.brauch;
   blattZeigen('<h3>' + (b ? "Dein Brauch" : "Einen Brauch vornehmen") + '</h3>'
@@ -5564,6 +5716,21 @@ function abendfrageZeigen(){
   blattZeigen('<h3>Der Tag geht zu Ende</h3>' +
     '<p class="sub">Eine Frage, unabhängig davon, was du geschafft hast. Das Lager kannst du danach immer noch aufschlagen.</p>', b=>{
     let spaeter = null;
+    /* Was heute Abend an der Tür klebt, steht hier mit drauf. Dieses Blatt ist
+       das Einzige, was von selbst kommt — ein Abendzettel, den sie nur sähe,
+       wenn sie ohnehin auf Heute schaut, wäre die Hälfte wert. Nur lesen, kein
+       Abhaken: Hier wird nach dem Tag gefragt, nicht abgearbeitet. */
+    tuerFach(D.tag, "abend").forEach(t=>{
+      const z = document.createElement("p");
+      z.className = "brauch-satz"; z.style.margin = "0 0 6px";
+      z.textContent = "☐  " + t;
+      b.appendChild(z);
+    });
+    if(tuerFach(D.tag, "abend").length){
+      const tr = document.createElement("div");
+      tr.className = "trenner"; tr.style.margin = "16px 0";
+      b.appendChild(tr);
+    }
     /* Das Blatt schließt sich nach dem Tipp bewusst nicht: das Wort unter den
        Gesichtern ist die Rückmeldung, dass es angekommen ist. */
     tagsformTeil(b, gesetzt=>{ if(spaeter) spaeter.textContent = gesetzt ? "Passt" : "Später"; });
@@ -6601,6 +6768,15 @@ document.getElementById("heute-neu").addEventListener("click", ()=>{
     b.appendChild(machKnopf("Auf den Einkaufszettel", "", ()=>{
       if(zettelDrauf(feld.value) === "leer") return;
       zettelBlatt();
+    }));
+    /* Der dritte Weg aus demselben Feld — ihr Vorschlag, und er passt: „wir
+       können es unter Eingefallen als dritten Punkt aufnehmen, Notiz an der
+       Tür, thematisch passend." Das Feld ist schon da, es kommt kein Knopf
+       auf die Heute-Seite dazu. */
+    b.appendChild(machKnopf("An die Tür hängen", "", ()=>{
+      const t = feld.value.trim();
+      if(!t) return;
+      tuerZielBlatt(t);
     }));
     b.appendChild(machKnopf("Abbrechen", "ruhig", blattSchliessen));
     setTimeout(()=>feld.focus(), 60);
