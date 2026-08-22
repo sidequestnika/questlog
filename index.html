@@ -1198,28 +1198,58 @@ window.matchMedia("(prefers-color-scheme: dark)")
 function datumStr(d){
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
-function heuteStr(d){ return datumStr(d || new Date()); }
+/* ═══════════ Wann fängt der Tag an ═══════════
+   Ihre Entscheidung vom 22.08.2026, und sie kommt aus dem eigenen Leben:
+   „ich stehe ab nächster Woche wieder um 5:00 auf … nach Mitternacht bin ich
+   manchmal noch wach. Da wäre es blöd, wenn ich nochmal reingucke … Sollen
+   wir sagen, dass bei mir ein Tag um 5:00 beginnt? Ja, eigentlich startet der
+   Tag um 00:00, ist aber unpraktisch."
+
+   Sie hat recht, und das Problem war größer als der Gruß. Um Mitternacht lief
+   bisher tagPruefen() durch: die Liste des heute Geschafften wurde geleert,
+   die Ausdauer neu gefüllt, und alles, was noch auf Heute lag, wanderte
+   zurück ins Auftragsbuch — mit erhöhtem „wandert seit"-Zähler. Wer um halb
+   eins noch wach ist, hat also mitten in seinem Abend den Tag verloren.
+
+   AB HIER GILT: Der Kalender wechselt um Mitternacht, IHR Tag um fünf. Alles,
+   was mit „welcher Tag ist das" zu tun hat, geht durch logischerTag(). Alles,
+   was mit „wie spät ist es" zu tun hat, schaut weiter auf die echte Uhr — der
+   Gruß um halb eins soll ja ein Nachtgruß sein und kein Morgengruß.
+
+   Schön passend: tageszeit() zählt Nacht schon immer als „ab 22 und vor 5".
+   Die Stunden, die jetzt noch zum Vortag gehören, sind genau die, die ohnehin
+   einen Nachtgruß bekommen.
+
+   Die eine Kante, die bleibt: Wer einmal bis nach fünf wach ist, bekommt den
+   Tageswechsel mitten in die Nacht. Das ist der seltenere Fall als der
+   bisherige — und ihr gesagt. */
+const TAG_AB = 5;
+function logischerTag(jetzt){
+  const d = jetzt ? new Date(jetzt) : new Date();
+  d.setHours(d.getHours() - TAG_AB, 0, 0, 0);
+  return d;
+}
+function heuteStr(d){ return datumStr(d || logischerTag()); }
 const WOCHENTAGE = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 const TAGE_IM_MONAT = [31,29,31,30,31,30,31,31,30,31,30,31];
 
 function naechsterTag(mmdd){
-  const jetzt = new Date(); jetzt.setHours(0,0,0,0);
+  const jetzt = logischerTag();
   const [m,t] = mmdd.split("-").map(Number);
   let ziel = new Date(jetzt.getFullYear(), m-1, t);
   if(ziel < jetzt) ziel = new Date(jetzt.getFullYear()+1, m-1, t);
   return ziel;
 }
 function tageBis(mmdd){
-  const jetzt = new Date(); jetzt.setHours(0,0,0,0);
-  return Math.round((naechsterTag(mmdd) - jetzt)/86400000);
+  return Math.round((naechsterTag(mmdd) - logischerTag())/86400000);
 }
 function mehrzahl(n, eins, viele){ return n + " " + (n===1 ? eins : viele); }
 
 /* Fälligkeit: gespeichert als "JJJJ-MM-TT". Negativ heißt überfällig. */
 function tageBisDatum(iso){
   if(!iso) return null;
-  const jetzt = new Date(); jetzt.setHours(0,0,0,0);
+  const jetzt = logischerTag();
   const [j,m,t] = iso.split("-").map(Number);
   return Math.round((new Date(j, m-1, t) - jetzt)/86400000);
 }
@@ -1239,7 +1269,7 @@ function faelligWort(iso){
   if(d <= 14) return "in " + d + " Tagen";
   return "in " + Math.round(d/7) + " Wochen";
 }
-function inTagen(n){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return datumStr(d); }
+function inTagen(n){ const d = logischerTag(); d.setDate(d.getDate()+n); return datumStr(d); }
 function zeitWort(iso){
   if(!iso) return "—";
   const d = new Date(iso);
@@ -1306,7 +1336,7 @@ function tagPruefen(){
 }
 
 function geburtstageBauen(){
-  const jahr = new Date().getFullYear();
+  const jahr = logischerTag().getFullYear();
   const stufen = [
     {tage:14, wort:n=>"Geschenk für "+n+" überlegen", grosse:2, etikett:"neutral", fach:"neben"},
     {tage:3,  wort:n=>"Geschenk für "+n+" besorgen", grosse:2, etikett:"zaeh", fach:"neben"},
@@ -1576,10 +1606,14 @@ function nameHinweisZeichnen(){
 function zeichnen(){
   tagPruefen();
   const jetzt = new Date();
+  /* Der Gruß richtet sich nach der ECHTEN Uhr — um halb eins soll ein
+     Nachtgruß kommen. Das Datum darunter nach IHREM Tag, sonst stünde dort
+     schon der neue Wochentag, während die App noch am alten rechnet. */
   grussSetzen(document.getElementById("gruss"), grussWort(jetzt));
   nameHinweisZeichnen();
+  const tagJetzt = logischerTag();
   document.getElementById("datum").textContent =
-    WOCHENTAGE[jetzt.getDay()] + ", " + jetzt.getDate() + ". " + MONATE[jetzt.getMonth()];
+    WOCHENTAGE[tagJetzt.getDay()] + ", " + tagJetzt.getDate() + ". " + MONATE[tagJetzt.getMonth()];
 
   warnungZeichnen();
   akkuZeichnen();
@@ -1621,7 +1655,11 @@ const GOLD_WOCHENPLAN = 5;
 
 function sonntagsrufZeigen(){
   const jetzt = new Date();
-  if(jetzt.getDay() !== 0 || jetzt.getHours() < 18) return;
+  /* Welcher Wochentag: ihrer. Um halb eins in der Montagnacht ist für sie
+     noch Sonntag, und dann darf der Ruf noch kommen. Die Uhrzeit dagegen
+     bleibt die echte — nach 18 Uhr heißt nach 18 Uhr. */
+  if(logischerTag().getDay() !== 0) return;
+  if(jetzt.getHours() < 18 && jetzt.getHours() >= TAG_AB) return;
   if(D.sonntagsruf === D.tag) return;
   if(blattGrund.classList.contains("on")) return;
   /* Sofort als gerufen merken: wer wegtippt, soll nicht nachgehakt bekommen. */
@@ -4239,6 +4277,10 @@ const TEIL_WORT = {vor:"Vormittag", nach:"Nachmittag", abend:"Abend"};
 const TEIL_REIHE = ["vor","nach","abend"];
 function jetzigerTeil(){
   const st = new Date().getHours();
+  /* Vor fünf gehört die Stunde noch zum Abend davor. Ohne das würde ein um
+     halb eins eingeplanter Schritt im Vormittag landen — in einem Vormittag,
+     der längst vorbei ist. */
+  if(st < TAG_AB) return "abend";
   return st < 12 ? "vor" : (st < 17 ? "nach" : "abend");
 }
 /* Was für einen späteren Abschnitt des Tages eingeplant ist, ist keine Antwort
@@ -4252,7 +4294,7 @@ const KURZTAG = ["So","Mo","Di","Mi","Do","Fr","Sa"];
 let wochenVersatz = 0;
 
 function wochenStart(){
-  const d = new Date(); d.setHours(0,0,0,0);
+  const d = logischerTag();
   d.setDate(d.getDate() - ((d.getDay()+6) % 7) + wochenVersatz*7);
   return d;
 }
@@ -4942,7 +4984,9 @@ const ABEND_AB = 19;
 function abendZeichnen(){
   const halter = document.getElementById("abend-halter");
   halter.innerHTML = "";
-  if(new Date().getHours() < ABEND_AB) return;
+  /* Wie bei der Abendfrage: nach Mitternacht bleibt der Knopf stehen, solange
+     ihr Tag noch läuft. */
+  if(!abendZeit(ABEND_AB)) return;
   /* Auch nach „Gute Nacht" bleibt eine Tür offen: das Bad um zehn ist kein
      Grund, dass der Abend nicht mehr zählt. Nur leiser. */
   const zu = D.letzterAbschluss === D.tag;
@@ -4968,7 +5012,9 @@ function reiheZaehlen(log){
   const gilt = v => Array.isArray(v) ? v.length > 0 : !!v;
   const luecken = [];
   let tage = 0, seit = null;
-  let d = new Date(); d.setHours(0,0,0,0);
+  /* Ihr Tag, nicht der des Kalenders: Zwischen Mitternacht und fünf hätte der
+     Kalendertag hier sonst als Lücke gezählt, obwohl ihr Abend noch läuft. */
+  let d = logischerTag();
   /* Heute zählt nur, wenn schon etwas dasteht — sonst ist der Tag noch offen
      und darf nicht als Lücke gelten. Der Abend ist ja noch nicht vorbei. */
   if(!gilt(log[datumStr(d)])) d.setDate(d.getDate()-1);
@@ -5485,10 +5531,23 @@ function tagsformTeil(b, nachWahl){
    1000 px auf einem 700-px-Schirm. Der Berg bleibt etwas, das sie bewusst
    betritt. Es kommt genau eine Frage — wie morgens auch. Der Rest bleibt hinter
    dem Knopf und steht als Tür auf diesem Blatt. */
-const ABENDFRAGE_AB = 20;
+/* 21 Uhr auf ihren Wunsch vom 22.08.2026: „lass uns den Abend-Check-in ab
+   21:00 machen, dann gehe ich ins Bett und habe 8 h Schlaf im Regelfall."
+   Rechnet auf: 21 Uhr plus acht Stunden ist genau ihr neuer Tagesbeginn.
+   Vorher stand die Frage auf 20 Uhr. Selbst aufschlagen kann sie das Lager
+   weiterhin ab 19 Uhr — nur von SELBST meldet es sich später. */
+const ABENDFRAGE_AB = 21;
+
+/* Zwischen Mitternacht und fünf ist ihr Abend noch nicht vorbei. Die Frage
+   nach dem Tag muss dort also weiter erreichbar sein — sonst wäre sie genau
+   in den Stunden weg, in denen sie noch wach ist und der Tag noch läuft. */
+function abendZeit(ab){
+  const st = new Date().getHours();
+  return st >= ab || st < TAG_AB;
+}
 
 function abendfrageZeigen(){
-  if(new Date().getHours() < ABENDFRAGE_AB) return;
+  if(!abendZeit(ABENDFRAGE_AB)) return;
   /* Schon beantwortet: dann hat sie das Lager von sich aus aufgeschlagen. */
   if((D.tagsform||{})[D.tag]) return;
   /* Hat sich heute schon gemeldet. Gemerkt wird nur das Zeigen, nie die
