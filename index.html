@@ -447,6 +447,30 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 .vers{margin:0 0 10px;font-family:var(--schrift-text);font-size:17px;line-height:1.5;
   white-space:pre-line;font-style:italic}
 .vers-neu{margin:0 0 10px;font-size:14px;line-height:1.55;color:var(--ink-soft)}
+/* Das ganze Lied auf dem Blatt. Drei Sachen, die hier anders sein müssen als
+   auf der Karte:
+   · pre-WRAP statt pre-line — die Langzeile hat eine Pause in der Mitte, und
+     die steht als Leerraum im Text. pre-line würde sie wegkürzen.
+   · Hängender Einzug: Auf einem Telefon bricht fast jede Langzeile um. Ohne
+     Einzug sähe die Fortsetzung aus wie ein eigener Vers, und bei einem
+     Strophenmaß ist das genau die Information, die kaputtgeht.
+   · Kleiner als auf der Karte (15 statt 17 px): Dort steht ein Zweizeiler und
+     darf groß sein, hier stehen vier Strophen. */
+   Der Einzug muss auf dem EINZELNEN VERS sitzen, nicht auf der Strophe.
+   Gemessen mit Range.getClientRects: Liegt die ganze Strophe in einem Absatz,
+   gilt text-indent nur für deren allererste Zeile — Vers 2, 3 und 4 begannen
+   dann bei denselben 17 px wie eine umgebrochene Fortsetzung, und man konnte
+   einen neuen Vers nicht mehr von der Fortsetzung des alten unterscheiden.
+   (text-indent:each-line würde das lösen, kann aber praktisch kein Browser.)
+   Also: ein Block je Vers.
+
+   NICHT .zeile nennen — die Klasse gehört schon der Zeile im Wochenplan
+   (Flexbox, Polsterung, verschiebbar). Gemessen: Jeder Vers wurde dadurch
+   43,6 px hoch statt 24,3 und bekam eine Innenpolsterung. */
+.strophe{margin:0 0 5px}
+.strophe .vers-zeile{font-family:var(--schrift-text);font-size:15px;line-height:1.62;
+  white-space:pre-wrap;font-style:italic;padding-left:17px;text-indent:-17px}
+.strophe-neu{margin:0 0 22px;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -2337,22 +2361,61 @@ function magierHeute(){
 
    EHRLICH DAZUSAGEN: Die Schreibung folgt gängigen Ausgaben. Handschriften
    weichen voneinander ab, und die Normalisierung ist eine Entscheidung der
-   Herausgeber, keine Eigenschaft des Textes. Steht so auch auf der Karte. */
+   Herausgeber, keine Eigenschaft des Textes. Steht so auch auf der Karte.
+
+   GANZE STÜCKE — ihr Wunsch vom 22.08.2026: „beim Spielmann denke ich immer,
+   aaah das ist zu kurz. Können wir ganze Gedichte/Minnen reinbringen?“ Und
+   gleich die richtige Grenze dazu gezogen: nicht der ganze Tristan, aber „dû
+   bist mîn“ ist ja in voller Länge ein kurzes Gedicht.
+
+   Also trägt ein Eintrag jetzt optional `ganz`:
+     titel     — wie das Stück heißt, Überschrift auf dem Blatt
+     ganz.wort — was auf dem Knopf steht („Alle vier Strophen“)
+     ganz.s    — Strophenpaare [mittelhochdeutsch, Übersetzung], abwechselnd
+                 gesetzt, damit sie nicht scrollen muss, um zu vergleichen
+     ganz.mehr — die Einordnung, für die auf der Karte kein Platz ist
+
+   Die Karte bleibt kurz. Das ganze Lied liegt hinter EINEM Tipp — dieselbe
+   Reihenfolge wie beim Magier: erst die eine Sache, dann auf Wunsch die Tiefe.
+
+   Jedes Stück unten ist gegen eine Quelle gelesen, nicht aus dem Kopf
+   geschrieben. Die Übersetzungen sind meine eigenen. */
 const ZITATE = [
   {alt:"Dû bist mîn, ich bin dîn:\ndes solt dû gewis sîn.",
    neu:"Du bist mein, ich bin dein — dessen sollst du gewiss sein.",
    wer:"Anonym, um 1180 · Mittelhochdeutsch",
-   dazu:"Steht am Ende eines lateinischen Liebesbriefs in einer Tegernseer Handschrift. Die berühmtesten deutschen Liebesverse stammen aus einem Postskriptum."},
+   dazu:"Steht am Ende eines lateinischen Liebesbriefs in einer Tegernseer Handschrift. Die berühmtesten deutschen Liebesverse stammen aus einem Postskriptum.",
+   titel:"Dû bist mîn, ich bin dîn",
+   ganz:{wort:"Die ganzen sechs Zeilen", s:[[
+     "Dû bist mîn, ich bin dîn:\ndes solt dû gewis sîn.\ndû bist beslozzen\nin mînem herzen:\nverlorn ist daz slüzzelîn:\ndû muost ouch immer darinne sîn.",
+     "Du bist mein, ich bin dein — dessen sollst du gewiss sein. Du bist eingeschlossen in meinem Herzen; verloren ist das Schlüsselchen: du musst nun für immer darin bleiben."]],
+    mehr:"Mehr ist es nicht. Sechs Zeilen, und sie stehen am Ende eines lateinischen Liebesbriefs in der Tegernseer Sammlung. Die ist ein Briefsteller — teils Mustertexte zum Abschreiben. Deshalb ist bis heute offen, ob hier wirklich eine Frau an einen Mann schreibt oder jemand vorführt, wie man so etwas schreibt."}},
 
   {alt:"Under der linden\nan der heide,\ndâ unser zweier bette was.",
    neu:"Unter der Linde auf der Heide, wo das Bett für uns beide war.",
    wer:"Walther von der Vogelweide, um 1200 · Mittelhochdeutsch",
-   dazu:"Erzählt wird aus der Sicht der Frau — und sie erzählt es vergnügt. Ungewöhnlich für die Zeit, in der die Minne sonst das Unerreichbare besingt."},
+   dazu:"Erzählt wird aus der Sicht der Frau — und sie erzählt es vergnügt. Ungewöhnlich für die Zeit, in der die Minne sonst das Unerreichbare besingt.",
+   titel:"Under der linden",
+   ganz:{wort:"Alle vier Strophen", s:[
+     ["Under der linden\nan der heide,\ndâ unser zweier bette was,\nDâ muget ir vinden\nschône beide\ngebrochen bluomen unde gras.\nVor dem walde in einem tal,\ntandaradei,\nschône sanc diu nahtegal.",
+      "Unter der Linde auf der Heide, wo das Bett für uns beide war: dort könnt ihr sehen, wie schön beides niedergedrückt ist, Blumen und Gras. Vor dem Wald in einem Tal — tandaradei — sang schön die Nachtigall."],
+     ["Ich kam gegangen\nzuo der ouwe:\ndô was mîn friedel komen ê.\nDâ wart ich empfangen,\nhêre frouwe,\ndaz ich bin saelic iemer mê.\nKuster mich? wol tûsentstunt:\ntandaradei,\nseht wie rôt mir ist der munt.",
+      "Ich kam zu der Wiese gegangen: da war mein Liebster schon da. Dort wurde ich empfangen — heilige Jungfrau! — dass ich für immer glücklich bin. Ob er mich geküsst hat? Wohl tausendmal — tandaradei — seht, wie rot mein Mund ist."],
+     ["Dô het er gemachet\nalsô rîche\nvon bluomen eine bettestat.\nDes wirt noch gelachet\ninneclîche,\nkumt iemen an daz selbe pfat.\nBî den rôsen er wol mac,\ntandaradei,\nmerken wâ mirz houbet lac.",
+      "Da hatte er so prächtig aus Blumen ein Lager gemacht. Darüber wird noch herzlich gelacht, wenn jemand denselben Pfad entlangkommt. An den Rosen kann er gut — tandaradei — erkennen, wo mein Kopf lag."],
+     ["Daz er bî mir laege,\nwessez iemen\n(nu enwelle got!), sô schamt ich mich.\nWes er mit mir pflaege,\nniemer niemen\nbevinde daz, wan er und ich.\nUnd ein kleinez vogellîn:\ntandaradei,\ndaz mac wol getriuwe sîn.",
+      "Dass er bei mir lag — wüsste das jemand (Gott bewahre!), dann würde ich mich schämen. Was er mit mir tat, das soll niemals jemand erfahren außer ihm und mir. Und einem kleinen Vogel — tandaradei — der wird wohl verschwiegen sein."]],
+    mehr:"Vier Strophen, und die Frau erzählt alle vier. Das ist der Witz: Der Minnesang ringt sonst um eine Unerreichbare, hier ist längst alles geschehen, und die, um die es geht, denkt vergnügt daran zurück. Das „tandaradei“ ahmt die Nachtigall nach — und die ist zugleich die einzige Zeugin, die reden könnte. Die letzte Strophe verlässt sich darauf, dass sie es nicht tut."}},
 
   {alt:"Ich saz ûf eime steine\nund dahte bein mit beine.",
    neu:"Ich saß auf einem Stein und schlug ein Bein über das andere.",
    wer:"Walther von der Vogelweide, um 1198 · Mittelhochdeutsch",
-   dazu:"Die Denkerpose ist im Codex Manesse abgebildet — das Bild zeigt Walther genau so sitzend, wie sein eigener Vers es beschreibt."},
+   dazu:"Die Denkerpose ist im Codex Manesse abgebildet — das Bild zeigt Walther genau so sitzend, wie sein eigener Vers es beschreibt.",
+   titel:"Ich saz ûf eime steine",
+   ganz:{wort:"Die ganze Strophe", s:[[
+     "Ich saz ûf eime steine\nund dahte bein mit beine,\ndar ûf satzt ich den ellenbogen;\nich hete in mîne hant gesmogen\ndaz kinne und ein mîn wange.\ndô dâhte ich mir vil ange,\nwie man zer welte solte leben.\ndeheinen rât kond ich gegeben,\nwie man driu dinc erwurbe,\nder keinez niht verdurbe.\ndiu zwei sint êre und varnde guot,\ndaz dicke ein ander schaden tuot.\ndaz dritte ist gotes hulde,\nder zweier übergulde.\ndie wolte ich gerne in einen schrîn:\njâ leider desn mac niht gesîn,\ndaz guot und weltlich êre\nund gotes hulde mêre\nzesamene in ein herze komen.\nstîg unde wege sint in benomen;\nuntriuwe ist in der sâze,\ngewalt vert ûf der strâze,\nfride unde reht sint sêre wunt.\ndiu driu enhabent geleites niht, diu zwei enwerden ê gesunt.",
+     "Ich saß auf einem Stein und schlug ein Bein über das andere, darauf setzte ich den Ellenbogen; in die Hand hatte ich das Kinn geschmiegt und eine meiner Wangen. Da dachte ich angestrengt nach, wie man auf der Welt leben soll. Ich wusste keinen Rat, wie man drei Dinge erlangt, ohne dass eines davon verdirbt. Zwei davon sind Ansehen und Besitz, die einander oft schaden. Das dritte ist Gottes Gnade, kostbarer als die beiden anderen zusammen. Die hätte ich gern alle in einer Truhe. Aber leider kann es nicht sein, dass Besitz und weltliches Ansehen und dazu Gottes Gnade zusammen in ein Herz kommen. Ihnen sind Steg und Weg versperrt: Die Treulosigkeit liegt im Hinterhalt, Gewalt zieht über die Straße, Friede und Recht sind schwer verwundet. Die drei bekommen kein sicheres Geleit, solange die zwei nicht erst gesund werden."]],
+    mehr:"Die zwei Zeilen, die jeder kennt, sind nur die Denkerpose — gedacht wird danach. Im Codex Manesse ist Walther genau so gemalt, wie er sich hier beschreibt; ob der Maler den Vers illustriert hat oder beide auf dieselbe bekannte Haltung zurückgreifen, ist offen. Die letzte Zeile fällt aus dem Maß und ist doppelt so lang wie die anderen. Das ist die Bauform dieses Tons, kein Versehen."}},
 
   {alt:"Owê war sint verswunden\nalliu mîniu jâr!",
    neu:"Ach, wohin sind sie verschwunden, all meine Jahre!",
@@ -2362,12 +2425,24 @@ const ZITATE = [
   {alt:"Uns ist in alten mæren\nwunders vil geseit.",
    neu:"Uns ist in alten Erzählungen viel Wunderbares berichtet.",
    wer:"Nibelungenlied, um 1200 · Mittelhochdeutsch",
-   dazu:"Die erste Zeile beruft sich auf Älteres — das Lied gibt sich von Anfang an als Überlieferung aus, nicht als Erfindung."},
+   dazu:"Die erste Zeile beruft sich auf Älteres — das Lied gibt sich von Anfang an als Überlieferung aus, nicht als Erfindung.",
+   titel:"Uns ist in alten mæren",
+   ganz:{wort:"Die ganze Strophe", s:[[
+     "Uns ist in alten mæren   wunders vil geseit\nvon helden lobebæren,   von grôzer arebeit,\nvon fröuden, hôchgezîten,   von weinen und von klagen,\nvon küener recken strîten   muget ir nu wunder hœren sagen.",
+     "Uns ist in alten Erzählungen viel Wunderbares berichtet: von rühmenswerten Helden, von großer Mühsal, von Freuden und Festen, von Weinen und Klagen, vom Kampf kühner Recken — davon könnt ihr jetzt Wunderbares erzählen hören."]],
+    mehr:"Die berühmteste erste Strophe der deutschen Literatur steht nicht in allen Handschriften. Die ältere Fassung B beginnt ohne sie, mitten in der Geschichte: „Ez wuohs in Burgonden ein vil edel magedîn“ — im Burgundenland wuchs ein sehr edles Mädchen heran. Der feierliche Auftakt, den heute jeder zitiert, ist ein späterer Zusatz und steht so in der Fassung C. Sieh dir die vierte Zeile an: Sie ist länger als die drei davor. An diesem Überhang erkennt man die Nibelungenstrophe."}},
 
   {alt:"Ich zôch mir einen valken\nmêre danne ein jâr.",
    neu:"Ich zog mir einen Falken auf, länger als ein Jahr.",
    wer:"Der von Kürenberg, um 1160 · Mittelhochdeutsch",
-   dazu:"Das Falkenlied gilt als eines der ältesten deutschen Minnelieder. Wer der Falke ist, wird nie gesagt — und genau darüber wird seit zweihundert Jahren gestritten."},
+   dazu:"Das Falkenlied gilt als eines der ältesten deutschen Minnelieder. Wer der Falke ist, wird nie gesagt — und genau darüber wird seit zweihundert Jahren gestritten.",
+   titel:"Das Falkenlied",
+   ganz:{wort:"Beide Strophen", s:[
+     ["Ich zôch mir einen valken   mêre danne ein jâr.\ndô ich in gezamete   als ich in wolte hân\nund ich im sîn gevidere   mit golde wol bewant,\ner huop sich ûf vil hôhe   und floug in anderiu lant.",
+      "Ich zog mir einen Falken auf, länger als ein Jahr. Als ich ihn gezähmt hatte, so wie ich ihn haben wollte, und ihm sein Gefieder schön mit Gold umwunden hatte, da hob er sich hoch auf und flog in andere Länder."],
+     ["Sît sach ich den valken   schône fliegen:\ner fuorte an sînem fuoze   sîdîne riemen,\nund was im sîn gevidere   alrôt guldîn.\ngot sende si zesamene   die gerne geliep wellen sîn!",
+      "Später sah ich den Falken herrlich fliegen: Er trug an seinem Fuß seidene Riemen, und sein Gefieder war ganz rotgolden. Gott führe die zusammen, die einander gern lieb sein wollen!"]],
+    mehr:"Acht Zeilen, und bis heute weiß niemand sicher, wer da spricht. Liest man es als Frauenstrophe, dann hat sie einen Mann aufgezogen und verloren. Die seidenen Riemen am Fuß sind das eigentliche Stechen: Ein Falke mit Riemen gehört jemandem — er ist frei geflogen, aber nicht frei geblieben. Die Langzeile mit der Pause in der Mitte ist dieselbe Bauform wie die Nibelungenstrophe; Kürenberg und das Nibelungenlied teilen sich den Ton."}},
 
   {alt:"Ein rîter sô gelêret was,\ndaz er an den buochen las\nswaz er dar an geschriben vant.",
    neu:"Ein Ritter war so gelehrt, dass er in den Büchern las, was immer er darin geschrieben fand.",
@@ -2377,7 +2452,12 @@ const ZITATE = [
   {alt:"Ist zwîvel herzen nâchgebûr,\ndaz muoz der sêle werden sûr.",
    neu:"Ist Zweifel dem Herzen ein Nachbar, so muss das der Seele bitter werden.",
    wer:"Wolfram von Eschenbach, Parzival · Mittelhochdeutsch",
-   dazu:"Der berühmte dunkle Anfang. Wolfram beginnt seinen Roman nicht mit einer Handlung, sondern mit einem Rätselsatz über den Zweifel."},
+   dazu:"Der berühmte dunkle Anfang. Wolfram beginnt seinen Roman nicht mit einer Handlung, sondern mit einem Rätselsatz über den Zweifel.",
+   titel:"Der Anfang des Parzival",
+   ganz:{wort:"Wie es weitergeht", s:[[
+     "Ist zwîvel herzen nâchgebûr,\ndaz muoz der sêle werden sûr.\ngesmæhet unde gezieret\nist, swâ sich parrieret\nunverzaget mannes muot,\nals agelstern varwe tuot.\nder mac dennoch wesen geil:\nwand an im sint beidiu teil,\ndes himels und der helle.\nder unstæte geselle\nhât die swarzen varwe gar,\nund wirt och nâch der vinster var:\nsô habet sich an die blanken\nder mit stæten gedanken.",
+     "Ist Zweifel dem Herzen ein Nachbar, so muss das der Seele bitter werden. Geschmäht und geehrt zugleich ist, wo der unverzagte Mut eines Mannes scheckig gemischt ist, wie es die Farbe der Elster tut. Der kann dennoch froh werden, denn an ihm sind beide Teile, der des Himmels und der der Hölle. Der unbeständige Geselle hat die schwarze Farbe ganz und wird auch dunkel wie die Finsternis; an das Weiße aber hält sich, wer beständige Gedanken hat."]],
+    mehr:"Wolfram fängt seinen Roman nicht mit einer Handlung an, sondern mit einer Elster: schwarz und weiß in einem Tier. Das ist das Programm des ganzen Buches — Parzival wird nicht gut oder böse sein, sondern beides zugleich. Kurz darauf nennt Wolfram sein eigenes Gleichnis ein „vliegende bîspel“, ein fliegendes Beispiel, und setzt hinzu, für begriffsstutzige Leute sei es zu schnell: Es entwische ihnen wie ein aufgescheuchter Hase. Der Prolog gilt seit jeher als dunkel — schon Gottfried von Straßburg hat über Wolframs Sprache gespottet."}},
 
   {alt:"ein man ein wîp, ein wîp ein man,\nTristan Isolt, Isolt Tristan.",
    neu:"Ein Mann eine Frau, eine Frau ein Mann — Tristan Isolde, Isolde Tristan.",
@@ -2387,7 +2467,16 @@ const ZITATE = [
   {alt:"Slâfest du, friedel ziere?\nman wecket uns leider schiere.",
    neu:"Schläfst du, schöner Geliebter? Man wird uns leider bald wecken.",
    wer:"Dietmar von Aist, 12. Jh. · Mittelhochdeutsch",
-   dazu:"Eines der frühesten deutschen Tagelieder: Die Nacht ist vorbei, und der Morgen ist der Feind. Geweckt wird hier vom Wächter, nicht vom Wecker."},
+   dazu:"Eines der frühesten deutschen Tagelieder: Die Nacht ist vorbei, und der Morgen ist der Feind. Geweckt wird hier von einem Vogel, nicht von einem Wächter.",
+   titel:"Slâfest du, friedel ziere",
+   ganz:{wort:"Alle drei Strophen", s:[
+     ["»Slâfest du, friedel ziere?\nman wecket uns leider schiere:\nein vogellîn sô wol getân\ndaz ist der linden an daz zwî gegân.«",
+      "»Schläfst du, schöner Geliebter? Man wird uns leider gleich wecken: Ein Vogel, ein so hübscher, ist der Linde auf den Zweig geflogen.«"],
+     ["»Ich was vil sanfte entslâfen:\nnu rüefstu, kint, wâfen.\nliep âne leit mac niht gesîn.\nswaz du gebiutest, daz leiste ich, friundîn mîn.«",
+      "»Ich war so sanft eingeschlafen — jetzt schlägst du Alarm, Kind. Liebe ohne Leid kann es nicht geben. Was du auch verlangst, ich tue es, meine Freundin.«"],
+     ["Diu frouwe begunde weinen.\n»du rîtst und lâst mich eine.\nwenne wilt du wider her zuo mir?\nowê du füerst mîn fröide sament dir!«",
+      "Die Frau begann zu weinen. »Du reitest fort und lässt mich allein. Wann willst du wieder her zu mir kommen? Ach, du nimmst meine Freude mit dir mit!«"]],
+    mehr:"Wahrscheinlich das erste Tagelied auf Deutsch. Was später zur festen Regel des Genres wird — ein Wächter auf der Zinne bläst die Liebenden auseinander — gibt es hier noch nicht: Geweckt wird von einem Vogel in der Linde. Und die Frau hat das erste und das letzte Wort; er sagt nur einen einzigen Satz, und der ist Gehorsam. „wâfen“ ist wörtlich der Waffenruf, der Schrei, mit dem man Alarm schlägt — sie ruft ihn im Bett."}},
 
   {alt:"Owê, sol aber mir iemer mê\ngeliuhten dur die naht\nnoch wîzer danne ein snê\nir lîp vil wol geslaht?",
    neu:"Ach, wird mir denn je wieder durch die Nacht ihr Leib leuchten, weißer als Schnee, so vollkommen gebaut?",
@@ -2407,7 +2496,12 @@ const ZITATE = [
   {alt:"Ik gihôrta ðat seggen,\nðat sih urhettun ænon muotin,\nHiltibrant enti Haðubrant.",
    neu:"Ich hörte das sagen, dass Herausforderer allein aufeinandertrafen: Hildebrand und Hadubrand.",
    wer:"Hildebrandslied, um 830 · Althochdeutsch",
-   dazu:"Das einzige erhaltene deutsche Heldenlied dieser Zeit. Ein Mönch schrieb es auf den freien Seiten eines theologischen Buchs — und brach mitten im Kampf ab. Der Schluss fehlt bis heute."},
+   dazu:"Das einzige erhaltene deutsche Heldenlied dieser Zeit. Ein Mönch schrieb es auf den freien Seiten eines theologischen Buchs — und brach mitten im Kampf ab. Der Schluss fehlt bis heute.",
+   titel:"Das Hildebrandslied",
+   ganz:{wort:"Der Anfang, ganz", s:[[
+     "Ik gihorta ðat seggen,\nðat sih urhettun   ænon muotin,\nHiltibrant enti Haðubrant   untar heriun tuem.\nsunufatarungo   iro saro rihtun,\ngarutun se iro gudhamun,   gurtun sih iro suert ana,\nhelidos, ubar hringa,   do sie to dero hiltiu ritun.",
+     "Ich hörte das sagen, dass Herausforderer sich allein begegneten: Hildebrand und Hadubrand, zwischen zwei Heeren. Sohn und Vater richteten ihre Rüstung her, machten ihre Kampfgewänder bereit, gürteten sich ihre Schwerter um, die Helden, über die Ringpanzer, als sie zu diesem Kampf ritten."]],
+    mehr:"„sunufatarungo“ steht nur an dieser einen Stelle im ganzen Althochdeutschen: ein Wort, das Vater und Sohn in einem Zug nennt, und niemand weiß sicher, wie es gebildet ist. Auch sprachlich ist der Text ein Zwitter — altsächsische und althochdeutsche Formen stehen nebeneinander, „ik“ neben „enti“. Zwei Schreiber haben ihn auf die erste und die letzte freie Seite einer theologischen Handschrift gesetzt, und dann war kein Platz mehr. Deshalb bricht das Lied mitten im Kampf ab. Wir erfahren nie, ob der Vater den Sohn erschlägt."}},
 
   {alt:"welaga nu, waltant got,\nwêwurt skihit.",
    neu:"Weh nun, waltender Gott — Unheil geschieht.",
@@ -2417,12 +2511,32 @@ const ZITATE = [
   {alt:"ben zi bena, bluot zi bluoda,\nlid zi geliden, sôse gelîmida sîn.",
    neu:"Bein zu Bein, Blut zu Blut, Glied zu Gliedern — als wären sie zusammengeleimt.",
    wer:"Zweiter Merseburger Zauberspruch, 9./10. Jh. · Althochdeutsch",
-   dazu:"Ein Heilspruch für ein verrenktes Pferdebein, aufgeschrieben von einem christlichen Schreiber, der die alten Götter darin stehen ließ. Er wurde 1841 in einer Merseburger Handschrift wiederentdeckt."},
+   dazu:"Ein Heilspruch für ein verrenktes Pferdebein, aufgeschrieben von einem christlichen Schreiber, der die alten Götter darin stehen ließ. Er wurde 1841 in einer Merseburger Handschrift wiederentdeckt.",
+   titel:"Der zweite Merseburger Zauberspruch",
+   ganz:{wort:"Der ganze Spruch", s:[[
+     "Phol ende Uuodan   uuorun zi holza.\ndû uuart demo balderes uolon   sîn uuoz birenkit.\nthû biguol en Sinthgunt,   Sunna era suister;\nthû biguol en Frîia,   Uolla era suister;\nthû biguol en Uuodan,   sô hê uuola conda:\nsôse bênrenki,   sôse bluotrenki,   sôse lidirenki:\nbên zi bêna,   bluot zi bluoda,\nlid zi geliden,   sôse gelîmida sîn.",
+     "Phol und Wodan ritten in den Wald. Da wurde dem Fohlen Balders der Fuß verrenkt. Da besprach ihn Sinthgunt, und Sunna, ihre Schwester; da besprach ihn Frija, und Volla, ihre Schwester; da besprach ihn Wodan, so gut er es konnte: Sei es Beinverrenkung, sei es Blutverrenkung, sei es Gliedverrenkung — Bein zu Bein, Blut zu Blut, Glied zu Gliedern, als wären sie zusammengeleimt."]],
+    mehr:"In der Handschrift steht kein einziger Zeilenumbruch. Dort läuft es durch, und sogar die Wörter hängen falsch zusammen: „Phol endeuuodan uuorun ziholza du uuart demobalderes uolon sinuuoz birenkict“. Die Verse, die du oben liest, sind eine Entscheidung von Herausgebern — hier siehst du besonders deutlich, wie viel an einem Text die Ausgabe ist und nicht die Quelle. Das „uu“ ist das Zeichen des Schreibers für unser w. Wer Phol ist, weiß niemand. Und der eigentliche Zauber sind nur die letzten drei Zeilen; die Göttergeschichte davor dient allein dazu, einmal den Fall vorzuführen, in dem es geklappt hat."}},
+
+  {alt:"Insprinc haptbandun,\ninuar uîgandun!",
+   neu:"Entspring den Fesseln, entfahr den Feinden!",
+   wer:"Erster Merseburger Zauberspruch, 9./10. Jh. · Althochdeutsch",
+   dazu:"Ein Spruch, um Gefangene zu lösen. Diese beiden Zeilen sind die Formel selbst — alles davor ist nur die Geschichte, die zeigen soll, dass sie wirkt.",
+   titel:"Der erste Merseburger Zauberspruch",
+   ganz:{wort:"Der ganze Spruch", s:[[
+     "Eiris sâzun idisi,   sâzun hera duoder.\nsuma hapt heptidun,   suma heri lezidun,\nsuma clûbôdun   umbi cuoniouuidi:\ninsprinc haptbandun,   inuar uîgandun!",
+     "Einst setzten sich Idisen, setzten sich hierhin und dorthin. Die einen hefteten Fesseln, die anderen hielten das Heer auf, die dritten nestelten an festen Banden: Entspring den Fesseln, entfahr den Feinden!"]],
+    mehr:"Idisen sind weibliche Wesen, die über den Ausgang einer Schlacht bestimmen — verwandt mit den Walküren, aber nicht dasselbe. Fast jede Zeile ist umstritten: „hera duoder“ liest man als „hierhin und dorthin“, sicher ist das nicht, und „cuoniouuidi“ übersetzt praktisch jede Ausgabe anders. Beide Merseburger Sprüche stehen auf einer frei gebliebenen Seite in einer geistlichen Sammelhandschrift. Jemand hat die alten Zaubersprüche dorthin geschrieben, wo eben Platz war — und ihnen damit ihr Überleben verschafft."}},
 
   {alt:"Dat gafregin ih mit firahim\nfiriwizzo meista.",
    neu:"Das erfuhr ich unter den Menschen als das größte der Wunder.",
    wer:"Wessobrunner Gebet, um 800 · Althochdeutsch",
-   dazu:"Es folgt die Schilderung, wie vor der Schöpfung nichts war — kein Berg, kein Baum, keine Sonne. Eines der ältesten Gedichte in deutscher Sprache."},
+   dazu:"Es folgt die Schilderung, wie vor der Schöpfung nichts war — kein Berg, kein Baum, keine Sonne. Eines der ältesten Gedichte in deutscher Sprache.",
+   titel:"Das Wessobrunner Gebet",
+   ganz:{wort:"Der ganze Anfang", s:[[
+     "Dat gafregin ih mit firahim   firiwizzo meista,\ndat ero ni was   noh ûfhimil,\nnoh paum   noh pereg ni was,\nni [sterro] nohheinîg   noh sunna ni scein,\nnoh mâno ni liuhta   noh der mâreo sêo.\nDô dâr niwiht ni was   enteo ni wenteo,\nenti dô was der eino   almahtîco cot,\nmanno miltisto,   enti dâr wârun auh manake mit inan\ncootlîhhe geistâ.   enti cot heilac …",
+     "Das erfuhr ich unter den Menschen als das größte der Wunder: dass Erde nicht war noch Himmel oben, nicht Baum noch Berg war, kein einziger Stern, noch schien die Sonne, noch leuchtete der Mond, noch war das herrliche Meer. Als da nichts war, kein Ende und keine Wende, da war der eine allmächtige Gott, der mildeste der Wesen, und da waren auch viele herrliche Geister bei ihm. Und Gott, der heilige …"]],
+    mehr:"Neun Verse, dann bricht die Dichtung ab und es geht in Prosa weiter — mit dem Gebet, nach dem der Text heißt. Das Wort in eckigen Klammern gibt die Handschrift nicht sicher her; „sterro“ ist eine Ergänzung der Herausgeber, und die Klammer sagt das ehrlich dazu. Das Schönste daran: Die lange Aufzählung dessen, was alles nicht war, ist genau die Bauform, die auch die Völuspá benutzt. Ein christlicher Schöpfungstext in einer stabreimenden Form, die viel älter ist als er."}},
 
   {alt:"Einan kuning wei; ih,\nHeizsit her Hluduîg.",
    neu:"Einen König kenne ich, er heißt Ludwig.",
@@ -2449,6 +2563,65 @@ const ZITATE = [
    wer:"Walther von der Vogelweide · Mittelhochdeutsch",
    dazu:"Nach Jahrzehnten als fahrender Sänger bekam Walther endlich ein eigenes Gut. Er schrieb darüber ein Gedicht, das klingt, als hätte er es über den Marktplatz gerufen."}
 ];
+
+/* Das ganze Stück bekommt ein Blatt, keine Karte. Das Blatt scrollt (88 dvh,
+   overflow-y:auto), die Tavernenkarte soll das ausdrücklich nicht — vier
+   Strophen Walther würden den Wanderer und die Kräuterhexe unter die Kante
+   schieben, und die Reihenfolge der Gäste ist nach Zugkraft gesetzt.
+
+   Original und Übersetzung stehen abwechselnd, Strophe für Strophe. Alles
+   Mittelhochdeutsche zuerst und die Übersetzung danach wäre bequemer zu
+   bauen und beim Lesen falsch: Dann müsste sie für jede Strophe hoch- und
+   runterscrollen. */
+function versBlatt(z){
+  blattZeigen('<h3></h3><p class="sub"></p>', b=>{
+    b.querySelector("h3").textContent = z.titel || "Der Spielmann trägt vor";
+    b.querySelector(".sub").textContent = z.wer;
+
+    z.ganz.s.forEach(([alt, neu])=>{
+      const a = document.createElement("div");
+      a.className = "strophe";
+      /* Jeder Vers ein eigener Block — sonst greift der hängende Einzug nur
+         beim ersten. Siehe die Begründung beim Stil. */
+      alt.split("\n").forEach(vers=>{
+        const v = document.createElement("div");
+        v.className = "vers-zeile"; v.textContent = vers;
+        a.appendChild(v);
+      });
+      b.appendChild(a);
+      const n = document.createElement("p");
+      n.className = "strophe-neu"; n.textContent = neu;
+      b.appendChild(n);
+    });
+
+    if(z.ganz.mehr){
+      const m = document.createElement("p");
+      m.className = "hinweis"; m.style.margin = "0 0 14px";
+      m.textContent = z.ganz.mehr;
+      b.appendChild(m);
+    }
+    /* Sie hat Germanistik studiert und merkt den Unterschied — deshalb steht
+       hier die längere Fassung des Hinweises: nicht nur „Schreibung weicht ab“,
+       sondern auch, dass schon die Verseinteilung eine Ausgabenentscheidung
+       sein kann. Beim Merseburger Spruch ist genau das der Fall. */
+    const s = document.createElement("p");
+    s.className = "hinweis"; s.style.margin = "0 0 18px";
+    s.textContent = "Schreibung nach gängigen Ausgaben. Handschriften weichen voneinander ab, "
+      + "und wo Verse abgesetzt sind, ist oft schon eine Entscheidung der Herausgeber. "
+      + "Die Übertragungen sind Prosa, nicht nachgedichtet.";
+    b.appendChild(s);
+
+    /* Weiterblättern nur unter denen, die ein ganzes Stück haben. Landete man
+       hier bei einem Zweizeiler, wäre das Blatt eine Enttäuschung — und der
+       Knopf hat gerade das Gegenteil versprochen. */
+    const lange = ZITATE.filter(x=> x.ganz && x !== z);
+    if(lange.length) b.appendChild(machKnopf("Noch ein ganzes Stück", "", ()=>{
+      zitatJetzt = lange[Math.floor(Math.random()*lange.length)];
+      versBlatt(zitatJetzt);
+    }));
+    b.appendChild(machKnopf("Danke", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
 
 /* ————— Der Raum —————
    Was gerade offen liegt, steht in Modul-Variablen und NICHT in D: es soll den
@@ -2582,16 +2755,27 @@ function taverneZeichnen(){
     dazu.className = "gast-fuss"; dazu.textContent = zitatJetzt.dazu;
     ks.appendChild(dazu);
   }
-  ks.appendChild(machKnopf(zitatJetzt ? "Noch eins" : "Trag was vor", "", ()=>{
+  /* „Aaah das ist zu kurz“ — ihr Satz vom 22.08.2026. Die Karte bleibt trotzdem
+     kurz: Sie ist der Blick im Vorbeigehen, und vier Strophen an dieser Stelle
+     wären eine Wand statt eines Gastes. Das ganze Lied liegt hinter EINEM
+     Tipp, und der steht oben, weil er nach dem Vers der nächste Gedanke ist. */
+  if(zitatJetzt && zitatJetzt.ganz)
+    ks.appendChild(machKnopf(zitatJetzt.ganz.wort, "", ()=> versBlatt(zitatJetzt)));
+  ks.appendChild(machKnopf(zitatJetzt ? "Noch eins" : "Trag was vor",
+    zitatJetzt && zitatJetzt.ganz ? "ruhig" : "", ()=>{
     const topf = ZITATE.filter(x=> x !== zitatJetzt);
     zitatJetzt = topf[Math.floor(Math.random()*topf.length)];
     taverneZeichnen();
   }));
   const sh = document.createElement("p");
   sh.className = "gast-fuss";
+  /* Gezählt wird hier nichts über SIE — das ist der Bestand des Spielmanns,
+     kein Fortschritt und keine Quote. Gerechnet statt hingeschrieben, damit
+     die Zahl nicht altert, wenn Stücke dazukommen. */
   sh.textContent = zitatJetzt
     ? "Schreibung nach gängigen Ausgaben — Handschriften weichen ab."
-    : ZITATE.length + " Stellen aus dem Mittel- und Althochdeutschen, mit Übersetzung.";
+    : ZITATE.length + " Stellen aus dem Mittel- und Althochdeutschen, mit Übersetzung. "
+      + ZITATE.filter(z=>z.ganz).length + " davon kannst du ganz hören.";
   ks.appendChild(sh);
   ziel.appendChild(ks);
 
