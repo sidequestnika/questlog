@@ -476,6 +476,16 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
    Serifenschrift: Das ist eine Seite, keine Karteikarte. */
 .prosa{margin:0 0 15px;font-family:var(--schrift-text);font-size:15.5px;line-height:1.7;
   hyphens:auto;-webkit-hyphens:auto}
+/* Der Brauch auf der Heute-Seite. Bewusst KEIN Rahmen wie bei den Quests und
+   keine Farbe wie beim Akku: Er soll gelesen werden, nicht bearbeitet. Ist der
+   Tag gelaufen, tritt der ganze Streifen zurück statt grün zu leuchten —
+   Erledigtes muss hier nichts feiern, es muss nur aufhören zu erinnern. */
+.brauch{margin:0 0 14px;padding:13px 14px;border-radius:14px;
+  background:var(--surface-2);border:1px dashed var(--line)}
+.brauch.getan{opacity:.5}
+.brauch .mini{margin:0 0 5px}
+.brauch .knopf{margin-top:10px;margin-bottom:0}
+.brauch-satz{margin:0;font-family:var(--schrift-text);font-size:15.5px;line-height:1.5}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -549,6 +559,12 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
          muss, ohne ihn zu suchen. -->
     <button class="handgriff" id="sofort-knopf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.4c2.3 1.5 4.6 2.2 7 2.2v6c0 4-2.8 7-7 8.9-4.2-1.9-7-4.9-7-8.9v-6c2.4 0 4.7-.7 7-2.2z"/><path d="M9.2 12.1h5.6"/></svg><span>Rückzug</span></button>
   </div>
+
+  <!-- Der Brauch: eine optische Erinnerung, sonst nichts. Steht nur da, wenn
+       sie sich einen vorgenommen hat, und verschwindet rückstandslos, wenn
+       sie ihn sein lässt. Bewusst über den Vorschlägen: Er ist keine Aufgabe
+       und soll nicht zwischen welchen stehen. -->
+  <div id="brauch-halter"></div>
 
   <div id="vorschlag-halter"></div>
   <div id="frage-halter"></div>
@@ -646,6 +662,12 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
 <!-- ═══════════ RASTPLATZ ═══════════ -->
 <section class="view wrap" id="v-rast">
   <div class="kopf"><p class="datum">Was dir die App anbietet</p><h1 class="gruss">Rastplatz</h1></div>
+
+  <!-- Die Bräuche stehen VOR den Vorräten und in einem eigenen Halter. Der
+       Grund ist nicht Geschmack: listenZeichnen() läuft nur beim Start und
+       nach dem Ändern einer Liste, nicht bei jedem zeichnen(). Ein Brauch,
+       der dort drin hinge, würde sich erst beim nächsten Neuladen ändern. -->
+  <div id="brauch-lager"></div>
 
   <p class="label">Deine Vorräte</p>
   <p class="hinweis" style="margin:0 0 4px"><strong>Hier wird nichts getan</strong> — hier legst du nur fest, was dir die App später anbietet. Tipp weg, was nichts für dich ist, und trag ein, was fehlt. <em>Belohnungen stehen beim Händler.</em></p>
@@ -888,6 +910,46 @@ const GOLD_SELFCARE = 2;
    gewinnen. Zwei geschenkte Tage pro Woche fangen den Rest ab. */
 const SELFCARE_STUFEN = [[7,10],[30,50],[100,100]];
 const EIS_PRO_WOCHE = 2;
+
+/* ═══════════ Bräuche und Rituale ═══════════
+   Ihre Idee vom 22.08.2026, und sie hat sie selbst richtig zugeschnitten:
+   „Bräuche und Rituale finde ich gut, es ist quasi eine optische Erinnerung
+   für mich und keine richtige Wenn-Dann-Quest. Was wäre, wenn wir uns auf
+   einen, maximal zwei Bräuche festlegen? … Wahrscheinlich reicht dann sogar
+   eine Sache, die ich mir vornehme?"
+
+   WARUM DAS KEIN TO-DO IST — ihr eigener Einwand, und er stimmt: „Gesicht
+   waschen als To-do ist auch seltsam." Es stünde 365-mal im Jahr als
+   unerledigt da, es würde Ausdauer kosten, obwohl es keine Arbeit ist, und
+   ein To-do verlangt eine Entscheidung, während eine Gewohnheit gerade keine
+   sein soll. Der Brauch steht deshalb NIE im Auftragsbuch, kostet NIE
+   Ausdauer und wird NIE rot.
+
+   BRAUCH → RITUAL, nicht andersherum. Sie hat selbst gefragt, was semantisch
+   mehr Sinn ergibt. Etymologisch ginge auch das Gegenteil (Ritual = die
+   vorgeschriebene Form, Brauch = was durch Gebrauch üblich wurde). Aber das
+   Unterscheidende am Ritual ist nicht die Häufigkeit, sondern Festigkeit und
+   Bedeutung: Eine Übung wird zum Ritual, wenn sie mehr geworden ist als ihr
+   Zweck. Der Brauch ist also das, was sie sich vornimmt; das Ritual das, was
+   daraus geworden ist. Deckt sich mit dem Alltagsgefühl — „mein Abendritual"
+   klingt nach etwas Liebgewonnenem, „Brauch" nach Folklore.
+
+   DIE ZAHL. Sie hatte einen Monat vorgeschlagen. Die Messlage sagt: Das
+   reicht im Median nicht. Lally 2010 (96 Menschen, 12 Wochen): 66 Tage bis
+   95 % der Automatisierung, Spanne 18–254. Singh u.a. 2024, systematisches
+   Review und Meta-Analyse über 20 Studien und gut 2.600 Menschen: Median
+   59–66 Tage, Einzelspanne 4–335. Deshalb steht die Marke bei 66 Tagen, und
+   der Monat bleibt als echte Wegmarke drin — er ist ungefähr die Hälfte.
+
+   UND AM ENDE FRAGT DIE APP, statt zu verkünden. Das ist keine Höflichkeit,
+   das ist die Methode: Automatisierung wird in genau diesen Studien per
+   Selbstauskunft gemessen (Self-Report Habit Index). Ob es von allein läuft,
+   weiß nur sie. Sagt sie „noch nicht", läuft der Brauch weiter und die App
+   fragt erst in zwei Wochen wieder. */
+const RITUAL_AB = 66;
+const BRAUCH_MARKEN = [[7, 10], [30, 25]];
+const RITUAL_GOLD = 60;
+const NACHFRAGE_ABSTAND = 14;
 
 function vereinen(vorschlaege, eigene){
   const raus = vorschlaege.slice();
@@ -1491,6 +1553,8 @@ function zeichnen(){
   warnungZeichnen();
   akkuZeichnen();
   zettelKnopfZeichnen();
+  brauchZeichnen();
+  brauchLagerZeichnen();
   vorschlagZeichnen();
   frageZeichnen();
   fachZeichnen("haupt","liste-haupt","Nichts Großes für heute. Auch gut.");
@@ -4762,19 +4826,31 @@ function abendZeichnen(){
    er reißt. Zwei geschenkte Tage pro Woche (rollierend) fangen das ab, wie
    bei Duolingo. Gefragt wird nach dem NAMEN, nicht nach ja/nein: mit „ja"
    schummelt man sich in zwei Sekunden durch, ein Wort muss man sich holen. */
-function selfcareStreak(){
-  const log = D.selfcareLog || {};
+/* Eine Reihe zählen. Dieselbe Buchhaltung für die Selfcare und für den Brauch:
+   Als der Brauch dieselbe Rechnung brauchte, wäre Abschreiben die naheliegende
+   und falsche Antwort gewesen — zwei Kopien driften auseinander, sobald sich
+   die Eisregel einmal ändert. Ein Tag zählt, wenn im Log etwas Nichtleeres
+   steht: eine Liste mit Inhalt (die Selfcare nennt Namen) oder schlicht true
+   (der Brauch kennt nur ja). */
+function reiheZaehlen(log){
+  log = log || {};
+  const gilt = v => Array.isArray(v) ? v.length > 0 : !!v;
   const luecken = [];
   let tage = 0, seit = null;
   let d = new Date(); d.setHours(0,0,0,0);
   /* Heute zählt nur, wenn schon etwas dasteht — sonst ist der Tag noch offen
      und darf nicht als Lücke gelten. Der Abend ist ja noch nicht vorbei. */
-  if(!((log[datumStr(d)]||[]).length)) d.setDate(d.getDate()-1);
+  if(!gilt(log[datumStr(d)])) d.setDate(d.getDate()-1);
   for(let i=0; i<800; i++){
     const iso = datumStr(d);
-    if((log[iso]||[]).length){ tage++; seit = iso; }
+    if(gilt(log[iso])){ tage++; seit = iso; }
     else{
-      /* Höchstens zwei Lücken in sieben Tagen — die dritte reißt die Reihe. */
+      /* Höchstens zwei Lücken in sieben Tagen — die dritte reißt die Reihe.
+         Das ist nicht bloß Nachsicht, das ist die Messlage: Lally 2010 fand,
+         dass EINE ausgelassene Gelegenheit die Automatisierung nicht messbar
+         beeinträchtigt — der Wert fiel um weniger als einen halben Punkt und
+         erholte sich sofort. Ein Streak, der beim ersten Aussetzer reißt,
+         bestraft also etwas, das der Sache gar nicht schadet. */
       if(luecken.filter(x=> tageZwischen(x, iso) < 7).length >= EIS_PRO_WOCHE) break;
       luecken.push(iso);
     }
@@ -4783,6 +4859,223 @@ function selfcareStreak(){
   /* Lücken hinter dem Anfang der Reihe sind keine geschenkten Tage, sondern
      einfach die Zeit davor. */
   return {tage:tage, seit:seit, eis: seit ? luecken.filter(x=> x > seit).length : 0};
+}
+function selfcareStreak(){ return reiheZaehlen(D.selfcareLog); }
+
+/* ── Der Brauch ── */
+function brauchReihe(){ return reiheZaehlen((D.brauch||{}).log); }
+function brauchSatz(b){ return "Wenn ich " + b.wenn + ", dann " + b.was + "."; }
+
+function brauchMarken(){
+  const b = D.brauch; if(!b) return null;
+  const r = brauchReihe();
+  b.bezahlt = b.bezahlt || [];
+  if(b.markeSeit !== r.seit){ b.markeSeit = r.seit; b.bezahlt = []; }
+  let treffer = null;
+  BRAUCH_MARKEN.forEach(([tage, gold])=>{
+    if(r.tage >= tage && b.bezahlt.indexOf(tage) < 0){
+      D.gold += gold; b.bezahlt.push(tage); treffer = {tage:tage, gold:gold};
+    }
+  });
+  return treffer;
+}
+
+function brauchUmschalten(){
+  const b = D.brauch; if(!b) return;
+  b.log = b.log || {};
+  /* Nochmal tippen nimmt es zurück — wie bei der Tagsform. Sie soll nicht
+     festhängen, weil sie danebengetippt hat. */
+  if(b.log[D.tag]) delete b.log[D.tag]; else b.log[D.tag] = true;
+  const marke = brauchMarken();
+  sichern(); zeichnen();
+  /* Gibt zurück, ob dabei ein Blatt aufgegangen ist. Der Aufrufer im Abend
+     baut sein eigenes Blatt sonst darüber, und die Wegmarke blitzt nur auf.
+
+     Die Ritualfrage geht VOR der Wegmarke. Beide können auf denselben Tipp
+     fallen, wenn eine Reihe gerissen und neu angefangen hat — dann werden die
+     Wegmarken erneut fällig, während die Ritualfrage schon ansteht. Das Gold
+     der Wegmarke ist oben ohnehin schon geflossen; verloren geht nur ihr
+     Blatt, und ein „Ein Monat steht" wiegt weniger als die eine Frage, auf
+     die alles zuläuft. */
+  if(brauchFaellig()){ brauchFrageBlatt(); return true; }
+  if(marke){ markeBlatt(marke); return true; }
+  return false;
+}
+
+/* Erst ab RITUAL_AB fragen, danach höchstens alle NACHFRAGE_ABSTAND Tage. */
+function brauchFaellig(){
+  const b = D.brauch; if(!b) return false;
+  if(brauchReihe().tage < RITUAL_AB) return false;
+  if(!b.gefragt) return true;
+  /* tageZwischen(a,b) rechnet a minus b MIT Vorzeichen. Andersherum herum
+     geschrieben käme hier immer eine negative Zahl heraus und die Nachfrage
+     nie wieder — genau das hat der Durchlauf gefunden. */
+  return tageZwischen(D.tag, b.gefragt) >= NACHFRAGE_ABSTAND;
+}
+
+function markeBlatt(m){
+  blattZeigen('<h3></h3><p class="sub"></p>', b=>{
+    b.querySelector("h3").textContent = m.tage === 30 ? "Ein Monat steht" : "Eine Woche steht";
+    b.querySelector(".sub").textContent = m.tage === 30
+      ? "Das ist ungefähr die Hälfte. Im Median dauert es 66 Tage, bis so etwas von allein läuft — dann fragt die App dich, ob es so weit ist."
+      : "Der Anfang ist der Teil, der am meisten kostet. Der ist jetzt hinter dir.";
+    const g = document.createElement("p");
+    g.className = "hinweis"; g.style.margin = "0 0 16px"; g.style.color = "var(--accent)";
+    g.textContent = "+" + m.gold + " Gold";
+    b.appendChild(g);
+    b.appendChild(machKnopf("Schön", "stark", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+/* Die App verkündet nicht, sie fragt. Automatisierung wird in genau den
+   Studien, aus denen die 66 Tage stammen, per Selbstauskunft gemessen — ob
+   es von allein läuft, weiß niemand außer ihr. */
+function brauchFrageBlatt(){
+  const b = D.brauch; if(!b) return;
+  const r = brauchReihe();
+  blattZeigen('<h3>Läuft das inzwischen von allein?</h3>'
+    + '<p class="sub">Seit ' + r.tage + ' Tagen machst du das. Ob daraus ein Ritual geworden ist, kann dir von außen niemand sagen — auch die Forschung fragt an dieser Stelle einfach die Person selbst.</p>', el=>{
+    const s = document.createElement("p");
+    s.className = "brauch-satz"; s.style.margin = "0 0 18px";
+    s.textContent = brauchSatz(b);
+    el.appendChild(s);
+    el.appendChild(machKnopf("Ja — das läuft von allein", "stark", ()=>{
+      D.rituale = (D.rituale||[]).concat([{wenn:b.wenn, was:b.was, tage:r.tage, wurde:D.tag}]);
+      D.gold += RITUAL_GOLD;
+      D.brauch = null; sichern(); blattSchliessen(); zeichnen();
+      ritualBlatt(r.tage);
+    }));
+    el.appendChild(machKnopf("Noch nicht", "", ()=>{
+      b.gefragt = D.tag; sichern(); blattSchliessen(); zeichnen();
+    }));
+  });
+}
+
+function ritualBlatt(tage){
+  blattZeigen('<h3>Daraus ist ein Ritual geworden</h3>'
+    + '<p class="sub">' + tage + ' Tage. Es steht jetzt bei deinen Ritualen und braucht keinen Platz mehr — du kannst dir etwas Neues vornehmen. Musst du aber nicht.</p>', b=>{
+    const g = document.createElement("p");
+    g.className = "hinweis"; g.style.margin = "0 0 16px"; g.style.color = "var(--accent)";
+    g.textContent = "+" + RITUAL_GOLD + " Gold";
+    b.appendChild(g);
+    b.appendChild(machKnopf("Schön", "stark", ()=>{ blattSchliessen(); zeichnen(); }));
+  });
+}
+
+/* Die optische Erinnerung, um die sie gebeten hat. Steht auf Heute, kostet
+   keine Ausdauer, taucht in keiner Liste auf und wird nie rot. Ist der Tag
+   gelaufen, bleibt der Streifen stehen, tritt aber zurück. */
+function brauchZeichnen(){
+  const halter = document.getElementById("brauch-halter");
+  if(!halter) return;
+  halter.innerHTML = "";
+  const b = D.brauch;
+  if(!b) return;
+  const r = brauchReihe();
+  const getan = !!(b.log||{})[D.tag];
+
+  const box = document.createElement("div");
+  box.className = "brauch" + (getan ? " getan" : "");
+
+  const kopf = document.createElement("p");
+  kopf.className = "mini";
+  kopf.textContent = "Brauch" + (r.tage ? " · " + r.tage + ". Tag" : "");
+  box.appendChild(kopf);
+
+  const satz = document.createElement("p");
+  satz.className = "brauch-satz";
+  satz.textContent = brauchSatz(b);
+  box.appendChild(satz);
+
+  box.appendChild(machKnopf(getan ? "✓ Heute gelaufen" : "Heute gelaufen",
+    getan ? "ruhig" : "", brauchUmschalten));
+  halter.appendChild(box);
+}
+
+/* Der Eingang im Lager. Eigener Halter und eigene Funktion, weil
+   listenZeichnen() nur beim Start und nach dem Ändern einer Liste läuft —
+   hätte der Block dort gehangen, wäre ein neu angelegter Brauch erst nach dem
+   nächsten Neuladen zu sehen gewesen. Gefunden beim Durchspielen. */
+function brauchLagerZeichnen(){
+  const ziel = document.getElementById("brauch-lager");
+  if(!ziel) return;
+  ziel.innerHTML = "";
+  const b = D.brauch;
+
+  const l = document.createElement("p");
+  l.className = "label";
+  l.innerHTML = 'Bräuche<em>eine Sache, die von allein laufen soll</em>';
+  ziel.appendChild(l);
+
+  const t = document.createElement("p");
+  t.className = "hinweis"; t.style.margin = "0 0 12px";
+  t.textContent = b
+    ? "Ein Brauch auf einmal — mehr verwässert. Nach " + RITUAL_AB
+      + " Tagen fragt die App, ob es von allein läuft. Sagst du ja, wird ein Ritual daraus und der Platz ist wieder frei."
+    : "Ein Satz nach dem Muster „Wenn ich …, dann …“, gehängt an etwas, das sowieso jeden Tag passiert. "
+      + "Kostet keine Ausdauer, steht in keiner Liste und wird nie rot. Zwei ausgelassene Tage pro Woche sind frei — "
+      + "eine ausgelassene Gelegenheit schadet der Gewöhnung messbar nicht.";
+  ziel.appendChild(t);
+
+  if(b){
+    const s = document.createElement("p");
+    s.className = "brauch-satz"; s.style.margin = "0 0 4px";
+    s.textContent = brauchSatz(b);
+    ziel.appendChild(s);
+    const r = brauchReihe();
+    const z = document.createElement("p");
+    z.className = "hinweis"; z.style.margin = "0 0 10px";
+    z.textContent = (r.tage === 1 ? "1. Tag" : r.tage + ". Tag in Folge")
+      + (r.eis ? " · " + r.eis + " geschenkte " + (r.eis === 1 ? "Lücke" : "Lücken") : "");
+    ziel.appendChild(z);
+  }
+  ziel.appendChild(machKnopf(b ? "Brauch ändern" : "Einen Brauch vornehmen", "", brauchBlatt));
+
+  const fertig = D.rituale || [];
+  if(fertig.length){
+    const rl = document.createElement("p");
+    rl.className = "mini"; rl.style.margin = "18px 0 6px";
+    rl.textContent = fertig.length === 1 ? "Dein Ritual" : "Deine Rituale";
+    ziel.appendChild(rl);
+    fertig.forEach(x=>{
+      const p = document.createElement("p");
+      p.className = "hinweis"; p.style.margin = "0 0 6px"; p.style.color = "var(--moss)";
+      p.textContent = "✓ Wenn ich " + x.wenn + ", dann " + x.was + ".";
+      ziel.appendChild(p);
+    });
+  }
+  const tr = document.createElement("div");
+  tr.className = "trenner";
+  ziel.appendChild(tr);
+}
+
+function brauchBlatt(){
+  const b = D.brauch;
+  blattZeigen('<h3>' + (b ? "Dein Brauch" : "Einen Brauch vornehmen") + '</h3>'
+    + '<p class="sub">Ein Satz, gehängt an etwas, das ohnehin jeden Tag passiert. Genau diese Form trägt gemessen am besten — besser als eine Uhrzeit, und viel besser als ein guter Vorsatz.</p>'
+    + '<p class="mini">Wenn ich …</p>'
+    + '<input class="feld" id="br-wenn" placeholder="mir die Zähne putze">'
+    + '<p class="mini">… dann</p>'
+    + '<input class="feld" id="br-was" placeholder="wasche ich mein Gesicht mit Waschgel">', el=>{
+    const fw = el.querySelector("#br-wenn"), fa = el.querySelector("#br-was");
+    if(b){ fw.value = b.wenn; fa.value = b.was; }
+    const meckern = t=>{ el.querySelector(".sub").textContent = t; };
+    el.appendChild(machKnopf("Sichern", "stark", ()=>{
+      const wenn = fw.value.trim(), was = fa.value.trim();
+      if(!wenn){ meckern("Woran soll es hängen? Am besten etwas, das sowieso jeden Tag passiert."); fw.focus(); return; }
+      if(!was){ meckern("Und was soll dann passieren?"); fa.focus(); return; }
+      if(b){ b.wenn = wenn; b.was = was; }
+      else D.brauch = {wenn:wenn, was:was, seit:D.tag, log:{}, bezahlt:[], markeSeit:null, gefragt:null};
+      sichern(); blattSchliessen(); zeichnen();
+    }));
+    /* Der kostenlose Ausweg, und er heißt nicht „aufgeben". Ein Brauch, den
+       man sein lässt, ist eine Entscheidung wie der Ruhetag. */
+    if(b) el.appendChild(machKnopf("Diesen Brauch sein lassen", "ruhig", ()=>{
+      D.brauch = null; sichern(); blattSchliessen(); zeichnen();
+    }));
+    el.appendChild(machKnopf("Abbrechen", "ruhig", ()=>{ blattSchliessen(); zeichnen(); }));
+    setTimeout(()=> fw.focus(), 60);
+  });
 }
 
 /* Meilensteine gelten je Reihe: reißt sie und fängt neu an, kann man sie
@@ -5048,6 +5341,20 @@ function abendBlatt(){
      wie viele Häkchen dastehen. */
   blattZeigen('<h3>' + (ruhe ? "Ruhetag" : "Lager aufschlagen") + '</h3>', b=>{
     tagsformTeil(b);
+
+    /* Der Brauch nur, wenn er heute noch offen ist — und ohne ein Wort dazu,
+       falls nicht. Ein „hast du schon?" an einem Tag, an dem sie schon hat,
+       ist genau die Nachfrage, die aus einer Erinnerung eine Kontrolle macht. */
+    if(D.brauch && !((D.brauch.log||{})[D.tag])){
+      const bs = document.createElement("p");
+      bs.className = "brauch-satz"; bs.style.margin = "4px 0 8px";
+      bs.textContent = brauchSatz(D.brauch);
+      b.appendChild(bs);
+      b.appendChild(machKnopf("Heute gelaufen", "", ()=>{ if(!brauchUmschalten()) abendBlatt(); }));
+      const tr = document.createElement("div");
+      tr.className = "trenner"; tr.style.margin = "18px 0";
+      b.appendChild(tr);
+    }
 
     const bilanz = document.createElement("div");
     bilanz.style.marginTop = "20px";
