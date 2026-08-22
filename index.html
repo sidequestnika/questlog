@@ -509,6 +509,12 @@ textarea.feld{min-height:120px;resize:vertical;line-height:1.5;font-size:16px}
   padding:5px 0;margin:0;font:inherit;font-family:var(--schrift-text);
   font-size:15.5px;line-height:1.4;color:var(--ink);cursor:pointer}
 .tuer-zeile:active{opacity:.55}
+/* Der Barde ganz oben in der Taverne. Bewusst KEINE Gastkarte: Er ist die
+   Bedienung des Raums, kein weiterer Gast, mit dem man spricht. */
+.barde{margin:0 0 16px;padding:0 2px}
+.barde-wort{margin:0 0 9px;font-family:var(--schrift-text);font-size:15px;
+  line-height:1.4;color:var(--ink-soft)}
+.barde .kacheln{gap:7px}
 
 .hinweis{font-size:13px;color:var(--ink-faint);line-height:1.55;margin:10px 0 0}
 .trenner{height:1px;background:var(--line);margin:26px 0}
@@ -3261,6 +3267,9 @@ function taverneZeichnen(){
   const ziel = document.getElementById("taverne-raum");
   if(!ziel) return;
   ziel.innerHTML = "";
+
+  /* Ganz oben, vor allen Gästen — ihr Wunsch. */
+  bardeZeichnen(ziel);
 
   /* ── Der Wirt ── */
   const wirt = wirtHeute();
@@ -7383,6 +7392,130 @@ function bauTaverne(d, sr){
   zupfen(d, sr, Math.floor(sr*20.0), NOTE.D4, 1.0, 0.13, 0.4, 1.0);
 }
 
+/* ————— Feuer —————
+   Ihr Wunsch vom 22.08.2026: „vielleicht Lagerfeuer-Sounds?" Feuer ist kein
+   Ton, sondern Rauschen — also anders gebaut als die Harfe: ein tiefes
+   Grundrauschen, das langsam atmet, und darüber Knacken.
+
+   Der eigene Zufallsgenerator ist Absicht: Mit festem Startwert klingt das
+   Feuer bei jedem Bauen gleich, und ich kann es messen, ohne dass sich die
+   Zahlen unter mir bewegen. Klingen tut es trotzdem unregelmäßig — das macht
+   die Verteilung, nicht die Unvorhersehbarkeit. */
+function wuerfelchen(saat){
+  let x = saat >>> 0;
+  return ()=>{ x ^= x<<13; x>>>=0; x ^= x>>17; x ^= x<<5; x>>>=0; return x/4294967296; };
+}
+
+/* Glut: tiefes Rauschen, das langsam lauter und leiser wird. Zwei Tiefpässe
+   hintereinander — einer nimmt die Schärfe, der zweite macht daraus das
+   Wummern, das ein Feuer im Bauch hat. */
+function glut(d, sr, amp, saat){
+  const z = wuerfelchen(saat);
+  let t1 = 0, t2 = 0, atem = 0;
+  /* Gemessen nachjustiert: Mit 700 Hz und einem Gewicht von 0,35 zu 2,6 kam
+     unten sechsunddreißigmal so viel Energie an wie oben — das brummt, statt
+     zu knistern. Ein Feuer hat beides: ein tiefes Wummern UND ein breites
+     Zischeln. Jetzt fast gleich gewichtet. */
+  const a1 = Math.exp(-2*Math.PI*1400/sr);
+  const a2 = Math.exp(-2*Math.PI*110/sr);
+  for(let i=0;i<d.length;i++){
+    const w = z()*2 - 1;
+    t1 = a1*t1 + (1-a1)*w;
+    t2 = a2*t2 + (1-a2)*t1;
+    /* Zwei ungleiche Wellen übereinander: so wiederholt sich das Atmen nicht
+       im Takt und klingt auch nach einer Minute nicht wie eine Schleife. */
+    const s = i/sr;
+    atem = 0.72 + 0.20*Math.sin(2*Math.PI*s/7.3) + 0.12*Math.sin(2*Math.PI*s/2.9 + 1.1);
+    d[i] += (t1*1.1 + t2*1.5) * amp * atem;
+  }
+}
+
+/* Knacken: kurze Rauschstöße mit sehr schnellem Abfall. Die kleinen sind das
+   ständige Zischeln, die seltenen großen das, was man wirklich als „Knack"
+   hört. Nichts fängt in den letzten Sekunden an — sonst würde ein Knacken am
+   Schleifenende abgeschnitten und man hörte den Sprung. */
+function knacken(d, sr, dichte, amp, saat, ruheAmEnde){
+  const z = wuerfelchen(saat);
+  const ende = d.length - Math.floor(sr * (ruheAmEnde || 0.6));
+  let i = Math.floor(sr * 0.05);
+  while(i < ende){
+    i += Math.floor((0.02 + z()*z()*1.9) / dichte * sr);
+    if(i >= ende) break;
+    const gross = z() < 0.10;
+    const dauer = Math.floor(sr * (gross ? 0.02 + z()*0.05 : 0.003 + z()*0.012));
+    const stark = (gross ? 0.55 + z()*0.45 : 0.10 + z()*0.22) * amp;
+    /* Hochpass durch Differenz aufeinanderfolgender Zufallswerte: macht aus
+       dem dumpfen Rauschen das trockene Knistern. */
+    let vor = 0;
+    for(let k=0;k<dauer && i+k<d.length;k++){
+      const w = z()*2 - 1;
+      const hp = w - vor; vor = w;
+      d[i+k] += hp * stark * Math.exp(-6.5*k/dauer) * (1 - k/dauer);
+    }
+  }
+}
+
+/* Schleifenfest machen: das Ende über den Anfang blenden und danach
+   abschneiden. Ohne das klickt es bei jeder Wiederholung hörbar, weil
+   Rauschen am Sprungpunkt nie von selbst zusammenpasst. */
+function nahtlos(d, sr, blendSek){
+  const f = Math.floor(sr * blendSek);
+  if(f <= 0 || f*2 >= d.length) return d.length;
+  const L = d.length - f;
+  for(let k=0;k<f;k++){
+    const x = k/f;
+    d[k] = d[k]*x + d[L+k]*(1-x);
+  }
+  return L;
+}
+
+/* Weiche Begrenzung. Ein einzelnes Knacken war gemessen achtundzwanzigmal so
+   hoch wie der Effektivwert — und weil der Pegel später an der SPITZE
+   ausgerichtet wird, hätte dieses eine Knacken die Glut auf ein Nichts
+   heruntergezogen: ein paar Plopps in der Stille statt eines Feuers.
+   tanh lässt Leises unangetastet und rundet nur die Spitzen ab. */
+function weich(d, kraft){
+  for(let i=0;i<d.length;i++) d[i] = Math.tanh(d[i]*kraft)/kraft;
+}
+
+/* Am Feuer — nur Glut und Knacken, kein einziger Ton. */
+function bauFeuer(d, sr){
+  glut(d, sr, 0.42, 0x5eed1);
+  knacken(d, sr, 1.0, 0.85, 0x5eed2);
+  weich(d, 2.2);
+}
+
+/* Leselicht — sehr leises Feuer, ein Bordun darunter, und alle paar Sekunden
+   ein einzelner Ton. Bewusst arm an Melodie: Was man beim Lesen bemerkt, hat
+   beim Lesen nichts verloren. Die Töne stehen in D-Dur pentatonisch, da gibt
+   es keine Halbtonreibung, an der das Ohr hängenbleibt. */
+function bauLeselicht(d, sr){
+  /* Die Mischung ist gemessen eingestellt, nicht geschätzt. Erst stand die
+     Glut auf 0,17 und die Harfe auf 0,085 — das ergab Effektivwerte von
+     0,030 gegen 0,0078, also ein knapp viermal lauteres Feuer. Damit wäre
+     Leselicht nur ein leiseres „Am Feuer" gewesen und die Töne bloß Textur.
+     Jetzt liegen beide in derselben Größenordnung: Feuerbett darunter,
+     einzelne Töne deutlich darüber. */
+  glut(d, sr, 0.125, 0x1eaf1);
+  knacken(d, sr, 0.35, 0.24, 0x1eaf2);
+  const laenge = d.length/sr;
+  for(let t=0; t<laenge-6; t+=9.5){
+    zupfen(d, sr, Math.floor(sr*t), NOTE.D3, 10.5, 0.090, 0.18, 1.0);
+    zupfen(d, sr, Math.floor(sr*(t+0.03)), NOTE.A3, 10.5, 0.058, 0.18, 1.0);
+  }
+  const perlen = ["D5","E5","F#5","A5","D5","F#5","A4","E5","D5","A5","F#5","D5"];
+  const z = wuerfelchen(0x1eaf3);
+  let t = 1.4;
+  let k = 0;
+  while(t < laenge - 3.2){
+    zupfen(d, sr, Math.floor(sr*t), NOTE[perlen[k % perlen.length]],
+           3.0, 0.140 + z()*0.070, 0.62, 0.85);
+    t += 1.9 + z()*2.6;
+    k++;
+  }
+  weich(d, 2.0);
+}
+
 /* Einmal gerechnet, dann gemerkt: das Tavernenstück sind gut zwanzig Sekunden
    Rechnerei, die nicht bei jedem Betreten neu anfallen muss. */
 /* Auf einen festen Pegel gebracht, nicht nur gedeckelt. Zwei Gründe:
@@ -7393,18 +7526,47 @@ function bauTaverne(d, sr){
    Erfolgston kaum zu hören gewesen. Also beide auf ihren Platz: der Erfolg
    etwas präsenter, die Musik deutlich darunter, weil sie im Hintergrund läuft. */
 const TON_PEGEL = {erfolg:0.40, taverne:0.30};
+
+/* Was der Barde im Vorrat hat. Ihr Wunsch nach mehr als einem Stück und nach
+   „mehr Lese-Atmosphäre oder vielleicht Lagerfeuer".
+
+   Alle drei LAUFEN IN SCHLEIFE — vorher spielte die Taverne einundzwanzig
+   Sekunden und war dann still, was vermutlich der eigentliche Grund für ihre
+   Frage war. `blend` ist die Überblendung, mit der das Ende auf den Anfang
+   trifft, ohne zu klicken.
+
+   Die Pegel steigen mit der Aufdringlichkeit nach unten: Musik mit Melodie
+   darf am lautesten sein, weil man sie bewusst anmacht; das Feuer läuft
+   nebenher und muss leiser bleiben, sonst rauscht es einem in den Text. */
+const STUECKE = [
+  {k:"wirtshaus", name:"Im Wirtshaus", sek:21, blend:0,   pegel:0.30, bau:bauTaverne},
+  {k:"feuer",     name:"Am Feuer",     sek:26, blend:1.2, pegel:0.20, bau:bauFeuer},
+  {k:"leselicht", name:"Leselicht",    sek:34, blend:1.5, pegel:0.24, bau:bauLeselicht}
+];
+function stueckJetzt(){
+  const i = STUECKE.findIndex(s=> s.k === D.tonStueck);
+  return STUECKE[i < 0 ? 0 : i];
+}
+
 const tonPuffer = {};
 
 function tonHolen(art){
   if(tonPuffer[art]) return tonPuffer[art];
   const sr = tonRaum.sampleRate;
-  const puffer = tonRaum.createBuffer(1, Math.floor(sr * (art === "taverne" ? 21 : 1.7)), sr);
+  const st = STUECKE.find(s=> s.k === art);
+  const roh = Math.floor(sr * (st ? st.sek : 1.7));
+  /* Erst mit Überblendlänge bauen, dann auf die Schleifenlänge kürzen. */
+  const arbeit = new Float32Array(roh);
+  (st ? st.bau : bauErfolg)(arbeit, sr);
+  const laenge = st && st.blend ? nahtlos(arbeit, sr, st.blend) : roh;
+
+  const puffer = tonRaum.createBuffer(1, laenge, sr);
   const d = puffer.getChannelData(0);
-  (art === "taverne" ? bauTaverne : bauErfolg)(d, sr);
+  d.set(arbeit.subarray(0, laenge));
   let spitze = 0;
   for(let i=0;i<d.length;i++) spitze = Math.max(spitze, Math.abs(d[i]));
   if(spitze > 0){
-    const f = (TON_PEGEL[art] || 0.4) / spitze;
+    const f = (st ? st.pegel : (TON_PEGEL[art] || 0.4)) / spitze;
     for(let i=0;i<d.length;i++) d[i] *= f;
   }
   tonPuffer[art] = puffer;
@@ -7417,19 +7579,84 @@ function tonAbspielen(art){
   tonBereit();
   if(!tonRaum) return;
   try{
-    tonStoppen();
+    const st = STUECKE.find(s=> s.k === art);
+    if(st) tonStoppen();
     const q = tonRaum.createBufferSource();
     q.buffer = tonHolen(art);
+    /* Musik läuft, bis sie aufhört — der Erfolgston nicht. */
+    if(st) q.loop = true;
     q.connect(tonRaum.destination);
     q.start();
-    if(art === "taverne") tonLaeuft = q;
+    if(st) tonLaeuft = q;
   }catch(e){}
 }
 /* Abspielen, wenn sie es eingeschaltet hat — für alles, was von selbst klingt. */
 function tonSpielen(art){
   art = art || "erfolg";
-  if(art === "taverne" ? !D.tonTaverne : D.ton === false) return;
+  if(art === "taverne"){
+    if(!D.tonTaverne) return;
+    tonAbspielen(stueckJetzt().k);
+    return;
+  }
+  if(STUECKE.some(s=> s.k === art)){ if(!D.tonTaverne) return; tonAbspielen(art); return; }
+  if(D.ton === false) return;
   tonAbspielen(art);
+}
+
+/* ————— Der Barde in der Taverne —————
+   Ihr Wunsch: „gerne ein An/Aus/Weiter-Knopf nur auf der Seite selbst.
+   Vielleicht ganz oben eine Zeile: der Barde singt heute / singt heute nicht
+   / singt den nächsten Titel."
+
+   Steht deshalb NUR in der Taverne und nirgends sonst — und die Zeile sagt
+   immer, was gerade los ist, statt ein Symbol raten zu lassen. Der Schalter
+   im Lager bleibt, wo er ist; beide fassen dasselbe D.tonTaverne an, es gibt
+   also keine zweite Buchhaltung. */
+function bardeZeichnen(ziel){
+  const reihe = document.createElement("div");
+  reihe.className = "barde";
+  const wort = document.createElement("p");
+  wort.className = "barde-wort";
+  wort.textContent = D.tonTaverne
+    ? "Der Barde singt: " + stueckJetzt().name
+    : "Der Barde singt heute nicht.";
+  reihe.appendChild(wort);
+
+  const kn = document.createElement("div");
+  kn.className = "kacheln";
+  const kachel = (text, fn)=>{
+    const b = document.createElement("button");
+    b.className = "kachel"; b.textContent = text;
+    b.addEventListener("click", fn);
+    kn.appendChild(b);
+  };
+  if(D.tonTaverne){
+    kachel("Still", ()=>{ D.tonTaverne = false; sichern(); tonStoppen(); tonZeichnen(); taverneZeichnen(); });
+    kachel("Nächstes Stück", ()=>{
+      const i = STUECKE.indexOf(stueckJetzt());
+      D.tonStueck = STUECKE[(i+1) % STUECKE.length].k;
+      sichern(); tonAbspielen(D.tonStueck); taverneZeichnen();
+    });
+  }else{
+    kachel("Sing etwas", ()=>{
+      D.tonTaverne = true; sichern(); tonZeichnen();
+      tonAbspielen(stueckJetzt().k); taverneZeichnen();
+    });
+  }
+  reihe.appendChild(kn);
+
+  /* Der Hinweis nur, wenn Musik AN ist — genau dann kann sie nichts hören und
+     sich wundern. Gemessen kostete die Zeile mit Fußnote 133 px und schob den
+     Spielmann unter die Kante; die Sache mit dem Vorrat („drei Stücke, alle
+     ausgerechnet") ist einmal interessant und danach nur noch im Weg. Der
+     ausführliche Lautlos-Hinweis steht ohnehin im Lager. */
+  if(D.tonTaverne){
+    const f = document.createElement("p");
+    f.className = "gast-fuss"; f.style.margin = "7px 0 0";
+    f.textContent = "Hörst du nichts? Dann steht am iPhone der seitliche Schalter auf lautlos.";
+    reihe.appendChild(f);
+  }
+  ziel.appendChild(reihe);
 }
 function tonStoppen(){
   if(tonLaeuft){ try{ tonLaeuft.stop(); }catch(e){} tonLaeuft = null; }
